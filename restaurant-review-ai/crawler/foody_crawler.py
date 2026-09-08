@@ -12,6 +12,7 @@ import time
 import csv
 import os
 import re
+import urllib.parse
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -292,3 +293,60 @@ def _export_csv(results: list, path: str):
         for r in results:
             for rv in r["reviews"]:
                 writer.writerow([r.get("name", ""), r["url"], rv["author"], rv["rating"], rv["text"], rv["date"]])
+
+
+def search_foody_places(query: str, city_slug: str = "da-nang", max_results: int = 5):
+    """
+    Tìm kiếm các quán ăn trên Foody theo từ khóa người dùng nhập vào.
+    Trả về danh sách: [{ name, url, address }, ...]
+    """
+    encoded_q = urllib.parse.quote(query.strip())
+    # Thử tìm theo thành phố hoặc toàn quốc
+    search_url = f"https://www.foody.vn/{city_slug}/dia-diem?q={encoded_q}"
+    print(f"-> [Foody Search] Đang tìm kiếm từ khóa '{query}': {search_url}")
+
+    driver = build_driver(headless=True)
+    results = []
+    seen_urls = set()
+
+    try:
+        driver.get(search_url)
+        time.sleep(2.5)
+
+        items = driver.find_elements(By.CSS_SELECTOR, ".filter-result-item, .row-item, .content-item")
+        print(f"  Phát hiện {len(items)} kết quả trên Foody.")
+
+        for item in items:
+            if len(results) >= max_results:
+                break
+            try:
+                link_el = item.find_element(By.CSS_SELECTOR, "h2 a, .result-name a, a.res-name")
+                name = link_el.text.strip()
+                url = link_el.get_attribute("href")
+
+                addr = ""
+                try:
+                    addr_el = item.find_element(By.CSS_SELECTOR, ".address, .res-common-add")
+                    addr = addr_el.text.strip()
+                except Exception:
+                    pass
+
+                if name and url and "foody.vn" in url and "/dia-diem" not in url and "/khu-vuc" not in url:
+                    clean_url = url.split("?")[0]
+                    if clean_url not in seen_urls:
+                        seen_urls.add(clean_url)
+                        results.append({
+                            "name": name,
+                            "url": clean_url,
+                            "address": addr
+                        })
+            except Exception:
+                continue
+
+    except Exception as e:
+        print(f"[Foody Search Error] {e}")
+    finally:
+        driver.quit()
+
+    return results
+

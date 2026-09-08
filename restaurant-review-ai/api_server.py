@@ -9,6 +9,7 @@ FastAPI Server phục vụ cả REST API và giao diện Web tĩnh React (Produc
 import os
 import sys
 import re
+import unicodedata
 from datetime import datetime
 from typing import Optional, List
 from pathlib import Path
@@ -35,12 +36,12 @@ from sqlalchemy import text
 from database.models import init_db, Restaurant as DBRestaurant, Review as DBReview, ReviewAnalysis as DBAnalysis
 from database.db import get_session, get_or_create_restaurant, save_review, save_analysis
 from analysis.gemini_analyzer import analyze_batch
-from crawler.foody_crawler import crawl_restaurant
+from crawler.foody_crawler import crawl_restaurant, search_foody_places
 
 app = FastAPI(
     title="Restaurant Intelligence API",
     description="Backend API & Web Server phục vụ phân tích đánh giá nhà hàng từ Foody và Gemini AI",
-    version="1.1.0"
+    version="1.2.0"
 )
 
 app.add_middleware(
@@ -55,6 +56,21 @@ app.add_middleware(
 class AnalyzeRequest(BaseModel):
     url: str
     max_reviews: Optional[int] = 30
+
+
+class SearchAndCrawlRequest(BaseModel):
+    query: str
+    city: Optional[str] = "da-nang"
+    max_reviews: Optional[int] = 25
+
+
+def remove_accents(text: str) -> str:
+    """Loại bỏ dấu tiếng Việt để tìm kiếm không phân biệt dấu"""
+    if not text:
+        return ""
+    normalized = unicodedata.normalize('NFD', text)
+    no_accents = "".join(c for c in normalized if unicodedata.category(c) != 'Mn')
+    return no_accents.replace('đ', 'd').replace('Đ', 'D').lower().strip()
 
 
 def map_aspect_vietnamese(raw_aspect: str) -> str:
@@ -678,7 +694,198 @@ def analyze_foody_url(req: AnalyzeRequest):
         raise HTTPException(status_code=500, detail=f"Lỗi khi cào hoặc phân tích dữ liệu: {str(e)}")
 
 
-# ==================== SERVE STATIC REACT FRONTEND ====================
+@app.post("/api/search-and-crawl")
+def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
+    """
+    Quy trình tìm kiếm và cào dữ liệu thông minh theo từ khóa:
+    1. Nhận từ khóa tìm kiếm (ví dụ: 'bánh tráng', 'pizza time', 'cơm gà gia vĩnh').
+    2. Kiểm tra SQLite DB trước: nếu quán đã từng được cào & phân tích, trả về ngay kết quả từ DB!
+    3. Nếu chưa có trong DB: Tự động dùng Selenium tìm kiếm từ khóa đó trên Foody.vn.
+    4. Trích xuất link quán ăn phù hợp nhất trên Foody.
+    5. Cào toàn bộ review thực tế của quán, tự động mở rộng text và lọc bài viết spam.
+    6. Chạy Gemini AI phân tích khía cạnh (ABSA: Món ăn, Giá cả, Dịch vụ, Không gian, Vệ sinh).
+    7. Lưu vĩnh viễn nhà hàng, review và kết quả AI vào SQLite DB.
+    8. Trả về kết quả phân tích đầy đủ. Tất cả người dùng tiếp theo tìm kiếm từ khóa này sẽ nhận được gợi ý và kết quả tức thì từ DB!
+    """
+    q = req.query.strip()
+    if not q:
+        raise HTTPException(status_code=400, detail="Vui lòng nhập từ khóa tìm kiếm.")
+
+    norm_q = remove_accents(q)
+    tokens = [t for t in norm_q.split() if len(t) >= 2]
+
+    # Bước 1: Kiểm tra trong cơ sở dữ liệu SQLite trước
+    with get_session() as db:
+        all_res = db.query(DBRestaurant).all()
+        matching_res = None
+
+        # Ưu tiên 1: Khớp nguyên cụm từ trong tên quán
+        for r in all_res:
+            r_norm = remove_accents(r.name)
+            if norm_q in r_norm:
+                matching_res = r
+                break
+
+        # Ưu tiên 2: Khớp tất cả các token từ khóa
+        if not matching_res and len(tokens) >= 2:
+            for r in all_res:
+                r_norm = remove_accents(r.name)
+                if all(t in r_norm for t in tokens):
+                    matching_res = r
+                    break
+
+        if matching_res:
+            print(f"-> [Search & Crawl] Đã tìm thấy quán '{matching_res.name}' trong cơ sở dữ liệu SQLite!")
+            formatted = format_restaurant_full(matching_res, db)
+            return {
+                "success": True,
+                "source": "database",
+                "message": f"Tìm thấy quán '{matching_res.name}' đã được phân tích sẵn trong cơ sở dữ liệu!",
+                "restaurant": formatted
+            }
+
+    # Bước 2: Chưa có trong DB -> Tự động tìm kiếm trên Foody.vn
+    city = req.city or "da-nang"
+    print(f"-> [Search & Crawl] Chưa có trong DB. Bắt đầu tìm kiếm từ khóa '{q}' trên Foody (thành phố: {city})...")
+    foody_results = search_foody_places(q, city_slug=city, max_results=3)
+
+    # Nếu không tìm thấy ở thành phố chỉ định, thử tìm tại các thành phố khác
+    if not foody_results:
+        for fallback_city in ["da-nang", "ho-chi-minh", "ha-noi"]:
+            if fallback_city != city:
+                print(f"  Thử tìm kiếm mở rộng tại {fallback_city}...")
+                foody_results = search_foody_places(q, city_slug=fallback_city, max_results=3)
+                if foody_results:
+                    break
+
+    if not foody_results:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Không tìm thấy quán ăn nào trên Foody với từ khóa '{q}'. Vui lòng thử từ khóa khác hoặc dán link Foody trực tiếp."
+        )
+
+    # Kiểm tra xem có quán nào trong kết quả Foody đã có trong SQLite chưa
+    with get_session() as db:
+        for place in foody_results:
+            existing_by_url = db.query(DBRestaurant).filter_by(foody_url=place["url"]).first()
+            if existing_by_url:
+                print(f"-> [Search & Crawl] URL '{place['url']}' đã tồn tại trong DB!")
+                formatted = format_restaurant_full(existing_by_url, db)
+                return {
+                    "success": True,
+                    "source": "database",
+                    "message": f"Tìm thấy quán '{existing_by_url.name}' đã được phân tích trong hệ thống!",
+                    "restaurant": formatted
+                }
+
+    # Bước 3: Cào đánh giá thực tế từ Foody bằng Selenium (ưu tiên quán có đánh giá)
+    crawl_data = None
+    target_place = None
+
+    for place in foody_results:
+        target_url = place["url"]
+        print(f"-> [Search & Crawl] Bắt đầu cào thử đánh giá: '{place['name']}' ({target_url})")
+        data = crawl_restaurant(target_url, max_reviews=req.max_reviews or 25, headless=True)
+        
+        if data and data.get("name"):
+            crawl_data = data
+            target_place = place
+            # Nếu quán này có đánh giá thực tế thì chọn ngay!
+            if data.get("reviews") and len(data["reviews"]) > 0:
+                break
+
+    if not crawl_data or not crawl_data.get("name"):
+        raise HTTPException(
+            status_code=500,
+            detail=f"Không thể cào dữ liệu từ quán trên Foody cho từ khóa '{q}'. Vui lòng thử lại sau."
+        )
+
+    # Bước 4: Lưu vào SQLite và chạy Gemini AI phân tích ABSA
+    with get_session() as db:
+        restaurant = get_or_create_restaurant(
+            db,
+            name=crawl_data.get("name", target_place["name"]),
+            foody_url=target_place["url"],
+            address=crawl_data.get("address", target_place.get("address", "")),
+            overall_rating=crawl_data.get("overall_rating")
+        )
+
+        new_review_ids = []
+        for rv in crawl_data.get("reviews", []):
+            saved = save_review(
+                db,
+                restaurant_id=restaurant.id,
+                author=rv["author"],
+                rating=rv["rating"],
+                text=rv["text"],
+                review_date=rv["date"]
+            )
+            if saved.is_analyzed == 0:
+                new_review_ids.append((saved.id, saved.text))
+
+        if new_review_ids:
+            print(f"-> [Search & Crawl] Gọi Gemini AI phân tích {len(new_review_ids)} review mới...")
+            payload = [{"id": rid, "text": txt} for rid, txt in new_review_ids]
+            results = analyze_batch(payload)
+
+            for res in results:
+                rid = res["review_id"]
+                if not res.pop("_analysis_succeeded", False):
+                    continue
+                for aspect_item in res.get("aspects", []):
+                    save_analysis(
+                        db,
+                        review_id=rid,
+                        aspect=aspect_item.get("aspect", "món ăn"),
+                        sentiment=aspect_item.get("sentiment", "neutral"),
+                        confidence=aspect_item.get("confidence", 0.8),
+                        is_urgent=res.get("is_urgent", False)
+                    )
+                rev_obj = db.query(DBReview).filter_by(id=rid).first()
+                if rev_obj:
+                    rev_obj.is_analyzed = 1
+
+        db.commit()
+        formatted = format_restaurant_full(restaurant, db)
+        return {
+            "success": True,
+            "source": "crawled_and_analyzed",
+            "message": f"Đã tự động tìm kiếm trên Foody, cào và AI phân tích thành công quán '{restaurant.name}' ({len(crawl_data.get('reviews', []))} đánh giá thực tế)!",
+            "restaurant": formatted
+        }
+
+
+@app.get("/api/suggestions")
+def get_suggestions(q: str = ""):
+    """Gợi ý nhanh các quán ăn đã có trong hệ thống theo từ khóa (hỗ trợ không dấu)"""
+    if not q or not q.strip():
+        return []
+    norm_q = remove_accents(q)
+    tokens = [t for t in norm_q.split() if len(t) >= 2]
+
+    with get_session() as db:
+        restaurants = db.query(DBRestaurant).all()
+        results = []
+        for r in restaurants:
+            r_norm = remove_accents(f"{r.name} {r.address or ''}")
+            is_match = False
+            if norm_q in r_norm:
+                is_match = True
+            elif tokens and all(t in r_norm for t in tokens):
+                is_match = True
+
+            if is_match:
+                rev_count = db.query(DBReview).filter_by(restaurant_id=r.id).count()
+                results.append({
+                    "id": f"res-{r.id}",
+                    "name": r.name,
+                    "address": r.address or "",
+                    "city": "Đà Nẵng" if "đà nẵng" in (r.address or "").lower() else "Toàn quốc",
+                    "rating": r.overall_rating or 8.0,
+                    "totalReviews": rev_count
+                })
+        return results[:8]
+
 DIST_PATH = Path(__file__).resolve().parent.parent / "dist"
 if not DIST_PATH.exists():
     DIST_PATH = Path(__file__).resolve().parent / "dist"

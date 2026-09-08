@@ -32,7 +32,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     if (query.trim().length > 0) {
       const results = restaurantService.getSearchSuggestions(query);
       setSuggestions(results);
-      setIsOpen(results.length > 0);
+      setIsOpen(true);
     } else {
       setSuggestions([]);
       setIsOpen(false);
@@ -106,40 +106,71 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       </form>
 
       {/* Dropdown gợi ý */}
-      {isOpen && suggestions.length > 0 && (
+      {isOpen && query.trim().length > 0 && (
         <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-[#E4E4E7] rounded-lg shadow-lg z-50 overflow-hidden text-left divide-y divide-zinc-100">
-          <div className="px-3 py-2 bg-zinc-50/80 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
-            Nhà hàng phù hợp
-          </div>
-          {suggestions.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => handleSuggestionClick(item.id, item.name)}
-              className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-zinc-50 transition-colors group"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded bg-zinc-100 flex items-center justify-center text-zinc-600 group-hover:bg-orange-50 group-hover:text-[#C2410C] transition-colors">
-                  <Utensils className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-[#18181B] group-hover:text-[#C2410C] transition-colors">
-                    {item.name}
-                  </div>
-                  <div className="text-xs text-[#71717A] flex items-center gap-2">
-                    <span>{item.cuisine}</span>
-                    <span>•</span>
-                    <span className="flex items-center gap-0.5">
-                      <MapPin className="w-3 h-3 text-zinc-400" />
-                      {item.city}
-                    </span>
-                  </div>
-                </div>
+          {suggestions.length > 0 && (
+            <>
+              <div className="px-3 py-2 bg-zinc-50/80 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                Quán đã có sẵn trong hệ thống
               </div>
-              <span className="text-xs font-medium text-zinc-400 group-hover:text-[#C2410C] group-hover:translate-x-0.5 transition-all">
-                Xem phân tích →
-              </span>
-            </button>
-          ))}
+              {suggestions.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleSuggestionClick(item.id, item.name)}
+                  className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-zinc-50 transition-colors group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded bg-zinc-100 flex items-center justify-center text-zinc-600 group-hover:bg-orange-50 group-hover:text-[#C2410C] transition-colors">
+                      <Utensils className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-[#18181B] group-hover:text-[#C2410C] transition-colors">
+                        {item.name}
+                      </div>
+                      <div className="text-xs text-[#71717A] flex items-center gap-2">
+                        <span>{item.cuisine}</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-0.5">
+                          <MapPin className="w-3 h-3 text-zinc-400" />
+                          {item.city}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-medium text-zinc-400 group-hover:text-[#C2410C] group-hover:translate-x-0.5 transition-all">
+                    Xem phân tích →
+                  </span>
+                </button>
+              ))}
+            </>
+          )}
+
+          {/* Tùy chọn tìm & cào mới trên Foody */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false);
+              onSearch(query.trim());
+            }}
+            className="w-full px-4 py-3 text-left flex items-center justify-between bg-orange-50/70 hover:bg-orange-100/80 text-[#C2410C] transition-colors group"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-full bg-[#C2410C]/10 flex items-center justify-center text-[#C2410C] group-hover:bg-[#C2410C] group-hover:text-white transition-colors">
+                <Search className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-[#18181B] group-hover:text-[#C2410C]">
+                  Tìm kiếm & AI Phân tích quán "{query}" trên Foody.vn
+                </span>
+                <span className="block text-[11px] text-zinc-500">
+                  Tự động cào đánh giá thật và dùng Gemini AI phân tích khía cạnh (ABSA)
+                </span>
+              </div>
+            </div>
+            <span className="text-[11px] font-semibold bg-[#C2410C] text-white px-2.5 py-1 rounded shadow-2xs">
+              Tìm trên Foody →
+            </span>
+          </button>
         </div>
       )}
 

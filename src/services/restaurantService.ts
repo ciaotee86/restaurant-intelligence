@@ -130,9 +130,54 @@ class RestaurantService {
   }
 
   /**
+   * Tự động tìm kiếm quán ăn trên Foody theo từ khóa, cào đánh giá và phân tích ABSA
+   * Nếu quán đã tồn tại trong DB, trả về ngay từ DB.
+   */
+  public async searchAndCrawlFoody(
+    query: string,
+    city: string = 'da-nang',
+    maxReviews: number = 25
+  ): Promise<{ success: boolean; source: 'database' | 'crawled_and_analyzed' | 'foody'; message: string; restaurant?: Restaurant }> {
+    try {
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/search-and-crawl`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: query.trim(), city, max_reviews: maxReviews })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        return {
+          success: false,
+          source: 'foody',
+          message: data.detail || 'Không tìm thấy hoặc không thể xử lý từ khóa này.'
+        };
+      }
+
+      if (data.restaurant) {
+        this.cachedRestaurants = [data.restaurant, ...this.cachedRestaurants.filter(r => r.id !== data.restaurant.id)];
+      }
+
+      return {
+        success: true,
+        source: data.source || 'crawled_and_analyzed',
+        message: data.message || 'Thao tác thành công!',
+        restaurant: data.restaurant
+      };
+    } catch (e: any) {
+      return {
+        success: false,
+        source: 'foody',
+        message: e?.message || 'Không thể kết nối đến máy chủ backend để tìm kiếm & phân tích.'
+      };
+    }
+  }
+
+  /**
    * Tìm kiếm nhà hàng thông minh:
    * 1. Hỗ trợ tìm kiếm không dấu (Bánh xèo -> banh xeo)
-   * 2. Tìm kiếm theo từng từ đơn (Token-based: "Pizza time" -> tìm các quán khớp "Pizza")
+   * 2. Tìm kiếm theo cụm từ hoặc tất cả các từ đơn (multi-token conjunction)
    * 3. Tìm kiếm trong Tên, Ẩm thực, Địa chỉ, Thành phố, Từ khóa mẫu, và Nội dung review
    */
   public async searchRestaurants(filter: Partial<SearchFilterState>): Promise<Restaurant[]> {
@@ -163,12 +208,15 @@ class RestaurantService {
           // Khớp hoàn toàn
         } else {
           // Trường hợp 2: Tách thành các từ khóa đơn (Token match)
-          // Ví dụ: người dùng gõ "Pizza time" -> tách ["pizza", "time"]
-          // Nếu có bất kỳ từ khóa nào có nghĩa (>2 ký tự) khớp thì coi là tìm thấy
+          // Đảm bảo TẤT CẢ các token từ khóa (>= 2 ký tự) đều phải xuất hiện trong dữ liệu quán
+          // Ví dụ: "bánh tráng" -> cần cả "banh" VÀ "trang", tránh nhầm lẫn với "Tràng Tiền" hay "Bánh Mì"
           const tokens = normQ.split(/\s+/).filter((t) => t.length >= 2);
-          const hasMatchingToken = tokens.some((tok) => searchableNorm.includes(tok));
-
-          if (!hasMatchingToken) {
+          if (tokens.length > 0) {
+            const allTokensMatch = tokens.every((tok) => searchableNorm.includes(tok));
+            if (!allTokensMatch) {
+              return false;
+            }
+          } else {
             return false;
           }
         }
@@ -247,14 +295,17 @@ class RestaurantService {
 
     return this.cachedRestaurants
       .filter((r) => {
-        const resNorm = removeVietnameseAccents(r.name + ' ' + r.cuisine + ' ' + r.city);
+        const resNorm = removeVietnameseAccents(r.name + ' ' + (r.cuisine || '') + ' ' + (r.city || ''));
         if (resNorm.includes(normQ)) return true;
-        return tokens.some(t => resNorm.includes(t));
+        if (tokens.length > 1) {
+          return tokens.every(t => resNorm.includes(t));
+        }
+        return tokens.length === 1 && resNorm.includes(tokens[0]);
       })
-      .slice(0, 5)
+      .slice(0, 6)
       .map((r) => ({
         name: r.name,
-        cuisine: r.cuisine,
+        cuisine: r.cuisine || r.cuisineCategory,
         city: r.city,
         id: r.id
       }));
