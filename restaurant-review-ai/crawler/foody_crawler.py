@@ -1,6 +1,11 @@
 """
 Crawler cào review quán ăn từ Foody.vn bằng Selenium.
-Hỗ trợ cả môi trường Local (Windows/Mac) và Môi trường Cloud / Docker / Linux (Headless).
+Hỗ trợ cả môi trường Local và Môi trường Cloud/Docker/Linux.
+Cải tiến:
+- Tìm đúng selector nội dung review (.rd-des, ng-bind-html Description) thay vì comment reply.
+- Bấm nút 'Xem thêm bình luận' (.fd-btn-more) liên tục để cào được toàn bộ review theo yêu cầu.
+- Tự động mở rộng các đoạn văn bản bị thu gọn (collapsed).
+- Lọc bỏ các bài viết spam quảng cáo dịch vụ du lịch/xe cộ không liên quan.
 """
 
 import time
@@ -15,16 +20,35 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
-# ----- Selectors Foody -----
-SELECTOR_RESTAURANT_NAME = "h1, h1.res-name"
-SELECTOR_RESTAURANT_ADDRESS = ".res-common-pos, .res-common-add, .res-address, [itemprop='address']"
-SELECTOR_OVERALL_RATING = ".microsite-top-points, .archive-points, .points"
-SELECTOR_REVIEW_BLOCK = ".review-item, .content-review-item, .foody-box-review li"
-SELECTOR_REVIEW_AUTHOR = ".ru-username, .fc-username, .review-owner-name, .review-user a"
-SELECTOR_REVIEW_RATING = ".review-points, .pre-review-points"
-SELECTOR_REVIEW_TEXT = ".fc-user-comment, .rd-des, .microsite-review-text"
-SELECTOR_REVIEW_DATE = ".ru-time, .time-ago, .fc-time"
-SELECTOR_LOAD_MORE_BTN = ".vip-see-more, .btn-load-more, .btn-see-more"
+# ----- Selectors Foody Chuẩn Xác -----
+SELECTOR_RESTAURANT_NAME = "h1, h1.res-name, .main-info-title h1"
+SELECTOR_RESTAURANT_ADDRESS = ".res-common-pos, .res-common-add, [itemprop='address'], .res-address"
+SELECTOR_OVERALL_RATING = ".microsite-top-points, .archive-points, .points, .res-point"
+
+# Review list & blocks
+SELECTOR_REVIEW_ITEMS = "ul.foody-box-review > li.review-item, .review-item, div[ng-repeat*='review']"
+SELECTOR_REVIEW_AUTHOR = ".review-user a, a[ng-bind*='UserName'], .ru-username, .fc-username, .review-user"
+SELECTOR_REVIEW_RATING = "span.review-points, .review-points, .pre-review-points"
+SELECTOR_REVIEW_DATE = "span.ru-time, .ru-time, span[ng-bind*='CreatedDate'], .time-ago"
+
+# Text review chính xác trên Foody
+SELECTOR_REVIEW_TEXTS = [
+    ".rd-des",
+    "span[ng-bind-html*='Description']",
+    "div[ng-bind-html*='Description']",
+    ".review-des",
+    "p.rd-des",
+]
+
+# Nút xem thêm trên Foody
+SELECTOR_LOAD_MORE_BTNS = [
+    "a.fd-btn-more",
+    "a.btn-load-more",
+    "a[ng-click*='loadMore']",
+    "a[ng-click*='LoadMore']",
+    ".vip-see-more",
+    ".btn-see-more"
+]
 
 
 def build_driver(headless: bool = True):
@@ -32,7 +56,6 @@ def build_driver(headless: bool = True):
     if headless:
         options.add_argument("--headless=new")
     
-    # Các cờ chuẩn bắt buộc để chạy ổn định trên Linux / Docker / Cloud (Render, Railway, VPS)
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
@@ -43,7 +66,6 @@ def build_driver(headless: bool = True):
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
     )
     
-    # Kiểm tra nếu đường dẫn chromium-browser hoặc chromedriver tùy biến được chỉ định qua ENV
     chrome_bin = os.getenv("CHROME_BIN") or os.getenv("GOOGLE_CHROME_BIN")
     if chrome_bin and os.path.exists(chrome_bin):
         options.binary_location = chrome_bin
@@ -56,74 +78,190 @@ def build_driver(headless: bool = True):
             service = Service(ChromeDriverManager().install())
         return webdriver.Chrome(service=service, options=options)
     except Exception as e:
-        print(f"[Crawler Warning] Khởi tạo ChromeDriverManager thất bại, thử dùng mặc định hệ thống: {e}")
+        print(f"[Crawler] Fallback default chrome driver: {e}")
         return webdriver.Chrome(options=options)
 
 
-def _safe_text(driver_or_el, selector, by=By.CSS_SELECTOR, default=""):
+def _safe_text(el, selector, default=""):
     try:
-        return driver_or_el.find_element(by, selector).text.strip()
+        found = el.find_element(By.CSS_SELECTOR, selector)
+        return found.text.strip()
     except Exception:
         return default
 
 
+def _extract_review_text(block):
+    """Trích xuất nội dung bài đánh giá chính từ block của Foody"""
+    # 1. Thử mở rộng nếu văn bản bị thu gọn
+    try:
+        expand_links = block.find_elements(By.CSS_SELECTOR, "a.more, a[ng-click*='toggle'], .toggle-height")
+        for link in expand_links:
+            if link.is_displayed():
+                block.parent.execute_script("arguments[0].click();", link)
+    except Exception:
+        pass
+
+    # 2. Tìm theo các selector nội dung bài review
+    for sel in SELECTOR_REVIEW_TEXTS:
+        try:
+            els = block.find_elements(By.CSS_SELECTOR, sel)
+            for el in els:
+                t = el.text.strip()
+                if t and len(t) > 5:
+                    return t
+        except Exception:
+            continue
+
+    # 3. Fallback tìm tất cả thẻ p hoặc span có nội dung dài
+    try:
+        paragraphs = block.find_elements(By.TAG_NAME, "p")
+        for p in paragraphs:
+            t = p.text.strip()
+            if len(t) > 15 and not any(skip in t.lower() for skip in ["thích", "thảo luận", "báo lỗi"]):
+                return t
+    except Exception:
+        pass
+
+    return ""
+
+
+def is_spam_review(text: str) -> bool:
+    """Loại bỏ các bài review quảng cáo không liên quan đến ẩm thực"""
+    t = text.lower()
+    spam_keywords = [
+        "thuê xe", "xe du lịch", "tour du lịch", "vé máy bay", "khách sạn",
+        "cho thuê", "liên hệ ngay", "zalo:", "hotline:", "bất động sản"
+    ]
+    return any(kw in t for kw in spam_keywords)
+
+
 def crawl_restaurant(url: str, max_reviews: int = 50, headless: bool = True):
     """
-    Cào 1 quán từ URL trang chi tiết Foody, trả về dict:
-    {name, address, overall_rating, url, reviews: [ {author, rating, text, date}, ... ]}
+    Cào toàn bộ bài đánh giá của 1 nhà hàng từ URL Foody.
+    Bấm xem thêm liên tục để gom đủ số lượng yêu cầu.
     """
     driver = build_driver(headless=headless)
     result = {"url": url, "reviews": []}
 
     try:
+        print(f"-> [Crawler] Đang mở trang: {url}")
         driver.get(url)
         WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, SELECTOR_RESTAURANT_NAME))
         )
+        time.sleep(2)
 
-        result["name"] = _safe_text(driver, SELECTOR_RESTAURANT_NAME)
-        result["address"] = _safe_text(driver, SELECTOR_RESTAURANT_ADDRESS)
-        rating_text = _safe_text(driver, SELECTOR_OVERALL_RATING)
+        # Lấy thông tin nhà hàng
+        result["name"] = _safe_text(driver, SELECTOR_RESTAURANT_NAME, default="Quán ăn Foody")
+        result["address"] = _safe_text(driver, SELECTOR_RESTAURANT_ADDRESS, default="")
+        
+        rating_raw = _safe_text(driver, SELECTOR_OVERALL_RATING, default="")
         try:
-            match = re.search(r"(\d+[\.,]?\d*)", rating_text)
+            match = re.search(r"(\d+[\.,]?\d*)", rating_raw)
             result["overall_rating"] = float(match.group(1).replace(",", ".")) if match else None
         except Exception:
             result["overall_rating"] = None
 
+        print(f"  Tên: {result['name']} | Điểm: {result['overall_rating']} | Địa chỉ: {result['address']}")
+
+        # Bấm nút 'Xem thêm bình luận' để tải thêm review
         clicks = 0
-        max_clicks = max_reviews // 10 + 1
+        max_clicks = max(5, (max_reviews // 10) + 3)
+        no_new_count = 0
+        last_block_count = 0
+
         while clicks < max_clicks:
-            try:
-                btn = driver.find_element(By.CSS_SELECTOR, SELECTOR_LOAD_MORE_BTN)
-                driver.execute_script("arguments[0].click();", btn)
-                clicks += 1
-                time.sleep(1.5)
-            except Exception:
+            current_blocks = driver.find_elements(By.CSS_SELECTOR, SELECTOR_REVIEW_ITEMS)
+            current_count = len(current_blocks)
+
+            if current_count >= max_reviews:
+                print(f"  Đã tải đủ {current_count} bài đánh giá (mục tiêu {max_reviews}).")
                 break
 
-        review_blocks = driver.find_elements(By.CSS_SELECTOR, SELECTOR_REVIEW_BLOCK)
-        for block in review_blocks[:max_reviews]:
-            author = _safe_text(block, SELECTOR_REVIEW_AUTHOR)
-            rating_raw = _safe_text(block, SELECTOR_REVIEW_RATING)
-            text = _safe_text(block, SELECTOR_REVIEW_TEXT)
-            date = _safe_text(block, SELECTOR_REVIEW_DATE)
+            if current_count == last_block_count:
+                no_new_count += 1
+                if no_new_count >= 3:
+                    print("  Không còn bài đánh giá mới để tải thêm.")
+                    break
+            else:
+                no_new_count = 0
+            last_block_count = current_count
 
-            if not text:
+            # Tìm và click nút Xem thêm
+            clicked = False
+            for sel in SELECTOR_LOAD_MORE_BTNS:
+                try:
+                    btns = driver.find_elements(By.CSS_SELECTOR, sel)
+                    for btn in btns:
+                        if btn.is_displayed():
+                            driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", btn)
+                            time.sleep(0.5)
+                            driver.execute_script("arguments[0].click();", btn)
+                            clicked = True
+                            clicks += 1
+                            time.sleep(2.0)
+                            break
+                    if clicked:
+                        break
+                except Exception:
+                    continue
+
+            if not clicked:
+                # Nếu không bấm được nút, thử cuộn trang xuống đáy
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                clicks += 1
+                time.sleep(1.8)
+
+        # Trích xuất dữ liệu chi tiết từng review
+        review_blocks = driver.find_elements(By.CSS_SELECTOR, SELECTOR_REVIEW_ITEMS)
+        print(f"  Bắt đầu bóc tách {len(review_blocks)} phần tử đánh giá...")
+
+        seen_texts = set()
+        for idx, block in enumerate(review_blocks):
+            if len(result["reviews"]) >= max_reviews:
+                break
+
+            text = _extract_review_text(block)
+            if not text or len(text) < 10:
                 continue
 
+            # Bỏ qua trùng lặp hoặc spam
+            text_norm = " ".join(text.split()[:15])
+            if text_norm in seen_texts or is_spam_review(text):
+                continue
+            seen_texts.add(text_norm)
+
+            author_raw = _safe_text(block, SELECTOR_REVIEW_AUTHOR, default="Khách Foody")
+            author = "Khách Foody"
+            if author_raw:
+                lines = [l.strip() for l in author_raw.split("\n") if l.strip()]
+                # Bỏ các dòng là điểm số (vd: 10, 8.4) hoặc timestamp (vd: via iPhone 20/12/2020)
+                clean_lines = [l for l in lines if not re.match(r"^(\d+[\.,]?\d*)$", l) and "via " not in l and l.lower() not in ["thích", "thảo luận", "báo lỗi"]]
+                if clean_lines:
+                    author = clean_lines[0]
+                elif lines:
+                    author = lines[0]
+
+            rating_raw = _safe_text(block, SELECTOR_REVIEW_RATING, default="")
             try:
                 match = re.search(r"(\d+[\.,]?\d*)", rating_raw)
                 rating = float(match.group(1).replace(",", ".")) if match else None
             except Exception:
                 rating = None
 
+            date = _safe_text(block, SELECTOR_REVIEW_DATE, default="Gần đây")
+
             result["reviews"].append({
-                "author": author or "Khách ẩn danh",
+                "author": author,
                 "rating": rating,
                 "text": text,
-                "date": date or "Gần đây",
+                "date": date
             })
 
+        print(f"-> [Crawler Hoàn tất] Thu thập thành công {len(result['reviews'])} đánh giá thực tế từ quán {result['name']}!")
+
+    except Exception as e:
+        print(f"[Crawler Lỗi] {e}")
     finally:
         driver.quit()
 
@@ -133,14 +271,12 @@ def crawl_restaurant(url: str, max_reviews: int = 50, headless: bool = True):
 def crawl_multiple(urls: list, max_reviews_per_place: int = 50, out_csv: str = None):
     all_results = []
     for i, url in enumerate(urls, 1):
-        print(f"[{i}/{len(urls)}] Đang cào dữ liệu Foody: {url}")
         try:
             data = crawl_restaurant(url, max_reviews=max_reviews_per_place)
-            print(f"  -> {data.get('name')}: {len(data['reviews'])} đánh giá")
             all_results.append(data)
         except Exception as e:
-            print(f"  Lỗi khi cào {url}: {e}")
-        time.sleep(3)
+            print(f"Lỗi khi cào {url}: {e}")
+        time.sleep(2)
 
     if out_csv and all_results:
         _export_csv(all_results, out_csv)

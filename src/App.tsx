@@ -114,6 +114,7 @@ export function App() {
           <ExplorePage
             initialQuery={searchQuery}
             onSelectRestaurant={handleSelectRestaurant}
+            onOpenAnalyzeModal={() => setIsAnalyzeModalOpen(true)}
           />
         )}
 

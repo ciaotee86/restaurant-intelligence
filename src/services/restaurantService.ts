@@ -2,6 +2,20 @@ import { MOCK_RESTAURANTS } from '../data/mockRestaurants';
 import type { Restaurant, SearchFilterState, CustomerReview, AspectCategory, SentimentType } from '../types/restaurant';
 
 /**
+ * Loại bỏ dấu tiếng Việt để tìm kiếm không phân biệt dấu
+ * Ví dụ: "Bánh xèo" -> "banh xeo", "Phở Thìn" -> "pho thin", "Cơm gà" -> "com ga"
+ */
+export function removeVietnameseAccents(str: string): string {
+  if (!str) return '';
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, (m) => (m === 'Đ' ? 'D' : 'd'))
+    .toLowerCase()
+    .trim();
+}
+
+/**
  * Xác định API Base URL linh hoạt cho cả môi trường Development và Production Deployment
  */
 const getApiBaseUrl = (): string => {
@@ -10,11 +24,9 @@ const getApiBaseUrl = (): string => {
   }
   if (typeof window !== 'undefined') {
     const port = window.location.port;
-    // Khi chạy local dev với Vite (port 5173) -> gọi sang FastAPI backend (port 8000)
     if (port === '5173' || port === '3000') {
       return 'http://localhost:8000/api';
     }
-    // Khi đã deploy website thật (FastAPI phục vụ cả web và API trên cùng domain)
     return '/api';
   }
   return '/api';
@@ -47,7 +59,6 @@ class RestaurantService {
       this.isBackendConnected = true;
       return await response.json();
     } catch {
-      // Backend offline hoặc lỗi mạng -> fallback mượt mà
       this.isBackendConnected = false;
       return null;
     }
@@ -77,13 +88,11 @@ class RestaurantService {
   }
 
   public async getRestaurantByIdOrSlug(identifier: string): Promise<Restaurant | undefined> {
-    // Thử lấy từ Backend API
     const apiData = await this.fetchFromApi<Restaurant>(`/restaurants/${identifier}`);
     if (apiData) {
       return apiData;
     }
 
-    // Fallback tìm trong cache / mock data
     return this.cachedRestaurants.find(
       (r) => r.id === identifier || r.slug === identifier || r.id.toLowerCase() === identifier.toLowerCase()
     );
@@ -104,7 +113,6 @@ class RestaurantService {
       }
 
       if (data.restaurant) {
-        // Cập nhật vào danh sách hiển thị tức thì
         this.cachedRestaurants = [data.restaurant, ...this.cachedRestaurants.filter(r => r.id !== data.restaurant.id)];
       }
 
@@ -121,48 +129,79 @@ class RestaurantService {
     }
   }
 
+  /**
+   * Tìm kiếm nhà hàng thông minh:
+   * 1. Hỗ trợ tìm kiếm không dấu (Bánh xèo -> banh xeo)
+   * 2. Tìm kiếm theo từng từ đơn (Token-based: "Pizza time" -> tìm các quán khớp "Pizza")
+   * 3. Tìm kiếm trong Tên, Ẩm thực, Địa chỉ, Thành phố, Từ khóa mẫu, và Nội dung review
+   */
   public async searchRestaurants(filter: Partial<SearchFilterState>): Promise<Restaurant[]> {
     const list = await this.getAllRestaurants();
     
     return list.filter((restaurant) => {
-      // Lọc theo từ khóa tìm kiếm
+      // 1. Lọc theo từ khóa tìm kiếm (Thông minh & Bỏ dấu)
       if (filter.query && filter.query.trim() !== '') {
-        const q = filter.query.toLowerCase().trim();
-        const matchesName = restaurant.name.toLowerCase().includes(q);
-        const matchesCuisine = restaurant.cuisine.toLowerCase().includes(q);
-        const matchesCity = restaurant.city.toLowerCase().includes(q);
-        const matchesKeywords = restaurant.aspects?.some((a) =>
-          a.sampleKeywords.some((k) => k.toLowerCase().includes(q))
-        );
-        if (!matchesName && !matchesCuisine && !matchesCity && !matchesKeywords) {
-          return false;
+        const rawQ = filter.query.trim().toLowerCase();
+        const normQ = removeVietnameseAccents(filter.query);
+
+        // Tạo chuỗi tìm kiếm tổng hợp có dấu và không dấu
+        const searchableRaw = [
+          restaurant.name,
+          restaurant.brand,
+          restaurant.cuisine,
+          restaurant.cuisineCategory,
+          restaurant.city,
+          restaurant.address,
+          ...(restaurant.aspects?.flatMap((a) => a.sampleKeywords) || []),
+          ...(restaurant.reviews?.map((r) => r.text) || [])
+        ].join(' ').toLowerCase();
+
+        const searchableNorm = removeVietnameseAccents(searchableRaw);
+
+        // Trường hợp 1: Khớp nguyên cụm từ (Exact phrase match)
+        if (searchableRaw.includes(rawQ) || searchableNorm.includes(normQ)) {
+          // Khớp hoàn toàn
+        } else {
+          // Trường hợp 2: Tách thành các từ khóa đơn (Token match)
+          // Ví dụ: người dùng gõ "Pizza time" -> tách ["pizza", "time"]
+          // Nếu có bất kỳ từ khóa nào có nghĩa (>2 ký tự) khớp thì coi là tìm thấy
+          const tokens = normQ.split(/\s+/).filter((t) => t.length >= 2);
+          const hasMatchingToken = tokens.some((tok) => searchableNorm.includes(tok));
+
+          if (!hasMatchingToken) {
+            return false;
+          }
         }
       }
 
-      // Lọc theo thành phố
+      // 2. Lọc theo thành phố
       if (filter.city && filter.city !== 'Tất cả địa điểm' && filter.city !== 'All Cities' && filter.city !== '') {
-        if (restaurant.city.toLowerCase() !== filter.city.toLowerCase()) {
+        const normFilterCity = removeVietnameseAccents(filter.city);
+        const normResCity = removeVietnameseAccents(restaurant.city);
+        if (!normResCity.includes(normFilterCity)) {
           return false;
         }
       }
 
-      // Lọc theo ẩm thực
+      // 3. Lọc theo ẩm thực
       if (filter.cuisineCategory && filter.cuisineCategory !== 'Tất cả ẩm thực' && filter.cuisineCategory !== 'All Cuisines' && filter.cuisineCategory !== '') {
-        if (restaurant.cuisineCategory.toLowerCase() !== filter.cuisineCategory.toLowerCase()) {
+        const normFilterCuisine = removeVietnameseAccents(filter.cuisineCategory);
+        const normResCuisine = removeVietnameseAccents(restaurant.cuisineCategory + ' ' + restaurant.cuisine);
+        if (!normResCuisine.includes(normFilterCuisine)) {
           return false;
         }
       }
 
-      // Lọc theo điểm tối thiểu
+      // 4. Lọc theo điểm tối thiểu
       if (filter.minRating && filter.minRating > 0) {
         if (restaurant.rating < filter.minRating) {
           return false;
         }
       }
 
-      // Lọc theo tình trạng cảm xúc
+      // 5. Lọc theo tình trạng cảm xúc
       if (filter.sentimentHealth && filter.sentimentHealth !== 'all') {
-        if (filter.sentimentHealth === 'high_positive' && restaurant.sentimentDistribution.positive < 75) {
+        if (filter.sentimentHealth === 'high_positive' && restaurant.sentimentDistribution.positive < 70) {
           return false;
         }
         if (filter.sentimentHealth === 'needs_attention' && restaurant.sentimentDistribution.negative < 12) {
@@ -177,6 +216,17 @@ class RestaurantService {
 
       return true;
     }).sort((a, b) => {
+      // Ưu tiên xếp quán khớp tên cao hơn
+      if (filter.query && filter.query.trim()) {
+        const normQ = removeVietnameseAccents(filter.query);
+        const aNameNorm = removeVietnameseAccents(a.name);
+        const bNameNorm = removeVietnameseAccents(b.name);
+        const aExact = aNameNorm.includes(normQ);
+        const bExact = bNameNorm.includes(normQ);
+        if (aExact && !bExact) return -1;
+        if (!aExact && bExact) return 1;
+      }
+
       if (filter.sortBy === 'rating') {
         return b.rating - a.rating;
       }
@@ -192,9 +242,15 @@ class RestaurantService {
 
   public getSearchSuggestions(query: string): { name: string; cuisine: string; city: string; id: string }[] {
     if (!query || query.trim().length < 1) return [];
-    const q = query.toLowerCase().trim();
+    const normQ = removeVietnameseAccents(query);
+    const tokens = normQ.split(/\s+/).filter(t => t.length >= 2);
+
     return this.cachedRestaurants
-      .filter((r) => r.name.toLowerCase().includes(q) || r.cuisine.toLowerCase().includes(q))
+      .filter((r) => {
+        const resNorm = removeVietnameseAccents(r.name + ' ' + r.cuisine + ' ' + r.city);
+        if (resNorm.includes(normQ)) return true;
+        return tokens.some(t => resNorm.includes(t));
+      })
       .slice(0, 5)
       .map((r) => ({
         name: r.name,
@@ -219,10 +275,14 @@ class RestaurantService {
         if (!hasAspect) return false;
       }
       if (searchKeyword && searchKeyword.trim() !== '') {
-        const kw = searchKeyword.toLowerCase().trim();
-        const inText = rev.text.toLowerCase().includes(kw);
-        const inAspects = rev.aspects?.some((a) => a.phrase.toLowerCase().includes(kw));
-        if (!inText && !inAspects) return false;
+        const normKw = removeVietnameseAccents(searchKeyword);
+        const normText = removeVietnameseAccents(rev.text);
+        const normAuthor = removeVietnameseAccents(rev.author);
+        const inAspects = rev.aspects?.some((a) => removeVietnameseAccents(a.phrase).includes(normKw));
+        
+        if (!normText.includes(normKw) && !normAuthor.includes(normKw) && !inAspects) {
+          return false;
+        }
       }
       return true;
     });

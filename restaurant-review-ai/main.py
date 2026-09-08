@@ -22,7 +22,7 @@ RESTAURANT_URLS = [
      "https://www.foody.vn/da-nang/com-chien-gion-gia-vinh",
      "https://www.foody.vn/da-nang/che-thai-che-dau-sinh-to-che-ong-cuc-918-tran-cao-van",
      "https://www.foody.vn/da-nang/quan-307-banh-xeo-bun-thit-nuong-nem-lui",
-     "https://www.foody.vn/(A(%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20amp;quot;-cpjdosfhwxnr-%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20amp;quot;))/da-nang/mi-cay-seoul-hai-chau",
+     "https://www.foody.vn/da-nang/mi-cay-seoul-hai-chau",
 ]
 
 MAX_REVIEWS_PER_PLACE = 100

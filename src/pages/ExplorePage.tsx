@@ -4,16 +4,18 @@ import { RestaurantCard } from '../components/restaurant-list/RestaurantCard';
 import { FilterBar } from '../components/restaurant-list/FilterBar';
 import { SearchBar } from '../components/common/SearchBar';
 import { restaurantService } from '../services/restaurantService';
-import { Compass, UtensilsCrossed } from 'lucide-react';
+import { Compass, UtensilsCrossed, PlusCircle, Search } from 'lucide-react';
 
 interface ExplorePageProps {
   initialQuery?: string;
   onSelectRestaurant: (restaurantId: string) => void;
+  onOpenAnalyzeModal?: () => void;
 }
 
 export const ExplorePage: React.FC<ExplorePageProps> = ({
   initialQuery = '',
-  onSelectRestaurant
+  onSelectRestaurant,
+  onOpenAnalyzeModal
 }) => {
   const [filters, setFilters] = useState<SearchFilterState>({
     query: initialQuery,
@@ -58,6 +60,15 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
     });
   };
 
+  const handleSearchSubmit = (q: string) => {
+    // Nếu người dùng dán link Foody vào ô tìm kiếm -> mở modal phân tích tự động!
+    if (q.includes('foody.vn') && onOpenAnalyzeModal) {
+      onOpenAnalyzeModal();
+      return;
+    }
+    setFilters({ ...filters, query: q });
+  };
+
   const isSearchActive = Boolean(filters.query && filters.query.trim().length > 0);
 
   return (
@@ -78,14 +89,16 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
           </p>
         </div>
 
-        <div className="w-full md:w-80">
-          <SearchBar
-            size="medium"
-            initialValue={filters.query}
-            onSearch={(q) => setFilters({ ...filters, query: q })}
-            onSelectRestaurant={onSelectRestaurant}
-            placeholder="Lọc theo tên nhà hàng..."
-          />
+        <div className="w-full md:w-88 flex items-center gap-2">
+          <div className="flex-1">
+            <SearchBar
+              size="medium"
+              initialValue={filters.query}
+              onSearch={handleSearchSubmit}
+              onSelectRestaurant={onSelectRestaurant}
+              placeholder="Tìm theo tên, món ăn, địa chỉ..."
+            />
+          </div>
         </div>
       </div>
 
@@ -119,20 +132,40 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
           ))}
         </div>
       ) : restaurants.length === 0 ? (
-        <div className="text-center py-16 bg-white border border-dashed border-zinc-300 rounded-xl p-8 max-w-lg mx-auto">
-          <UtensilsCrossed className="w-10 h-10 text-zinc-300 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-[#18181B] mb-1">
-            Không tìm thấy nhà hàng nào
-          </h3>
-          <p className="text-xs text-[#71717A] mb-4">
-            Không có nhà hàng nào khớp với các thiết lập bộ lọc hiện tại của bạn.
-          </p>
-          <button
-            onClick={handleResetFilters}
-            className="px-4 py-2 bg-[#18181B] text-white text-xs font-medium rounded-md hover:bg-zinc-800 transition-colors"
-          >
-            Đặt lại tất cả bộ lọc
-          </button>
+        <div className="text-center py-12 bg-white border border-dashed border-zinc-300 rounded-xl p-6 sm:p-8 max-w-xl mx-auto space-y-4">
+          <div className="w-12 h-12 rounded-full bg-orange-50 text-[#C2410C] flex items-center justify-center mx-auto">
+            {isSearchActive ? <Search className="w-6 h-6" /> : <UtensilsCrossed className="w-6 h-6" />}
+          </div>
+
+          <div>
+            <h3 className="text-base font-bold text-[#18181B] mb-1">
+              {isSearchActive ? `Chưa có dữ liệu cho "${filters.query}"` : 'Không tìm thấy nhà hàng nào'}
+            </h3>
+            <p className="text-xs text-[#71717A] max-w-md mx-auto leading-relaxed">
+              {isSearchActive
+                ? `Hệ thống chưa lưu dữ liệu đánh giá của "${filters.query}". Bạn có thể dán đường link Foody của quán để hệ thống tự động cào và phân tích ngay lập tức!`
+                : 'Không có nhà hàng nào khớp với các thiết lập bộ lọc hiện tại của bạn.'}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            {isSearchActive && onOpenAnalyzeModal && (
+              <button
+                onClick={onOpenAnalyzeModal}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#C2410C] hover:bg-[#9a3412] text-white text-xs font-semibold rounded-md shadow-2xs transition-colors"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>+ Phân tích quán "{filters.query}" từ Foody</span>
+              </button>
+            )}
+
+            <button
+              onClick={handleResetFilters}
+              className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-medium rounded-md transition-colors"
+            >
+              Đặt lại bộ lọc
+            </button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
