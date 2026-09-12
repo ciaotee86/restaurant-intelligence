@@ -1,12 +1,24 @@
 import os
 import json
 import time
+import sys
 
+# Đảm bảo UTF-8 console output trên Windows
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+from pathlib import Path
 from dotenv import load_dotenv
+
+env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
+load_dotenv()
+
 from google import genai
 from google.genai import types
-
-load_dotenv()
 
 API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 

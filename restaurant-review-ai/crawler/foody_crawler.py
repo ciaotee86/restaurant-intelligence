@@ -12,7 +12,15 @@ import time
 import csv
 import os
 import re
+import sys
 import urllib.parse
+
+# Đảm bảo UTF-8 console output
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By

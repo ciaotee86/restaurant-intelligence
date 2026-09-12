@@ -12,7 +12,10 @@ import {
   Sparkles,
   CheckCircle2,
   Inbox,
-  SendHorizontal
+  SendHorizontal,
+  Zap,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 
 interface ExplorePageProps {
@@ -126,6 +129,35 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
     } catch {
       setQueueStatus('submitted');
       setQueueMessage(`Đã ghi nhận yêu cầu cho "${q}". Hệ thống sẽ tự động quét và phân tích trong phiên chạy tiếp theo!`);
+    }
+  };
+
+  // Cào & phân tích trực tiếp tức thì (On-demand ~25s)
+  const [directCrawlState, setDirectCrawlState] = useState<'idle' | 'crawling' | 'error'>('idle');
+  const [directCrawlMessage, setDirectCrawlMessage] = useState<string>('');
+
+  const handleDirectCrawl = async () => {
+    const targetQuery = filters.query.trim() || 'đặc sản món ngon';
+    const targetCity = filters.city !== 'Tất cả địa điểm' ? filters.city : 'da-nang';
+    
+    setDirectCrawlState('crawling');
+    setDirectCrawlMessage(`Đang tìm kiếm quán "${targetQuery}" tại ${targetCity} trên Foody, cào review & chạy Gemini AI phân tích...`);
+
+    try {
+      const res = await restaurantService.searchAndCrawlFoody(targetQuery, targetCity, 20);
+      if (res.success && res.restaurant) {
+        setDirectCrawlState('idle');
+        const updated = await restaurantService.getAllRestaurants();
+        setAllAvailableRestaurants(updated);
+        setRestaurants([res.restaurant, ...updated.filter(r => r.id !== res.restaurant?.id)]);
+        onSelectRestaurant(res.restaurant.id);
+      } else {
+        setDirectCrawlState('error');
+        setDirectCrawlMessage(res.message || 'Không tìm thấy quán phù hợp trên Foody.');
+      }
+    } catch (e: any) {
+      setDirectCrawlState('error');
+      setDirectCrawlMessage(e?.message || 'Có lỗi xảy ra khi kết nối máy chủ phân tích.');
     }
   };
 
@@ -245,50 +277,99 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
               <Inbox className="w-6 h-6" />
             </div>
 
-            <div>
-              <h3 className="text-base font-bold text-[#18181B] mb-1">
-                {isSearchActive ? `Chưa có dữ liệu cho "${filters.query}" trong kho phân tích` : 'Không tìm thấy nhà hàng nào'}
-              </h3>
-              <p className="text-xs text-[#71717A] max-w-md mx-auto leading-relaxed">
-                {isSearchActive
-                  ? `Quán ăn hoặc từ khóa "${filters.query}" chưa có trong cơ sở dữ liệu. Bạn có thể gửi yêu cầu để hệ thống tự động cào và phân tích trong đợt cập nhật ngầm tiếp theo.`
-                  : 'Không có nhà hàng nào khớp với các thiết lập bộ lọc hiện tại của bạn.'}
-              </p>
-            </div>
+            {directCrawlState === 'crawling' ? (
+              <div className="py-6 space-y-3 text-center">
+                <Loader2 className="w-9 h-9 text-[#C2410C] animate-spin mx-auto" />
+                <h4 className="text-sm font-bold text-[#18181B]">
+                  Đang tự động tìm kiếm trên Foody & chạy Gemini AI phân tích...
+                </h4>
+                <p className="text-xs text-zinc-500 max-w-md mx-auto leading-relaxed">
+                  {directCrawlMessage || 'Hệ thống đang mở trình duyệt ngầm, trích xuất đánh giá thực tế và gọi Gemini AI phân tích. Vui lòng đợi trong giây lát (~20 - 30 giây)...'}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <h3 className="text-base font-bold text-[#18181B] mb-1">
+                    {isSearchActive
+                      ? `Chưa có dữ liệu cho "${filters.query}" trong kho phân tích`
+                      : filters.city !== 'Tất cả địa điểm'
+                      ? `Chưa có dữ liệu cho khu vực "${filters.city}"`
+                      : 'Không tìm thấy nhà hàng nào'}
+                  </h3>
+                  <p className="text-xs text-[#71717A] max-w-md mx-auto leading-relaxed">
+                    {isSearchActive
+                      ? `Quán ăn "${filters.query}" chưa được lưu trong cơ sở dữ liệu. Bạn có thể chọn Cào trực tiếp để lấy kết quả ngay sau 25s, hoặc Gửi yêu cầu để hệ thống tự cào ngầm.`
+                      : filters.city !== 'Tất cả địa điểm'
+                      ? `Khu vực "${filters.city}" chưa có quán ăn được cào trong kho. Bạn có thể bấm cào ngay các quán đặc sản tại ${filters.city} hoặc chuyển bộ lọc sang "Tất cả địa điểm".`
+                      : 'Không có nhà hàng nào khớp với các thiết lập bộ lọc hiện tại của bạn.'}
+                  </p>
+                </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-              {isSearchActive && queueStatus !== 'submitted' && (
-                <button
-                  onClick={handleSubmitQueueRequest}
-                  disabled={queueStatus === 'submitting'}
-                  className="inline-flex items-center gap-1.5 px-4.5 py-2.5 bg-[#C2410C] hover:bg-[#9a3412] text-white text-xs font-semibold rounded-lg shadow-sm transition-all transform active:scale-95 disabled:opacity-50"
-                >
-                  <SendHorizontal className="w-3.5 h-3.5" />
-                  <span>
-                    {queueStatus === 'submitting'
-                      ? 'Đang gửi yêu cầu...'
-                      : `📋 Gửi yêu cầu hệ thống thu thập quán "${filters.query}"`}
-                  </span>
-                </button>
-              )}
+                {directCrawlState === 'error' && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-center gap-2 max-w-md mx-auto text-left">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                    <span>{directCrawlMessage}</span>
+                  </div>
+                )}
 
-              {onOpenAnalyzeModal && (
-                <button
-                  onClick={onOpenAnalyzeModal}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-medium rounded-lg transition-colors"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  <span>Dán link Foody trực tiếp</span>
-                </button>
-              )}
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  {/* Nút 1: Cào & Phân tích trực tiếp (Lấy kết quả ngay sau 20-30s) */}
+                  <button
+                    onClick={handleDirectCrawl}
+                    className="inline-flex items-center gap-1.5 px-4.5 py-2.5 bg-[#18181B] hover:bg-zinc-800 text-white text-xs font-semibold rounded-lg shadow-sm transition-all transform active:scale-95"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    <span>
+                      {isSearchActive
+                        ? `⚡ Cào & AI Phân Tích Ngay "${filters.query}" (~25s)`
+                        : filters.city !== 'Tất cả địa điểm'
+                        ? `⚡ Cào ngay quán ngon tại ${filters.city} (~25s)`
+                        : '⚡ Cào & AI Phân Tích Quán Mới (~25s)'}
+                    </span>
+                  </button>
 
-              <button
-                onClick={handleResetFilters}
-                className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-medium rounded-lg transition-colors"
-              >
-                Đặt lại bộ lọc
-              </button>
-            </div>
+                  {/* Nút 2: Gửi yêu cầu cào ngầm vào hàng đợi */}
+                  {isSearchActive && (
+                    queueStatus !== 'submitted' ? (
+                      <button
+                        onClick={handleSubmitQueueRequest}
+                        disabled={queueStatus === 'submitting'}
+                        className="inline-flex items-center gap-1.5 px-4.5 py-2.5 bg-[#C2410C] hover:bg-[#9a3412] text-white text-xs font-semibold rounded-lg shadow-sm transition-all transform active:scale-95 disabled:opacity-50"
+                      >
+                        <SendHorizontal className="w-3.5 h-3.5" />
+                        <span>
+                          {queueStatus === 'submitting'
+                            ? 'Đang gửi...'
+                            : `📋 Gửi yêu cầu cào ngầm`}
+                        </span>
+                      </button>
+                    ) : (
+                      <span className="text-xs text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-200">
+                        ✅ Đã ghi nhận yêu cầu vào hàng đợi!
+                      </span>
+                    )
+                  )}
+
+                  {onOpenAnalyzeModal && (
+                    <button
+                      onClick={onOpenAnalyzeModal}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-medium rounded-lg transition-colors"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      <span>Dán link Foody trực tiếp</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={handleResetFilters}
+                    className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-medium rounded-lg transition-colors"
+                  >
+                    Đặt lại bộ lọc
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Gợi ý các quán đang có sẵn trong kho dữ liệu */}
