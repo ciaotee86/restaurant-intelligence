@@ -1,0 +1,77 @@
+name: Scheduled Foody AI Crawler
+
+on:
+  schedule:
+    # Chạy tự động vào lúc 02:00 UTC (09:00 sáng giờ VN) hàng ngày
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # Cho phép bấm nút "Run workflow" thủ công trên giao diện web GitHub
+    inputs:
+      city:
+        description: 'Thành phố cần cào (da-nang, ho-chi-minh, ha-noi)'
+        required: false
+        default: 'da-nang'
+      categories:
+        description: 'Danh mục món ăn phân cách bằng dấu phẩy (để trống để cào theo danh mục mặc định)'
+        required: false
+        default: ''
+      max_places:
+        description: 'Số quán tối đa mỗi danh mục'
+        required: false
+        default: '2'
+      max_reviews:
+        description: 'Số review tối đa cào mỗi quán'
+        required: false
+        default: '25'
+
+permissions:
+  contents: write
+
+jobs:
+  crawl-and-analyze:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout mã nguồn
+        uses: actions/checkout@v4
+
+      - name: Cài đặt Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Cài đặt Chrome & Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+          pip install -r restaurant-review-ai/requirements.txt
+
+      - name: Chạy Pipeline cào & phân tích AI
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          CITY="${{ github.event.inputs.city || 'da-nang' }}"
+          CATEGORIES="${{ github.event.inputs.categories || '' }}"
+          MAX_PLACES="${{ github.event.inputs.max_places || '2' }}"
+          MAX_REVIEWS="${{ github.event.inputs.max_reviews || '25' }}"
+          
+          CMD="python restaurant-review-ai/run_pipeline.py --cities $CITY --max-places $MAX_PLACES --max-reviews $MAX_REVIEWS"
+          if [ -n "$CATEGORIES" ]; then
+            CMD="$CMD --categories \"$CATEGORIES\""
+          fi
+          
+          echo "Thực thi: $CMD"
+          eval $CMD
+
+      - name: Commit & Push Database mới về Repository
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add restaurant-review-ai/data/restaurants.db
+          if git diff-index --quiet HEAD --; then
+            echo "Database không có thay đổi mới. Bỏ qua commit."
+          else
+            git commit -m "chore(data): tự động cập nhật database đánh giá quán ăn [skip ci]"
+            git push origin HEAD:${{ github.ref }}
+          fi

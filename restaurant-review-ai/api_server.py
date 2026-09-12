@@ -33,7 +33,13 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import text
 
-from database.models import init_db, Restaurant as DBRestaurant, Review as DBReview, ReviewAnalysis as DBAnalysis
+from database.models import (
+    init_db,
+    Restaurant as DBRestaurant,
+    Review as DBReview,
+    ReviewAnalysis as DBAnalysis,
+    CrawlRequest as DBCrawlRequest
+)
 from database.db import get_session, get_or_create_restaurant, save_review, save_analysis
 from analysis.gemini_analyzer import analyze_batch
 from crawler.foody_crawler import crawl_restaurant, search_foody_places
@@ -41,7 +47,7 @@ from crawler.foody_crawler import crawl_restaurant, search_foody_places
 app = FastAPI(
     title="Restaurant Intelligence API",
     description="Backend API & Web Server phục vụ phân tích đánh giá nhà hàng từ Foody và Gemini AI",
-    version="1.2.0"
+    version="1.3.0"
 )
 
 app.add_middleware(
@@ -62,6 +68,11 @@ class SearchAndCrawlRequest(BaseModel):
     query: str
     city: Optional[str] = "da-nang"
     max_reviews: Optional[int] = 25
+
+
+class QueueCrawlRequest(BaseModel):
+    query: str
+    city: Optional[str] = "da-nang"
 
 
 def remove_accents(text: str) -> str:
@@ -595,6 +606,59 @@ def get_restaurants():
         return result
 
 
+@app.get("/api/restaurants/search")
+@app.get("/api/search")
+def search_restaurants_db(
+    q: str = "",
+    city: str = "",
+    cuisine: str = "",
+    min_rating: float = 0.0,
+    limit: int = 50
+):
+    """
+    Tra cứu nhà hàng thuần túy từ Database SQLite (Tốc độ siêu tốc < 20ms).
+    Không chạy Selenium, không gọi Gemini AI trong quá trình người dùng truy vấn.
+    """
+    norm_q = remove_accents(q)
+    tokens = [t for t in norm_q.split() if len(t) >= 2]
+    norm_city = remove_accents(city) if city and city != "Tất cả địa điểm" and city != "All Cities" else ""
+
+    with get_session() as db:
+        restaurants = db.query(DBRestaurant).all()
+        matched = []
+
+        for r in restaurants:
+            # 1. Lọc rating tối thiểu
+            if min_rating > 0 and (r.overall_rating or 0) < min_rating:
+                continue
+
+            r_addr_norm = remove_accents(r.address or "")
+            r_name_norm = remove_accents(r.name)
+            combined_norm = f"{r_name_norm} {r_addr_norm}"
+
+            # 2. Lọc thành phố
+            if norm_city and norm_city not in combined_norm:
+                continue
+
+            # 3. Lọc từ khóa query (chính xác hoặc tập hợp tokens)
+            if norm_q:
+                if norm_q not in combined_norm:
+                    if not (tokens and all(t in combined_norm for t in tokens)):
+                        continue
+
+            matched.append(r)
+
+        results = []
+        for r in matched[:limit]:
+            results.append(format_restaurant_full(r, db))
+
+        return {
+            "total": len(matched),
+            "results": results,
+            "query": q
+        }
+
+
 @app.get("/api/restaurants/{identifier}")
 def get_restaurant_detail(identifier: str):
     """Lấy chi tiết phân tích của một nhà hàng theo ID hoặc Slug"""
@@ -885,6 +949,73 @@ def get_suggestions(q: str = ""):
                     "totalReviews": rev_count
                 })
         return results[:8]
+
+
+
+@app.post("/api/request-crawl")
+def submit_crawl_request(req: QueueCrawlRequest):
+    """
+    Tiếp nhận yêu cầu cào quán từ người dùng khi tìm không có trong DB.
+    Lưu vào hàng đợi crawl_requests (status='pending') để GitHub Actions pipeline cào tự động ngầm.
+    Trả về ngay lập tức mã 200/202 trong < 10ms mà không bắt người dùng chờ đợi!
+    """
+    q = req.query.strip()
+    if not q:
+        raise HTTPException(status_code=400, detail="Vui lòng nhập từ khóa hoặc tên quán.")
+
+    with get_session() as db:
+        # Kiểm tra xem yêu cầu tương tự đã có trong hàng đợi chưa
+        existing_req = (
+            db.query(DBCrawlRequest)
+            .filter_by(query=q, status="pending")
+            .first()
+        )
+        if existing_req:
+            return {
+                "success": True,
+                "status": "already_queued",
+                "message": f"Yêu cầu thu thập cho '{q}' đã có trong hàng đợi và sẽ được xử lý trong phiên quét tiếp theo!"
+            }
+
+        new_req = DBCrawlRequest(
+            query=q,
+            city=req.city or "da-nang",
+            status="pending",
+            requested_at=datetime.utcnow()
+        )
+        db.add(new_req)
+        db.commit()
+
+        return {
+            "success": True,
+            "status": "queued",
+            "message": f"Đã tiếp nhận yêu cầu thu thập quán '{q}'. Hệ thống sẽ tự động cào và phân tích trong đợt cập nhật tiếp theo!"
+        }
+
+
+@app.get("/api/crawl-requests")
+def list_crawl_requests():
+    """Lấy danh sách các yêu cầu cào gần đây từ người dùng"""
+    with get_session() as db:
+        requests = (
+            db.query(DBCrawlRequest)
+            .order_by(DBCrawlRequest.requested_at.desc())
+            .limit(20)
+            .all()
+        )
+        return [
+            {
+                "id": r.id,
+                "query": r.query,
+                "city": r.city,
+                "status": r.status,
+                "note": r.note,
+                "requested_at": r.requested_at.isoformat() if r.requested_at else None,
+                "completed_at": r.completed_at.isoformat() if r.completed_at else None,
+            }
+            for r in requests
+        ]
+
 
 DIST_PATH = Path(__file__).resolve().parent.parent / "dist"
 if not DIST_PATH.exists():

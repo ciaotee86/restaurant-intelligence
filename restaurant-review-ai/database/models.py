@@ -62,6 +62,19 @@ class ReviewAnalysis(Base):
     review = relationship("Review", back_populates="analysis")
 
 
+class CrawlRequest(Base):
+    """Hàng đợi lưu yêu cầu thu thập quán ăn từ người dùng để pipeline chạy ngầm"""
+    __tablename__ = "crawl_requests"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    query = Column(String(255), nullable=False)
+    city = Column(String(100), default="da-nang")
+    status = Column(String(50), default="pending")  # "pending", "processing", "completed", "failed"
+    note = Column(String(500), nullable=True)
+    requested_at = Column(DateTime, default=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+
+
 def init_db(db_path: str = None):
     """Tạo file DB + toàn bộ bảng nếu chưa tồn tại. Tự động xác định đúng đường dẫn tuyệt đối."""
     if not db_path:

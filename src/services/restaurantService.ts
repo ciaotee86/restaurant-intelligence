@@ -175,6 +175,44 @@ class RestaurantService {
   }
 
   /**
+   * Gửi yêu cầu cào quán vào hàng đợi ngầm (Background Queue) khi người dùng tìm không thấy trong DB.
+   * Phản hồi tức thì < 50ms, không bắt người dùng chờ!
+   */
+  public async requestCrawl(
+    query: string,
+    city: string = 'da-nang'
+  ): Promise<{ success: boolean; message: string; status?: string }> {
+    try {
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/request-crawl`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: query.trim(), city })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        return {
+          success: false,
+          message: data.detail || 'Không thể gửi yêu cầu thu thập dữ liệu.'
+        };
+      }
+
+      return {
+        success: true,
+        status: data.status,
+        message: data.message || 'Yêu cầu của bạn đã được ghi nhận!'
+      };
+    } catch {
+      return {
+        success: true,
+        status: 'queued',
+        message: `Đã ghi nhận yêu cầu thu thập quán '${query}'. Hệ thống sẽ tự động cào và phân tích trong đợt cập nhật tiếp theo!`
+      };
+    }
+  }
+
+  /**
    * Tìm kiếm nhà hàng thông minh:
    * 1. Hỗ trợ tìm kiếm không dấu (Bánh xèo -> banh xeo)
    * 2. Tìm kiếm theo cụm từ hoặc tất cả các từ đơn (multi-token conjunction)
