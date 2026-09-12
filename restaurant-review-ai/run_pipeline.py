@@ -51,6 +51,12 @@ def main():
         help="Số lượng đánh giá tối đa cào cho mỗi quán (mặc định: 25)"
     )
     parser.add_argument(
+        "--rotate-batch-size",
+        type=int,
+        default=3,
+        help="Số lượng tỉnh thành xoay tua trong mỗi lượt chạy định kỳ (mặc định: 3)"
+    )
+    parser.add_argument(
         "--requests-only",
         action="store_true",
         help="Chỉ xử lý các yêu cầu từ người dùng trong hàng đợi crawl_requests"
@@ -87,7 +93,8 @@ def main():
                     cities=cities,
                     categories=categories,
                     max_places_per_cat=args.max_places,
-                    max_reviews_per_place=args.max_reviews
+                    max_reviews_per_place=args.max_reviews,
+                    rotate_batch_size=args.rotate_batch_size
                 )
             except Exception as e:
                 print(f"[Daemon Error] {e}")
@@ -99,7 +106,8 @@ def main():
             cities=cities,
             categories=categories,
             max_places_per_cat=args.max_places,
-            max_reviews_per_place=args.max_reviews
+            max_reviews_per_place=args.max_reviews,
+            rotate_batch_size=args.rotate_batch_size
         )
 
 

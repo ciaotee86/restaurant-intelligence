@@ -2,17 +2,17 @@ name: Scheduled Foody AI Crawler
 
 on:
   schedule:
-    # Chạy tự động vào lúc 02:00 UTC (09:00 sáng giờ VN) hàng ngày
-    - cron: '0 2 * * *'
+    # Chạy tự động định kỳ mỗi 2 tiếng (00:00, 02:00, 04:00, 06:00, 08:00, 10:00, 12:00, 14:00, 16:00, 18:00, 20:00, 22:00 UTC)
+    - cron: '0 */2 * * *'
   workflow_dispatch:
     # Cho phép bấm nút "Run workflow" thủ công trên giao diện web GitHub
     inputs:
       city:
-        description: 'Thành phố cần cào (da-nang, ho-chi-minh, ha-noi)'
+        description: 'Thành phố cần cào (để trống để tự động xoay tua khắp toàn quốc, hoặc nhập da-nang, ho-chi-minh, ha-noi, lam-dong, all...)'
         required: false
-        default: 'da-nang'
+        default: ''
       categories:
-        description: 'Danh mục món ăn phân cách bằng dấu phẩy (để trống để cào theo danh mục mặc định)'
+        description: 'Danh mục món ăn phân cách bằng dấu phẩy (để trống để cào theo danh mục mặc định của từng tỉnh thành)'
         required: false
         default: ''
       max_places:
@@ -51,12 +51,15 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          CITY="${{ github.event.inputs.city || 'da-nang' }}"
+          CITY="${{ github.event.inputs.city || '' }}"
           CATEGORIES="${{ github.event.inputs.categories || '' }}"
           MAX_PLACES="${{ github.event.inputs.max_places || '2' }}"
           MAX_REVIEWS="${{ github.event.inputs.max_reviews || '25' }}"
           
-          CMD="python restaurant-review-ai/run_pipeline.py --cities $CITY --max-places $MAX_PLACES --max-reviews $MAX_REVIEWS"
+          CMD="python restaurant-review-ai/run_pipeline.py --max-places $MAX_PLACES --max-reviews $MAX_REVIEWS"
+          if [ -n "$CITY" ]; then
+            CMD="$CMD --cities \"$CITY\""
+          fi
           if [ -n "$CATEGORIES" ]; then
             CMD="$CMD --categories \"$CATEGORIES\""
           fi

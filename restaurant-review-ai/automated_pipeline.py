@@ -36,34 +36,100 @@ from crawler.foody_crawler import search_foody_places, crawl_restaurant
 from analysis.gemini_analyzer import analyze_batch
 
 
-# ==================== DANH MỤC HẠT GIỐNG MÓN ĂN & ĐỊA DANH ====================
+# ==================== DANH MỤC HẠT GIỐNG MÓN ĂN & ĐỊA DANH TOÀN QUỐC ====================
 DEFAULT_SEEDS = {
+    # --- MIỀN TRUNG & TÂY NGUYÊN ---
     "da-nang": [
-        "cơm gà",
-        "bánh tráng cuốn thịt heo",
-        "mì quảng",
-        "bún chả cá",
-        "hải sản",
-        "bánh xèo",
-        "chè sầu",
-        "cà phê"
+        "cơm gà", "bánh tráng cuốn thịt heo", "mì quảng", "bún chả cá",
+        "hải sản", "bánh xèo", "chè sầu", "nem lụi", "bún mắm nêm", "bê thui", "cà phê"
     ],
-    "ho-chi-minh": [
-        "cơm tấm",
-        "hủ tiếu",
-        "bánh mì chảo",
-        "lẩu bò",
-        "trà sữa",
-        "bún bò huế",
-        "pizza"
+    "thua-thien-hue": [
+        "bún bò huế", "bánh bèo", "bánh nậm", "bánh bột lọc",
+        "cơm hến", "chè huế", "nem lụi", "bánh khoái", "tré huế"
     ],
+    "quang-nam": [
+        "cao lầu", "mì quảng", "cơm gà hội an", "bánh mì phượng",
+        "bê thui cầu mống", "bánh đập", "chè bắp"
+    ],
+    "khanh-hoa": [
+        "nem nướng nha trang", "bún sứa", "bún chả cá", "bánh căn",
+        "hải sản tươi sống", "bò nướng lạc cảnh", "bánh xèo mực"
+    ],
+    "lam-dong": [
+        "bánh tráng nướng", "lẩu gà lá é", "lẩu bò ba toa", "nem nướng đà lạt",
+        "bánh mì xíu mại", "kem bơ", "sữa đậu nành nóng"
+    ],
+    "binh-dinh": [
+        "bánh hỏi cháo lòng", "bánh xèo tôm nhảy", "bún chả cá quy nhơn",
+        "chả ram tôm đất", "tré bình định", "nem chợ huyện"
+    ],
+    "nghe-an": [
+        "súp lươn", "cháo lươn", "bánh mướt", "miến lươn", "nhút thanh chương"
+    ],
+    "dak-lak": [
+        "bún đỏ buôn ma thuột", "cà phê buôn ma thuột", "gà nướng cơm lam",
+        "lẩu lá rừng", "bò nhúng me"
+    ],
+    "binh-thuan": [
+        "bánh căn phan thiết", "lẩu thả", "răng mực", "bánh quai vạc", "hải sản phan thiết"
+    ],
+    "phu-yen": [
+        "mắt cá ngừ đại dương", "bánh hỏi lòng heo", "bánh xèo hải sản", "cháo hàu"
+    ],
+
+    # --- MIỀN BẮC ---
     "ha-noi": [
-        "phở",
-        "bún chả",
-        "bún đậu mắm tôm",
-        "bánh cuốn",
-        "chả cá lã vọng",
-        "cà phê trứng"
+        "phở bò", "phở gà", "bún chả", "bún đậu mắm tôm", "bún thang",
+        "bánh cuốn nóng", "chả cá lã vọng", "bún ốc", "bún riêu", "miến lươn", "cà phê trứng"
+    ],
+    "hai-phong": [
+        "bánh đa cua", "bún cá cay", "bánh mì cay", "nem cua bể",
+        "dừa dầm", "pate cột đèn", "ốc hải phòng"
+    ],
+    "quang-ninh": [
+        "chả mực hạ long", "bún bề bề", "sá sùng", "sam biển",
+        "gà đồi tiên yên", "sữa chua trân châu hạ long"
+    ],
+    "ninh-binh": [
+        "dê núi ninh bình", "cơm cháy", "ốc núi", "miến lươn", "xôi trứng kiến"
+    ],
+    "lao-cai": [
+        "lẩu cá hồi sapa", "cá tầm", "thắng cố", "lợn cắp nách", "đồ nướng sapa", "xôi ngũ sắc"
+    ],
+
+    # --- MIỀN NAM & ĐỒNG BẰNG SÔNG CỬU LONG ---
+    "ho-chi-minh": [
+        "cơm tấm", "hủ tiếu", "bánh mì", "lẩu bò", "bún bò huế",
+        "bún thịt nướng", "ốc sài gòn", "phá lấu", "súp cua", "bột chiên",
+        "gỏi cuốn", "bánh tráng trộn", "dimsum", "trà sữa"
+    ],
+    "can-tho": [
+        "lẩu mắm", "bánh xèo củ hủ dừa", "nem nướng cái răng",
+        "vịt nấu chao", "bún nước lèo", "ốc nướng tiêu"
+    ],
+    "kien-giang": [
+        "bún quậy phú quốc", "gỏi cá trích", "ghẹ hàm ninh", "bún kèn", "hải sản phú quốc"
+    ],
+    "ba-ria-vung-tau": [
+        "bánh khọt vũng tàu", "lẩu cá đuối", "bánh bông lan trứng muối", "gỏi cá mai", "hải sản"
+    ],
+    "binh-duong": [
+        "bánh bèo bì", "gỏi măng cụt", "gà nướng sầu riêng", "lẩu bò"
+    ],
+    "dong-nai": [
+        "gỏi bưởi tân triều", "chả lụi biên hòa", "lẩu tôm năm ri"
+    ],
+    "an-giang": [
+        "bún cá châu đốc", "lẩu mắm cá linh", "bò bảy món núi sam", "bánh bò thốt nốt"
+    ],
+    "tay-ninh": [
+        "bánh tráng phơi sương", "bánh canh trảng bàng", "bò tơ tây ninh"
+    ],
+    "ca-mau": [
+        "cua cà mau", "ba khía rạch gốc", "tôm tích", "lẩu mắm u minh"
+    ],
+    "soc-trang": [
+        "bún nước lèo", "bánh pía", "bánh cóng"
     ]
 }
 
@@ -277,12 +343,18 @@ def run_full_pipeline(
     cities: Optional[List[str]] = None,
     categories: Optional[List[str]] = None,
     max_places_per_cat: int = 2,
-    max_reviews_per_place: int = 25
+    max_reviews_per_place: int = 25,
+    rotate_batch_size: int = 3
 ):
     """
     Khởi chạy toàn bộ quy trình thu thập và phân tích:
-    1. Xử lý các yêu cầu đang chờ từ người dùng.
-    2. Chạy qua toàn bộ danh mục hạt giống theo từng thành phố.
+    1. Xử lý các yêu cầu đang chờ từ người dùng (crawl_requests) trước tiên.
+    2. Quét các danh mục hạt giống theo tỉnh thành:
+       - Nếu không truyền cities: Tự động xoay tua thông minh theo giờ (3 tỉnh/chuyến chạy),
+         đảm bảo sau 12 chuyến/ngày (mỗi 2 tiếng) sẽ quét sạch toàn bộ 23+ tỉnh thành cả nước
+         mà không bị Foody chặn IP hoặc quá tải.
+       - Nếu truyền cities = ['all']: Quét toàn bộ 23+ tỉnh thành.
+       - Nếu truyền danh sách cụ thể (vd: ['da-nang', 'ha-noi']): Quét các tỉnh được chọn.
     """
     init_db()
     
@@ -292,15 +364,33 @@ def run_full_pipeline(
     print(f"⏰ Thời gian bắt đầu: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
 
-    # 1. Xử lý yêu cầu người dùng trước
-    process_pending_user_requests(max_requests=10, max_reviews=max_reviews_per_place)
+    # 1. Xử lý yêu cầu người dùng trước (Ưu tiên số 1)
+    pending_count = process_pending_user_requests(max_requests=10, max_reviews=max_reviews_per_place)
+    if pending_count > 0:
+        print(f"✅ Đã giải quyết {pending_count} yêu cầu cào từ người dùng!")
 
     # 2. Xử lý danh mục hạt giống
-    target_cities = cities or list(DEFAULT_SEEDS.keys())
+    all_city_keys = list(DEFAULT_SEEDS.keys())
+
+    if not cities:
+        # Chế độ tự động xoay tua (Rotating Batch) dựa theo giờ hiện tại
+        current_hour = datetime.utcnow().hour
+        slot = (current_hour // 2) % (max(1, len(all_city_keys) // rotate_batch_size))
+        start_idx = (slot * rotate_batch_size) % len(all_city_keys)
+        target_cities = [
+            all_city_keys[(start_idx + i) % len(all_city_keys)]
+            for i in range(rotate_batch_size)
+        ]
+        print(f"🔄 [Chế độ Xoay tua Tự động] Đợt chạy lúc {current_hour}:00 UTC chọn {len(target_cities)} tỉnh thành: {', '.join(target_cities)}")
+    elif len(cities) == 1 and cities[0].lower() in ["all", "tat-ca"]:
+        target_cities = all_city_keys
+        print(f"🌐 [Chế độ Toàn quốc] Quét toàn bộ {len(target_cities)} tỉnh thành!")
+    else:
+        target_cities = cities
 
     for city in target_cities:
-        city_seeds = categories or DEFAULT_SEEDS.get(city, ["cơm", "bún", "phở", "quán ăn"])
-        print(f"\n📍 KHU VỰC: {city.upper()} ({len(city_seeds)} danh mục)")
+        city_seeds = categories or DEFAULT_SEEDS.get(city, ["cơm", "bún", "phở", "quán ăn", "hải sản", "cà phê"])
+        print(f"\n📍 KHU VỰC: {city.upper()} ({len(city_seeds)} danh mục món)")
         
         for cat in city_seeds:
             try:
@@ -311,7 +401,7 @@ def run_full_pipeline(
                     max_reviews=max_reviews_per_place
                 )
             except Exception as e:
-                print(f"  [Lỗi danh mục '{cat}']: {e}")
+                print(f"  [Lỗi danh mục '{cat}' tại {city}]: {e}")
                 time.sleep(3.0)
 
     end_time = datetime.now()

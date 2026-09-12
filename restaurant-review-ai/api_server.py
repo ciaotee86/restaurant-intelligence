@@ -118,6 +118,66 @@ def extract_keywords_from_texts(texts: List[str], max_keywords: int = 4) -> List
     return top if top else ["hương vị", "chất lượng", "phục vụ"]
 
 
+def detect_city(addr: str) -> str:
+    """Tự động nhận diện tỉnh/thành phố từ địa chỉ quán ăn trên toàn quốc"""
+    if not addr:
+        return "Toàn quốc"
+    norm = remove_accents(addr.lower())
+    
+    if any(k in norm for k in ["da nang", "hai chau", "son tra", "ngu hanh son", "thanh khe", "cam le", "lien chieu"]):
+        return "Đà Nẵng"
+    if any(k in norm for k in ["ha noi", "hoan kiem", "ba dinh", "dong da", "cau giay", "hai ba trung", "tay ho", "thanh xuan"]):
+        return "Hà Nội"
+    if any(k in norm for k in ["ho chi minh", "tphcm", "tp hcm", "sai gon", "quan 1", "quan 3", "binh thanh", "tan binh", "thu duc"]):
+        return "TP. Hồ Chí Minh"
+    if any(k in norm for k in ["hai phong", "ngo quyen", "le chan", "hong bang"]):
+        return "Hải Phòng"
+    if any(k in norm for k in ["quang ninh", "ha long", "cam pha", "uong bi"]):
+        return "Quảng Ninh"
+    if any(k in norm for k in ["ninh binh", "tam diep", "hoa lu"]):
+        return "Ninh Bình"
+    if any(k in norm for k in ["thua thien hue", "tp hue", "huong thuy"]):
+        return "Thừa Thiên Huế"
+    if any(k in norm for k in ["quang nam", "hoi an", "tam ky"]):
+        return "Quảng Nam"
+    if any(k in norm for k in ["khanh hoa", "nha trang", "cam ranh"]):
+        return "Khánh Hòa"
+    if any(k in norm for k in ["lam dong", "da lat", "bao loc"]):
+        return "Lâm Đồng"
+    if any(k in norm for k in ["binh dinh", "quy nhon", "an nhon"]):
+        return "Bình Định"
+    if any(k in norm for k in ["nghe an", "tp vinh", "cua lo"]):
+        return "Nghệ An"
+    if any(k in norm for k in ["can tho", "ninh kieu", "cai rang", "binh thuy"]):
+        return "Cần Thơ"
+    if any(k in norm for k in ["kien giang", "phu quoc", "rach gia", "ha tien"]):
+        return "Kiên Giang"
+    if any(k in norm for k in ["vung tau", "ba ria", "ba ria - vung tau"]):
+        return "Bà Rịa - Vũng Tàu"
+    if any(k in norm for k in ["binh duong", "thu dau mot", "di an", "thuan an"]):
+        return "Bình Dương"
+    if any(k in norm for k in ["dong nai", "bien hoa", "long khanh"]):
+        return "Đồng Nai"
+    if any(k in norm for k in ["dak lak", "buon ma thuot"]):
+        return "Đắk Lắk"
+    if any(k in norm for k in ["an giang", "long xuyen", "chau doc"]):
+        return "An Giang"
+    if any(k in norm for k in ["tay ninh", "trang bang"]):
+        return "Tây Ninh"
+    if any(k in norm for k in ["ca mau", "nam can"]):
+        return "Cà Mau"
+    if any(k in norm for k in ["soc trang"]):
+        return "Sóc Trăng"
+    if any(k in norm for k in ["binh thuan", "phan thiet"]):
+        return "Bình Thuận"
+    if any(k in norm for k in ["phu yen", "tuy hoa"]):
+        return "Phú Yên"
+    if any(k in norm for k in ["lao cai", "sa pa", "sapa"]):
+        return "Lào Cai"
+    
+    return "Toàn quốc"
+
+
 def format_restaurant_full(restaurant: DBRestaurant, db) -> dict:
     """
     Chuyển đổi dữ liệu từ SQLite DB sang chuẩn dữ liệu của React Dashboard
@@ -497,7 +557,7 @@ def format_restaurant_full(restaurant: DBRestaurant, db) -> dict:
     display_rating = round(raw_rating / 2, 1) if raw_rating > 5 else round(raw_rating, 1)
 
     addr = restaurant.address or ""
-    city = "Đà Nẵng" if "Đà Nẵng" in addr or "Da Nang" in addr else ("Hà Nội" if "Hà Nội" in addr else "TP. Hồ Chí Minh")
+    city = detect_city(addr)
 
     # Đoán ẩm thực từ tên
     name_lower = restaurant.name.lower()
@@ -944,7 +1004,7 @@ def get_suggestions(q: str = ""):
                     "id": f"res-{r.id}",
                     "name": r.name,
                     "address": r.address or "",
-                    "city": "Đà Nẵng" if "đà nẵng" in (r.address or "").lower() else "Toàn quốc",
+                    "city": detect_city(r.address or ""),
                     "rating": r.overall_rating or 8.0,
                     "totalReviews": rev_count
                 })

@@ -7,9 +7,33 @@ interface FilterBarProps {
   onChange: (filters: SearchFilterState) => void;
   onReset: () => void;
 }
-
 export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, onReset }) => {
-  const cities = ['Tất cả địa điểm', 'Hà Nội', 'TP. Hồ Chí Minh', 'Đà Nẵng'];
+  const cities = [
+    'Tất cả địa điểm',
+    'Đà Nẵng',
+    'Hà Nội',
+    'TP. Hồ Chí Minh',
+    'Thừa Thiên Huế',
+    'Quảng Nam',
+    'Khánh Hòa',
+    'Lâm Đồng',
+    'Hải Phòng',
+    'Quảng Ninh',
+    'Cần Thơ',
+    'Kiên Giang',
+    'Bà Rịa - Vũng Tàu',
+    'Bình Định',
+    'Nghệ An',
+    'Đắk Lắk',
+    'Ninh Bình',
+    'Lào Cai',
+    'Bình Dương',
+    'Đồng Nai',
+    'An Giang',
+    'Tây Ninh',
+    'Cà Mau',
+    'Sóc Trăng'
+  ];
   const cuisines = [
     'Tất cả ẩm thực',
     'Ý',
