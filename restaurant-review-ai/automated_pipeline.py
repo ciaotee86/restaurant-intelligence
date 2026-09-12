@@ -373,15 +373,15 @@ def run_full_pipeline(
     all_city_keys = list(DEFAULT_SEEDS.keys())
 
     if not cities:
-        # Chế độ tự động xoay tua (Rotating Batch) dựa theo giờ hiện tại
-        current_hour = datetime.utcnow().hour
-        slot = (current_hour // 2) % (max(1, len(all_city_keys) // rotate_batch_size))
+        # Chế độ tự động xoay tua (Rotating Batch) dựa theo chu kỳ 15 phút
+        now = datetime.utcnow()
+        slot = (now.hour * 4 + now.minute // 15) % (max(1, len(all_city_keys) // rotate_batch_size))
         start_idx = (slot * rotate_batch_size) % len(all_city_keys)
         target_cities = [
             all_city_keys[(start_idx + i) % len(all_city_keys)]
             for i in range(rotate_batch_size)
         ]
-        print(f"🔄 [Chế độ Xoay tua Tự động] Đợt chạy lúc {current_hour}:00 UTC chọn {len(target_cities)} tỉnh thành: {', '.join(target_cities)}")
+        print(f"🔄 [Chế độ Xoay tua 15 phút] Đợt chạy lúc {now.strftime('%H:%M')} UTC chọn {len(target_cities)} tỉnh thành: {', '.join(target_cities)}")
     elif len(cities) == 1 and cities[0].lower() in ["all", "tat-ca"]:
         target_cities = all_city_keys
         print(f"🌐 [Chế độ Toàn quốc] Quét toàn bộ {len(target_cities)} tỉnh thành!")

@@ -2,8 +2,8 @@ name: Scheduled Foody AI Crawler
 
 on:
   schedule:
-    # Chạy tự động định kỳ mỗi 2 tiếng (00:00, 02:00, 04:00, 06:00, 08:00, 10:00, 12:00, 14:00, 16:00, 18:00, 20:00, 22:00 UTC)
-    - cron: '0 */2 * * *'
+    # Chạy tự động định kỳ mỗi 15 phút một lần
+    - cron: '*/15 * * * *'
   workflow_dispatch:
     # Cho phép bấm nút "Run workflow" thủ công trên giao diện web GitHub
     inputs:
