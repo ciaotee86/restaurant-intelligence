@@ -52,8 +52,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 text-center">
-        <div className="inline-block w-8 h-8 border-2 border-zinc-900 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-sm font-medium text-zinc-600">Đang tải tập dữ liệu phân tích nhà hàng...</p>
+        <div className="inline-block w-8 h-8 border-2 border-[#C2410C] border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-sm font-medium text-zinc-600">Đang chuẩn bị báo cáo đánh giá quán ăn...</p>
       </div>
     );
   }
@@ -61,15 +61,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   if (!restaurant) {
     return (
       <div className="max-w-xl mx-auto px-4 py-24 text-center">
-        <h2 className="text-xl font-bold text-zinc-900 mb-2">Không tìm thấy nhà hàng</h2>
+        <h2 className="text-xl font-bold text-zinc-900 mb-2">Không tìm thấy quán ăn</h2>
         <p className="text-sm text-zinc-600 mb-6">
-          Mã định danh nhà hàng yêu cầu không tồn tại trong cơ sở dữ liệu đã phân tích.
+          Quán ăn bạn tìm kiếm hiện chưa có dữ liệu đánh giá hoặc đường dẫn không chính xác.
         </p>
         <button
           onClick={onBackToExplore}
-          className="px-4 py-2 bg-zinc-900 text-white rounded-md text-xs font-semibold"
+          className="px-4 py-2 bg-[#18181B] hover:bg-[#C2410C] text-white rounded-md text-xs font-semibold transition-colors"
         >
-          Quay lại trang khám phá
+          Quay lại danh sách quán
         </button>
       </div>
     );

@@ -100,7 +100,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               : 'px-3.5 py-1.5 text-xs'
           }`}
         >
-          <span>Phân tích</span>
+          <span>Xem đánh giá</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </form>
@@ -111,7 +111,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           {suggestions.length > 0 && (
             <>
               <div className="px-3 py-2 bg-zinc-50/80 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
-                Quán đã có sẵn trong hệ thống
+                Quán ăn đã có báo cáo
               </div>
               {suggestions.map((item) => (
                 <button
@@ -138,7 +138,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                     </div>
                   </div>
                   <span className="text-xs font-medium text-zinc-400 group-hover:text-[#C2410C] group-hover:translate-x-0.5 transition-all">
-                    Xem phân tích →
+                    Xem đánh giá →
                   </span>
                 </button>
               ))}
@@ -160,15 +160,15 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               </div>
               <div>
                 <span className="text-xs font-bold text-[#18181B] group-hover:text-[#C2410C]">
-                  Tìm kiếm & AI Phân tích quán "{query}" trên Foody.vn
+                  Tìm & tổng hợp đánh giá quán "{query}"
                 </span>
                 <span className="block text-[11px] text-zinc-500">
-                  Tự động cào đánh giá thật và dùng Gemini AI phân tích khía cạnh (ABSA)
+                  Đọc nhanh nhận xét từ thực khách thực tế và tóm tắt mức độ hài lòng
                 </span>
               </div>
             </div>
             <span className="text-[11px] font-semibold bg-[#C2410C] text-white px-2.5 py-1 rounded shadow-2xs">
-              Tìm trên Foody →
+              Xem ngay →
             </span>
           </button>
         </div>

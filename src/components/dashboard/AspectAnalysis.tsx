@@ -21,11 +21,11 @@ export const AspectAnalysis: React.FC<AspectAnalysisProps> = ({
             Khách hàng nói gì nhiều nhất
           </h2>
           <p className="text-xs text-[#71717A] mt-0.5">
-            Phân tích khía cạnh (ABSA) thể hiện mức độ quan tâm và phân bổ cảm xúc theo từng chủ đề
+            Mức độ quan tâm và tỷ lệ khen - chê của thực khách theo từng chủ đề
           </p>
         </div>
-        <span className="text-xs font-mono text-zinc-500 self-start sm:self-auto bg-zinc-50 px-2 py-1 rounded border border-zinc-200">
-          5 Khía cạnh cốt lõi
+        <span className="text-xs font-semibold text-zinc-600 self-start sm:self-auto bg-zinc-50 px-2.5 py-1 rounded border border-zinc-200">
+          5 Yếu tố đánh giá
         </span>
       </div>
 

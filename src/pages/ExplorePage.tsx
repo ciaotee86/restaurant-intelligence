@@ -171,13 +171,13 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
         <div>
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#C2410C] mb-1">
             <Compass className="w-4 h-4" />
-            <span>Kho dữ liệu phân tích sẵn (Instant Query)</span>
+            <span>Danh mục quán ăn đã đánh giá</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-[#18181B] tracking-tight">
-            {isSearchActive ? `Kết quả cho "${filters.query}"` : 'Khám phá nhà hàng'}
+            {isSearchActive ? `Kết quả cho "${filters.query}"` : 'Khám phá quán ăn'}
           </h1>
           <p className="text-xs sm:text-sm text-[#71717A] mt-1">
-            Tra cứu phân bổ cảm xúc và chỉ số khía cạnh trên các quán ăn tại Việt Nam từ cơ sở dữ liệu đã phân tích sẵn.
+            Tra cứu mức độ hài lòng thực tế và đánh giá chi tiết của thực khách tại các quán ăn trên toàn quốc.
           </p>
         </div>
 
@@ -233,8 +233,8 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
           <div className="flex items-center gap-2.5">
             <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600 shrink-0" />
             <div>
-              <p className="font-semibold text-sm">Gửi yêu cầu thu thập thành công!</p>
-              <p className="text-[11px] text-emerald-800/90 mt-0.5">{queueMessage}</p>
+              <p className="font-semibold text-sm">Gửi yêu cầu thành công!</p>
+              <p className="text-[11px] text-emerald-800/90 mt-0.5">{queueMessage || 'Hệ thống sẽ cập nhật quán này trong thời gian sớm nhất.'}</p>
             </div>
           </div>
           <button
@@ -249,7 +249,7 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
       {/* Kết quả số lượng & Trạng thái truy vấn */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#71717A] pt-1">
         <span className="font-medium text-[#18181B]">
-          {loading ? 'Đang truy vấn database...' : `Tìm thấy ${restaurants.length} quán ăn phù hợp trong cơ sở dữ liệu`}
+          {loading ? 'Đang tìm kiếm quán ăn...' : `Tìm thấy ${restaurants.length} quán ăn phù hợp`}
         </span>
         
         {isSearchActive && (
@@ -281,10 +281,10 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
               <div className="py-6 space-y-3 text-center">
                 <Loader2 className="w-9 h-9 text-[#C2410C] animate-spin mx-auto" />
                 <h4 className="text-sm font-bold text-[#18181B]">
-                  Đang tự động tìm kiếm trên Foody & chạy Gemini AI phân tích...
+                  Đang tổng hợp đánh giá thực tế từ thực khách...
                 </h4>
                 <p className="text-xs text-zinc-500 max-w-md mx-auto leading-relaxed">
-                  {directCrawlMessage || 'Hệ thống đang mở trình duyệt ngầm, trích xuất đánh giá thực tế và gọi Gemini AI phân tích. Vui lòng đợi trong giây lát (~20 - 30 giây)...'}
+                  {directCrawlMessage || 'Hệ thống đang đọc các nhận xét công khai từ thực khách trên Foody và lập báo cáo tóm tắt. Vui lòng đợi trong giây lát (~20 - 30 giây)...'}
                 </p>
               </div>
             ) : (
@@ -292,17 +292,17 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
                 <div>
                   <h3 className="text-base font-bold text-[#18181B] mb-1">
                     {isSearchActive
-                      ? `Chưa có dữ liệu cho "${filters.query}" trong kho phân tích`
+                      ? `Chưa có dữ liệu cho "${filters.query}"`
                       : filters.city !== 'Tất cả địa điểm'
                       ? `Chưa có dữ liệu cho khu vực "${filters.city}"`
-                      : 'Không tìm thấy nhà hàng nào'}
+                      : 'Không tìm thấy quán ăn nào'}
                   </h3>
                   <p className="text-xs text-[#71717A] max-w-md mx-auto leading-relaxed">
                     {isSearchActive
-                      ? `Quán ăn "${filters.query}" chưa được lưu trong cơ sở dữ liệu. Bạn có thể chọn Cào trực tiếp để lấy kết quả ngay sau 25s, hoặc Gửi yêu cầu để hệ thống tự cào ngầm.`
+                      ? `Quán ăn "${filters.query}" chưa có trong danh mục. Bạn có thể bấm nút bên dưới để hệ thống đọc đánh giá và lập báo cáo ngay sau 25 giây, hoặc gửi yêu cầu cập nhật sau.`
                       : filters.city !== 'Tất cả địa điểm'
-                      ? `Khu vực "${filters.city}" chưa có quán ăn được cào trong kho. Bạn có thể bấm cào ngay các quán đặc sản tại ${filters.city} hoặc chuyển bộ lọc sang "Tất cả địa điểm".`
-                      : 'Không có nhà hàng nào khớp với các thiết lập bộ lọc hiện tại của bạn.'}
+                      ? `Khu vực "${filters.city}" chưa có quán ăn trong danh mục hiện tại. Bạn có thể bấm xem ngay các quán nổi bật tại ${filters.city} hoặc chọn "Tất cả địa điểm".`
+                      : 'Không có quán ăn nào khớp với các thiết lập bộ lọc hiện tại của bạn.'}
                   </p>
                 </div>
 
@@ -314,7 +314,7 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
                 )}
 
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                  {/* Nút 1: Cào & Phân tích trực tiếp (Lấy kết quả ngay sau 20-30s) */}
+                  {/* Nút 1: Tổng hợp trực tiếp */}
                   <button
                     onClick={handleDirectCrawl}
                     className="inline-flex items-center gap-1.5 px-4.5 py-2.5 bg-[#18181B] hover:bg-zinc-800 text-white text-xs font-semibold rounded-lg shadow-sm transition-all transform active:scale-95"
@@ -322,14 +322,14 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
                     <Zap className="w-3.5 h-3.5 text-amber-400" />
                     <span>
                       {isSearchActive
-                        ? `⚡ Cào & AI Phân Tích Ngay "${filters.query}" (~25s)`
+                        ? `⚡ Tổng hợp đánh giá "${filters.query}" ngay (~25s)`
                         : filters.city !== 'Tất cả địa điểm'
-                        ? `⚡ Cào ngay quán ngon tại ${filters.city} (~25s)`
-                        : '⚡ Cào & AI Phân Tích Quán Mới (~25s)'}
+                        ? `⚡ Xem quán nổi bật tại ${filters.city} (~25s)`
+                        : '⚡ Tổng hợp đánh giá quán mới (~25s)'}
                     </span>
                   </button>
 
-                  {/* Nút 2: Gửi yêu cầu cào ngầm vào hàng đợi */}
+                  {/* Nút 2: Gửi yêu cầu cập nhật */}
                   {isSearchActive && (
                     queueStatus !== 'submitted' ? (
                       <button
@@ -341,12 +341,12 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
                         <span>
                           {queueStatus === 'submitting'
                             ? 'Đang gửi...'
-                            : `📋 Gửi yêu cầu cào ngầm`}
+                            : `📋 Yêu cầu thêm quán này`}
                         </span>
                       </button>
                     ) : (
                       <span className="text-xs text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-200">
-                        ✅ Đã ghi nhận yêu cầu vào hàng đợi!
+                        ✅ Đã ghi nhận yêu cầu của bạn!
                       </span>
                     )
                   )}
@@ -372,13 +372,13 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
             )}
           </div>
 
-          {/* Gợi ý các quán đang có sẵn trong kho dữ liệu */}
+          {/* Gợi ý các quán đang có sẵn */}
           {allAvailableRestaurants.length > 0 && (
             <div className="space-y-4 pt-4 border-t border-zinc-200">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-[#18181B] flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-[#C2410C]" />
-                  <span>Các quán ăn nổi bật đã được phân tích sẵn trong hệ thống:</span>
+                  <span>Gợi ý một số quán ăn nổi bật dành cho bạn:</span>
                 </h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

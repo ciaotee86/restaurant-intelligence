@@ -32,7 +32,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Restaurant Intelligence
               </span>
               <span className="text-[11px] text-[#71717A] tracking-wider uppercase font-medium mt-0.5">
-                Phân tích đánh giá
+                Đọc vị đánh giá ẩm thực
               </span>
             </div>
           </button>
@@ -48,7 +48,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Compass className="w-4 h-4 text-[#71717A]" />
-              Nhà hàng
+              Khám phá quán
             </button>
 
             <button
@@ -60,7 +60,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <HelpCircle className="w-4 h-4 text-[#71717A]" />
-              Quy trình hoạt động
+              Cách hoạt động
             </button>
           </nav>
         </div>
@@ -73,7 +73,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#C2410C] hover:bg-[#9a3412] text-white rounded-md text-xs font-semibold shadow-2xs transition-colors"
             >
               <PlusCircle className="w-3.5 h-3.5" />
-              <span>Phân tích link Foody</span>
+              <span>+ Thêm quán mới</span>
             </button>
           )}
 
@@ -86,7 +86,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-white border border-[#E4E4E7] rounded-md text-xs font-medium text-[#71717A] hover:border-zinc-400 hover:text-[#18181B] transition-colors shadow-2xs"
             >
               <Search className="w-3.5 h-3.5 text-zinc-400" />
-              <span className="hidden md:inline">Tìm kiếm nhà hàng...</span>
+              <span className="hidden md:inline">Tìm quán ăn...</span>
               <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-[10px] bg-zinc-100 border border-zinc-200 rounded text-zinc-500 font-mono">
                 ⌘K
               </kbd>
@@ -95,7 +95,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <div className="hidden xl:flex items-center gap-2 text-xs font-medium text-[#71717A] bg-zinc-100/80 px-2.5 py-1.5 rounded border border-zinc-200/60">
             <Layers className="w-3.5 h-3.5 text-zinc-500" />
-            <span>Dữ liệu Foody & Gemini</span>
+            <span>Tổng hợp từ thực khách</span>
           </div>
         </div>
 

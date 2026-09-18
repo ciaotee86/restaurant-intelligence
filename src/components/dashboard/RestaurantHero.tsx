@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, Calendar, Database, Star, ArrowLeft } from 'lucide-react';
+import { MapPin, Calendar, Layers, Star, ArrowLeft } from 'lucide-react';
 import type { Restaurant } from '../../types/restaurant';
 import { formatNumber } from '../../utils/sentimentUtils';
 
@@ -55,11 +55,11 @@ export const RestaurantHero: React.FC<RestaurantHeroProps> = ({ restaurant, onBa
           <div className="flex flex-wrap items-center gap-4 text-xs text-[#71717A] border-t lg:border-t-0 pt-4 lg:pt-0 border-zinc-100">
             <div className="flex items-center gap-1.5 bg-zinc-50 px-2.5 py-1.5 rounded border border-zinc-200">
               <Calendar className="w-3.5 h-3.5 text-zinc-400" />
-              <span>Phân tích gần nhất: <strong className="font-medium text-zinc-800">{restaurant.lastAnalyzedDate}</strong></span>
+              <span>Cập nhật: <strong className="font-medium text-zinc-800">{restaurant.lastAnalyzedDate}</strong></span>
             </div>
 
             <div className="flex items-center gap-1.5 bg-zinc-50 px-2.5 py-1.5 rounded border border-zinc-200">
-              <Database className="w-3.5 h-3.5 text-zinc-400" />
+              <Layers className="w-3.5 h-3.5 text-zinc-400" />
               <span>Nguồn: <strong className="font-medium text-zinc-800">{restaurant.dataSource}</strong></span>
             </div>
           </div>

@@ -22,16 +22,16 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               </span>
             </div>
             <p className="text-xs text-[#71717A] max-w-md leading-relaxed">
-              Nền tảng phân tích công khai chuyển đổi dữ liệu đánh giá phi cấu trúc từ Foody thành thông tin phân tích khía cạnh (ABSA), đề xuất vận hành và báo cáo cảm xúc khách hàng.
+              Nền tảng đọc vị đánh giá ẩm thực từ thực khách thực tế. Giúp thực khách chọn đúng quán ngon và giúp chủ quán nắm bắt phản hồi để nâng cao chất lượng phục vụ.
             </p>
             <div className="flex items-center gap-4 text-[11px] text-[#71717A] pt-1">
               <span className="flex items-center gap-1">
                 <Database className="w-3.5 h-3.5 text-zinc-400" />
-                Nguồn dữ liệu: Đánh giá được thu thập và phân tích từ Foody
+                Nguồn: Tổng hợp từ nhận xét công khai trên Foody
               </span>
               <span className="flex items-center gap-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-zinc-400" />
-                Không cần đăng nhập · Tra cứu mở hoàn toàn
+                Hoàn toàn miễn phí · Tra cứu tức thì
               </span>
             </div>
           </div>

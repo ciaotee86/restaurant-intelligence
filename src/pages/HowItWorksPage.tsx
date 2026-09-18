@@ -1,5 +1,5 @@
 import React from 'react';
-import { DownloadCloud, Sparkles, Cpu, BarChart2, CheckCircle, Database, Server, Terminal, Shield } from 'lucide-react';
+import { DownloadCloud, Sparkles, Utensils, BarChart2, CheckCircle, Shield, HeartHandshake, Eye } from 'lucide-react';
 
 interface HowItWorksPageProps {
   onNavigateExplore: () => void;
@@ -9,35 +9,31 @@ export const HowItWorksPage: React.FC<HowItWorksPageProps> = ({ onNavigateExplor
   const steps = [
     {
       number: "01",
-      title: "Thu thập (Collect)",
-      subtitle: "Trích xuất dữ liệu",
-      description: "Đánh giá của khách hàng, số sao, thời gian đăng tải và nội dung bình luận được thu thập từ nền tảng nguồn (Foody).",
-      icon: DownloadCloud,
-      technicalDetails: "Hệ thống crawler Selenium tự động trích xuất nội dung bài viết thô, đánh dấu lượt ghé thăm và thông tin ngữ cảnh."
+      title: "Thu thập đánh giá",
+      subtitle: "Ý kiến từ thực khách",
+      description: "Tập hợp các nhận xét, số sao và trải nghiệm thực tế mà thực khách đã công khai chia sẻ sau khi đến quán.",
+      highlight: "Nguồn gốc minh bạch từ người đi ăn thật."
     },
     {
       number: "02",
-      title: "Tiền xử lý (Process)",
-      subtitle: "Chuẩn hóa văn bản tiếng Việt",
-      description: "Văn bản nhận xét tiếng Việt được làm sạch, tách từ (tokenization), loại bỏ nhiễu, sửa lỗi chính tả và chuẩn hóa ngữ pháp.",
-      icon: Sparkles,
-      technicalDetails: "Áp dụng công cụ tách từ tiếng Việt (VnCoreNLP), xử lý từ dừng (stopwords), teencode và chuẩn hóa dấu câu tiếng Việt."
+      title: "Lọc bỏ bình luận rác",
+      subtitle: "Giữ lại thông tin thực chất",
+      description: "Tự động loại bỏ các câu từ vô nghĩa, bình luận spam hoặc tin quảng cáo để chỉ giữ lại những trải nghiệm thực tế.",
+      highlight: "Thông tin cô đọng, loại bỏ nội dung rác."
     },
     {
       number: "03",
-      title: "Phân tích (Analyze)",
-      subtitle: "Phân tích cảm xúc theo khía cạnh (ABSA)",
-      description: "Mô hình NLP nhận diện phân cực cảm xúc (tích cực, trung lập, tiêu cực) gán cho 5 khía cạnh cốt lõi: Món ăn, Dịch vụ, Giá cả, Không gian và Vị trí.",
-      icon: Cpu,
-      technicalDetails: "Mô hình Transformer PhoBERT tinh chỉnh trích xuất các thực thể khía cạnh và chấm điểm cảm xúc từng cụm từ kèm độ tin cậy."
+      title: "Bóc tách 5 khía cạnh",
+      subtitle: "Phân loại khen - chê chi tiết",
+      description: "Phân tách rõ ràng: Khách khen món nào? Phàn nàn giá cả ra sao? Phục vụ nhanh hay chậm? Không gian có thoải mái không?",
+      highlight: "Đánh giá đa chiều, không bị lẫn lộn."
     },
     {
       number: "04",
-      title: "Thấu hiểu (Understand)",
-      subtitle: "Tổng hợp chỉ số thông minh",
-      description: "Hệ thống tổng hợp dữ liệu thành các chỉ số cấp cao, biểu đồ xu hướng thời gian, cụm vấn đề cần khắc phục và đề xuất vận hành.",
-      icon: BarChart2,
-      technicalDetails: "Công cụ thống kê tính toán tỷ lệ hài lòng theo khía cạnh, tần suất khiếu nại và lập báo cáo phục vụ quản lý nhà hàng."
+      title: "Bức tranh toàn cảnh",
+      subtitle: "Báo cáo tức thì",
+      description: "Đưa ra bảng điểm hài lòng, danh sách món nên gọi, những điểm trừ cần lưu ý và gợi ý hữu ích cho người đi ăn.",
+      highlight: "Tiết kiệm thời gian, chọn đúng quán ngon."
     }
   ];
 
@@ -46,135 +42,116 @@ export const HowItWorksPage: React.FC<HowItWorksPageProps> = ({ onNavigateExplor
       
       {/* Tiêu đề trang */}
       <div className="text-center max-w-3xl mx-auto space-y-3">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-100 text-xs font-semibold text-zinc-600 border border-zinc-200">
-          <Database className="w-3.5 h-3.5 text-[#C2410C]" />
-          <span>Kiến trúc hệ thống & Phương pháp luận</span>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-50 text-xs font-semibold text-[#C2410C] border border-orange-200/80">
+          <Eye className="w-3.5 h-3.5" />
+          <span>Minh bạch & Khách quan</span>
         </div>
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#18181B] tracking-tight">
-          Quy trình hoạt động
+          Cách Restaurant Intelligence hoạt động
         </h1>
         <p className="text-sm sm:text-base text-[#52525B] leading-relaxed">
-          Từ các bài đánh giá phi cấu trúc trên Foody đến các chỉ số vận hành có chiều sâu theo từng khía cạnh.
+          Làm thế nào để từ hàng trăm nhận xét rời rạc biến thành bức tranh toàn cảnh rõ ràng chỉ trong vài giây?
         </p>
       </div>
 
       {/* 4 Thẻ quy trình */}
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {steps.map((step, idx) => {
-          const Icon = step.icon;
-          return (
-            <div
-              key={idx}
-              className="bg-white border border-[#E4E4E7] rounded-xl p-6 flex flex-col justify-between hover:border-zinc-400 transition-colors shadow-2xs group"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <span className="font-mono text-2xl font-bold text-[#C2410C]">
-                    {step.number}
-                  </span>
-                  <div className="w-9 h-9 rounded-lg bg-zinc-50 border border-zinc-200 flex items-center justify-center text-zinc-700 group-hover:bg-orange-50 group-hover:text-[#C2410C] transition-colors">
-                    <Icon className="w-4 h-4" />
-                  </div>
+        {steps.map((step, idx) => (
+          <div
+            key={idx}
+            className="bg-white border border-[#E4E4E7] rounded-xl p-6 flex flex-col justify-between hover:border-orange-300 transition-colors shadow-2xs group"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <span className="font-mono text-2xl font-bold text-[#C2410C]">
+                  {step.number}
+                </span>
+                <div className="w-9 h-9 rounded-lg bg-orange-50/60 border border-orange-100 flex items-center justify-center text-[#C2410C] group-hover:bg-[#C2410C] group-hover:text-white transition-colors">
+                  {idx === 0 && <DownloadCloud className="w-4 h-4" />}
+                  {idx === 1 && <Sparkles className="w-4 h-4" />}
+                  {idx === 2 && <Utensils className="w-4 h-4" />}
+                  {idx === 3 && <BarChart2 className="w-4 h-4" />}
                 </div>
-
-                <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-0.5">
-                  {step.subtitle}
-                </div>
-                <h3 className="text-xl font-bold text-[#18181B] tracking-tight mb-2">
-                  {step.title}
-                </h3>
-                <p className="text-xs sm:text-sm text-[#52525B] leading-relaxed mb-4">
-                  {step.description}
-                </p>
               </div>
 
-              <div className="pt-3 border-t border-zinc-100 text-[11px] text-[#71717A] bg-zinc-50/70 p-2.5 rounded border border-zinc-100">
-                <strong className="text-zinc-800 font-semibold block mb-0.5">Kỹ thuật:</strong>
-                {step.technicalDetails}
+              <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-0.5">
+                {step.subtitle}
               </div>
+              <h3 className="text-lg font-bold text-[#18181B] tracking-tight mb-2">
+                {step.title}
+              </h3>
+              <p className="text-xs sm:text-sm text-[#52525B] leading-relaxed mb-4">
+                {step.description}
+              </p>
             </div>
-          );
-        })}
+
+            <div className="pt-3 border-t border-zinc-100 text-[11px] font-medium text-[#C2410C] bg-orange-50/50 p-2.5 rounded border border-orange-100/60">
+              ✓ {step.highlight}
+            </div>
+          </div>
+        ))}
       </section>
 
-      {/* Sơ đồ kiến trúc luồng dữ liệu */}
+      {/* Cam kết chất lượng sản phẩm */}
       <section className="bg-white border border-[#E4E4E7] rounded-xl p-6 sm:p-8 space-y-6">
         <div>
           <div className="text-xs font-bold uppercase tracking-wider text-[#C2410C] mb-1">
-            Luồng dữ liệu
+            Cam kết giá trị
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-[#18181B] tracking-tight">
-            Kiến trúc luồng xử lý đầu-cuối
+            Nguyên tắc phục vụ của chúng tôi
           </h2>
           <p className="text-xs sm:text-sm text-[#71717A] mt-1">
-            Được thiết kế theo cấu trúc module linh hoạt giữa crawler thu thập, dịch vụ suy luận NLP và giao diện phân tích phía client.
+            Chúng tôi xây dựng nền tảng này nhằm giải quyết nỗi thất vọng khi đọc phải đánh giá ảo hoặc mất hàng giờ tìm quán ăn.
           </p>
         </div>
 
-        {/* Khung sơ đồ trực quan */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-center">
-          <div className="bg-zinc-50 border border-zinc-200 p-4 rounded-lg flex flex-col items-center justify-center">
-            <Server className="w-6 h-6 text-zinc-700 mb-2" />
-            <span className="text-xs font-bold text-[#18181B]">Cổng Foody</span>
-            <span className="text-[10px] text-zinc-500 font-mono mt-0.5">Bộ thu thập Selenium</span>
-          </div>
-
-          <div className="flex items-center justify-center text-zinc-300 font-mono text-lg hidden md:flex">
-            →
-          </div>
-
-          <div className="bg-zinc-50 border border-zinc-200 p-4 rounded-lg flex flex-col items-center justify-center">
-            <Terminal className="w-6 h-6 text-[#C2410C] mb-2" />
-            <span className="text-xs font-bold text-[#18181B]">Mô hình NLP ABSA</span>
-            <span className="text-[10px] text-zinc-500 font-mono mt-0.5">PhoBERT / Bộ tách khía cạnh</span>
-          </div>
-
-          <div className="flex items-center justify-center text-zinc-300 font-mono text-lg hidden md:flex">
-            →
-          </div>
-
-          <div className="bg-zinc-50 border border-zinc-200 p-4 rounded-lg flex flex-col items-center justify-center">
-            <BarChart2 className="w-6 h-6 text-emerald-600 mb-2" />
-            <span className="text-xs font-bold text-[#18181B]">Restaurant Intelligence</span>
-            <span className="text-[10px] text-zinc-500 font-mono mt-0.5">React / Tailwind / Giao diện BI</span>
-          </div>
-        </div>
-
-        {/* Cam kết phương pháp luận */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-zinc-100 text-xs">
-          <div className="flex items-start gap-2">
-            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2 text-xs sm:text-sm">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100">
+              <CheckCircle className="w-4 h-4" />
+            </div>
             <div>
-              <strong className="text-[#18181B] font-semibold block">Độ chi tiết cấp khía cạnh</strong>
-              <span className="text-[#52525B]">Phân tách rõ ràng các nhận xét vừa khen món ăn nhưng vừa phàn nàn về dịch vụ hoặc thời gian chờ.</span>
+              <strong className="text-[#18181B] font-bold block mb-1">Tách bạch rõ ràng khen & chê</strong>
+              <span className="text-[#52525B] leading-relaxed">
+                Một quán có thể nấu ăn rất ngon nhưng phục vụ chậm hoặc gửi xe khó. Chúng tôi phân tách từng yếu tố để bạn không bị đánh đồng.
+              </span>
             </div>
           </div>
 
-          <div className="flex items-start gap-2">
-            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 border border-blue-100">
+              <HeartHandshake className="w-4 h-4" />
+            </div>
             <div>
-              <strong className="text-[#18181B] font-semibold block">Minh bạch nguồn gốc</strong>
-              <span className="text-[#52525B]">Mọi chỉ số tổng hợp đều có thể truy vết trực tiếp về trích đoạn bài viết thực tế từ thực khách.</span>
+              <strong className="text-[#18181B] font-bold block mb-1">Không thiên vị bất kỳ quán nào</strong>
+              <span className="text-[#52525B] leading-relaxed">
+                Các chỉ số được tổng hợp tự động từ nhận xét thực tế. Không nhận tiền quảng cáo để nói tốt cho quán dở.
+              </span>
             </div>
           </div>
 
-          <div className="flex items-start gap-2">
-            <Shield className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-orange-50 text-[#C2410C] flex items-center justify-center shrink-0 border border-orange-100">
+              <Shield className="w-4 h-4" />
+            </div>
             <div>
-              <strong className="text-[#18181B] font-semibold block">Chuẩn mực Business Intelligence</strong>
-              <span className="text-[#52525B]">Không tạo nội dung ảo hay hội thoại lan man; hoàn toàn tập trung vào dữ liệu và chỉ số định lượng.</span>
+              <strong className="text-[#18181B] font-bold block mb-1">Có thể xem lại đánh giá gốc</strong>
+              <span className="text-[#52525B] leading-relaxed">
+                Mọi kết luận về món ăn hay thái độ nhân viên đều có thể bấm vào để đọc lại chính xác bình luận nguyên bản của thực khách.
+              </span>
             </div>
           </div>
         </div>
       </section>
 
       {/* Nút hành động */}
-      <div className="text-center pt-4">
+      <div className="text-center pt-2">
         <button
           onClick={onNavigateExplore}
-          className="px-6 py-3 bg-[#18181B] hover:bg-[#C2410C] text-white font-semibold text-sm rounded-lg transition-colors shadow-sm"
+          className="px-6 py-3 bg-[#18181B] hover:bg-[#C2410C] text-white font-semibold text-xs sm:text-sm rounded-lg transition-colors shadow-sm"
         >
-          Khám phá các nhà hàng đã phân tích ngay →
+          Khám phá các quán ăn đã đánh giá ngay →
         </button>
       </div>
 

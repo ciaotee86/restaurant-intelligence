@@ -79,10 +79,10 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
             </div>
             <div>
               <h3 className="text-sm font-bold text-[#18181B] tracking-tight">
-                Phân tích nhà hàng mới bằng AI
+                Tổng hợp đánh giá quán ăn mới
               </h3>
               <p className="text-[11px] text-[#71717A]">
-                Tìm kiếm tự động trên Foody hoặc nhập đường link trực tiếp
+                Tìm quán trên Foody hoặc dán liên kết để xem tóm tắt đánh giá
               </p>
             </div>
           </div>
@@ -208,8 +208,8 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
             <div className="p-3.5 bg-orange-50 border border-orange-200/80 rounded-lg flex items-center gap-3 text-xs text-orange-900">
               <Loader2 className="w-4 h-4 text-[#C2410C] animate-spin shrink-0" />
               <div>
-                <p className="font-semibold">Đang tự động thu thập dữ liệu & phân tích AI...</p>
-                <p className="text-[11px] text-orange-800/80 mt-0.5">{statusText || 'Selenium đang quét Foody và gửi review cho Gemini AI.'}</p>
+                <p className="font-semibold">Đang tổng hợp đánh giá từ thực khách...</p>
+                <p className="text-[11px] text-orange-800/80 mt-0.5">{statusText || 'Hệ thống đang đọc các nhận xét mới nhất và tính toán mức độ hài lòng...'}</p>
               </div>
             </div>
           )}
@@ -218,8 +218,8 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
             <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3 text-xs text-emerald-900">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <div>
-                <p className="font-semibold">Phân tích hoàn tất thành công!</p>
-                <p className="text-[11px] text-emerald-800/80 mt-0.5">Dữ liệu đã được lưu vào hệ thống. Đang chuyển hướng tới dashboard...</p>
+                <p className="font-semibold">Đã hoàn tất tổng hợp!</p>
+                <p className="text-[11px] text-emerald-800/80 mt-0.5">Báo cáo đánh giá đã sẵn sàng. Đang chuyển hướng tới trang chi tiết...</p>
               </div>
             </div>
           )}
@@ -228,7 +228,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
             <div className="p-3.5 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3 text-xs text-red-900">
               <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold">Không thể hoàn tất phân tích</p>
+                <p className="font-semibold">Không thể tổng hợp đánh giá</p>
                 <p className="text-[11px] text-red-800/80 mt-0.5">{errorMessage}</p>
               </div>
             </div>
@@ -250,7 +250,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
               className="inline-flex items-center gap-1.5 px-4.5 py-2 bg-[#18181B] hover:bg-[#C2410C] text-white rounded-md text-xs font-semibold transition-colors disabled:opacity-50"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>{tab === 'keyword' ? 'Tìm & Phân tích Foody' : 'Bắt đầu phân tích URL'}</span>
+              <span>{tab === 'keyword' ? 'Xem báo cáo đánh giá' : 'Tổng hợp từ liên kết'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
