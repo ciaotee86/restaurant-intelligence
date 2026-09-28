@@ -39,7 +39,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
             Đánh giá từ khách hàng
           </h2>
           <p className="text-xs text-[#71717A] mt-0.5">
-            Khám phá từng bài đánh giá chi tiết với trích xuất thực thể cảm xúc và khía cạnh bằng NLP
+            Khám phá từng nhận xét chi tiết của thực khách với đánh dấu các điểm khen - chê cụ thể
           </p>
         </div>
 

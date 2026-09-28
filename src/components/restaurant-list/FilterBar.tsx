@@ -119,7 +119,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, onReset
         {/* Trạng thái cảm xúc */}
         <div>
           <label className="block text-[11px] font-semibold text-[#71717A] uppercase tracking-wider mb-1">
-            Tình trạng cảm xúc
+            Mức độ hài lòng
           </label>
           <select
             value={filters.sentimentHealth}
@@ -132,9 +132,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, onReset
             className="w-full bg-zinc-50 border border-[#D4D4D8] rounded-md px-3 py-2 text-xs text-[#18181B] focus:outline-none focus:ring-1 focus:ring-zinc-800"
           >
             <option value="all">Tất cả mức độ</option>
-            <option value="high_positive">Tích cực cao (&gt;75%)</option>
-            <option value="balanced">Cân bằng</option>
-            <option value="needs_attention">Cần cải thiện (&gt;12% Tiêu cực)</option>
+            <option value="high_positive">Được khen nhiều (&gt;75% hài lòng)</option>
+            <option value="balanced">Bình thường</option>
+            <option value="needs_attention">Nhiều phàn nàn (&gt;12% chê)</option>
           </select>
         </div>
       </div>
@@ -147,7 +147,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, onReset
             [
               { id: 'reviews', label: 'Nhiều đánh giá nhất' },
               { id: 'rating', label: 'Điểm sao cao nhất' },
-              { id: 'positive_sentiment', label: 'Tỷ lệ tích cực cao nhất' },
+              { id: 'positive_sentiment', label: 'Được lòng khách nhất' },
               { id: 'name', label: 'Tên A - Z' }
             ] as const
           ).map((opt) => (

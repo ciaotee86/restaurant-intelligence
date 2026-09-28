@@ -11,6 +11,7 @@ import { KeyFindings } from '../components/dashboard/KeyFindings';
 import { OperationalAdvice } from '../components/dashboard/OperationalAdvice';
 import { ReviewExplorer } from '../components/dashboard/ReviewExplorer';
 import { restaurantService } from '../services/restaurantService';
+import { Utensils, Store, MessageSquare, ArrowRight } from 'lucide-react';
 
 interface DashboardPageProps {
   restaurantId: string;
@@ -24,6 +25,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedAspect, setSelectedAspect] = useState<AspectCategory | 'all'>('all');
+  const [activeTab, setActiveTab] = useState<'diner' | 'owner' | 'reviews'>('diner');
 
   useEffect(() => {
     let isMounted = true;
@@ -43,10 +45,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   const handleSelectAspectFromAnalysis = (aspect: AspectCategory) => {
     setSelectedAspect(aspect);
-    const el = document.getElementById('review-explorer');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
+    setActiveTab('reviews');
+    setTimeout(() => {
+      const el = document.getElementById('review-explorer');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 50);
   };
 
   if (loading) {
@@ -76,7 +81,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   }
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-6 pb-20">
       
       {/* 1. Header & Thông tin chung */}
       <RestaurantHero
@@ -84,45 +89,136 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         onBack={onBackToExplore}
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+      {/* 2. TAB SELECTOR: BỘ CHUYỂN ĐỔI 3 GÓC NHÌN */}
+      <div className="bg-white border-b border-[#E5E5E0] sticky top-16 z-30 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-2 sm:gap-3 overflow-x-auto py-2.5">
+          <button
+            type="button"
+            onClick={() => setActiveTab('diner')}
+            className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
+              activeTab === 'diner'
+                ? 'bg-[#C2410C] text-white shadow-2xs'
+                : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+            }`}
+          >
+            <Utensils className="w-4 h-4" />
+            <span>Dành cho Thực khách (Món ngon & Lưu ý)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('owner')}
+            className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
+              activeTab === 'owner'
+                ? 'bg-[#18181B] text-white shadow-2xs'
+                : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+            }`}
+          >
+            <Store className="w-4 h-4" />
+            <span>Dành cho Quản lý & Chủ quán (Vận hành)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('reviews')}
+            className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
+              activeTab === 'reviews'
+                ? 'bg-zinc-800 text-white shadow-2xs'
+                : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>Tất cả nhận xét gốc ({restaurant.reviews.length})</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 pt-2">
         
-        {/* 2. Chỉ số hiệu suất phân tích hàng đầu */}
+        {/* Chỉ số hiệu suất tổng quan hàng đầu */}
         <TopMetricsRow restaurant={restaurant} />
 
-        {/* 3. Phân bổ cảm xúc & Biểu đồ xu hướng (2 cột trên máy tính) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-          <div className="lg:col-span-5 flex flex-col">
-            <SentimentBreakdown restaurant={restaurant} />
+        {/* NỘI DUNG TAB 1: DÀNH CHO THỰC KHÁCH */}
+        {activeTab === 'diner' && (
+          <div className="space-y-8 animate-in fade-in duration-200">
+            {/* Điểm yêu thích & Điểm cần chú ý */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+              <WhatCustomersLove restaurant={restaurant} />
+              <WhatNeedsAttention restaurant={restaurant} />
+            </div>
+
+            {/* Bóc tách 5 yếu tố trải nghiệm */}
+            <AspectAnalysis
+              restaurant={restaurant}
+              selectedAspect={selectedAspect}
+              onSelectAspect={handleSelectAspectFromAnalysis}
+            />
+
+            {/* Những phát hiện cốt lõi */}
+            <KeyFindings restaurant={restaurant} />
+
+            {/* CTA chuyển sang đọc review gốc */}
+            <div className="p-6 bg-orange-50/60 border border-orange-200/80 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-bold text-[#18181B]">
+                  Muốn đọc chi tiết nhận xét từng khách hàng?
+                </h3>
+                <p className="text-xs text-zinc-600 mt-0.5">
+                  Xem toàn bộ {restaurant.reviews.length} đánh giá gốc đã được phân loại theo món ăn và cảm xúc.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('reviews')}
+                className="px-4 py-2.5 bg-[#C2410C] hover:bg-[#9a3412] text-white text-xs font-semibold rounded-lg shrink-0 flex items-center gap-1.5 transition-colors shadow-2xs"
+              >
+                <span>Xem tất cả nhận xét gốc</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
-          <div className="lg:col-span-7 flex flex-col">
-            <SentimentTrendChart restaurant={restaurant} />
+        )}
+
+        {/* NỘI DUNG TAB 2: DÀNH CHO QUẢN LÝ & CHỦ QUÁN */}
+        {activeTab === 'owner' && (
+          <div className="space-y-8 animate-in fade-in duration-200">
+            {/* Phân bổ cảm xúc & Xu hướng thời gian */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+              <div className="lg:col-span-5 flex flex-col">
+                <SentimentBreakdown restaurant={restaurant} />
+              </div>
+              <div className="lg:col-span-7 flex flex-col">
+                <SentimentTrendChart restaurant={restaurant} />
+              </div>
+            </div>
+
+            {/* Đề xuất cải thiện vận hành */}
+            <OperationalAdvice restaurant={restaurant} />
+
+            {/* Điểm cần chú ý & Khiếu nại của khách */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+              <WhatNeedsAttention restaurant={restaurant} />
+              <WhatCustomersLove restaurant={restaurant} />
+            </div>
+
+            {/* Phân bổ 5 khía cạnh */}
+            <AspectAnalysis
+              restaurant={restaurant}
+              selectedAspect={selectedAspect}
+              onSelectAspect={handleSelectAspectFromAnalysis}
+            />
           </div>
-        </div>
+        )}
 
-        {/* 4. Khách hàng nói gì nhiều nhất (Phân tích khía cạnh ABSA) */}
-        <AspectAnalysis
-          restaurant={restaurant}
-          selectedAspect={selectedAspect}
-          onSelectAspect={handleSelectAspectFromAnalysis}
-        />
-
-        {/* 5. Điểm yêu thích & Điểm cần chú ý (2 cột so sánh) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-          <WhatCustomersLove restaurant={restaurant} />
-          <WhatNeedsAttention restaurant={restaurant} />
-        </div>
-
-        {/* 6. Phát hiện cốt lõi */}
-        <KeyFindings restaurant={restaurant} />
-
-        {/* 7. Đề xuất cải thiện vận hành dành cho quản lý */}
-        <OperationalAdvice restaurant={restaurant} />
-
-        {/* 8. Khám phá chi tiết đánh giá từ khách hàng */}
-        <ReviewExplorer
-          reviews={restaurant.reviews}
-          initialAspect={selectedAspect}
-        />
+        {/* NỘI DUNG TAB 3: TẤT CẢ NHẬN XÉT GỐC */}
+        {activeTab === 'reviews' && (
+          <div className="animate-in fade-in duration-200">
+            <ReviewExplorer
+              reviews={restaurant.reviews}
+              initialAspect={selectedAspect}
+            />
+          </div>
+        )}
 
       </div>
     </div>
