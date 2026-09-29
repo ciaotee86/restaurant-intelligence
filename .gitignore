@@ -40,3 +40,4 @@ ENV/
 *.njsproj
 *.sln
 *.sw?
+.git_temp/ 

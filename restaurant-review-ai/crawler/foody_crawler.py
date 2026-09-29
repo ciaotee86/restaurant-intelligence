@@ -134,23 +134,138 @@ def _extract_review_text(block):
     return ""
 
 
-def is_spam_review(text: str) -> bool:
-    """Loại bỏ các bài review quảng cáo không liên quan đến ẩm thực"""
-    t = text.lower()
-    spam_keywords = [
-        "thuê xe", "xe du lịch", "tour du lịch", "vé máy bay", "khách sạn",
-        "cho thuê", "liên hệ ngay", "zalo:", "hotline:", "bất động sản"
-    ]
-    return any(kw in t for kw in spam_keywords)
+import json
+import hashlib
+from typing import Set, Optional, Dict, Any, List
+from crawler.review_filter import classify_review
 
 
-def crawl_restaurant(url: str, max_reviews: int = 50, headless: bool = True):
+def compute_review_fingerprint(
+    restaurant_url: str,
+    author: str,
+    review_date: str,
+    text: str,
+    foody_review_id: str = ""
+) -> str:
     """
-    Cào toàn bộ bài đánh giá của 1 nhà hàng từ URL Foody.
-    Bấm xem thêm liên tục để gom đủ số lượng yêu cầu.
+    Tạo mã băm fingerprint (SHA-256) duy nhất và ổn định cho review:
+    1. Ưu tiên foody_review_id nếu trang Foody cung cấp ID ổn định:
+       seed = f"{clean_url}|id_{foody_review_id}"
+    2. Nếu không có ID: kết hợp đa trường (restaurant_url + author + review_date + normalized_text):
+       seed = f"{clean_url}|{norm_author}|{norm_date}|{norm_text}"
+    Mã hóa SHA-256 (64 ký tự hex).
+    """
+    clean_url = (restaurant_url or "").split("?")[0].strip().lower()
+    if foody_review_id and str(foody_review_id).strip():
+        seed = f"{clean_url}|id_{str(foody_review_id).strip()}"
+    else:
+        norm_author = (author or "").strip().lower()
+        norm_date = (review_date or "").strip().lower()
+        norm_text = " ".join((text or "").strip().lower().split())
+        seed = f"{clean_url}|{norm_author}|{norm_date}|{norm_text}"
+
+    return hashlib.sha256(seed.encode("utf-8")).hexdigest()
+
+
+def _extract_foody_review_id(block) -> str:
+    """Trích xuất ID của review từ DOM attribute của Foody nếu có"""
+    for attr in ["data-id", "id", "data-review-id", "data-comment-id"]:
+        try:
+            val = block.get_attribute(attr)
+            if val:
+                match = re.search(r"(\d{4,})", val)
+                if match:
+                    return match.group(1)
+        except Exception:
+            pass
+
+    try:
+        links = block.find_elements(By.TAG_NAME, "a")
+        for link in links:
+            href = link.get_attribute("href") or ""
+            match = re.search(r"(?:binh-luan|review)[/-](\d{4,})", href)
+            if match:
+                return match.group(1)
+    except Exception:
+        pass
+
+    return ""
+
+
+def _extract_author(block) -> str:
+    """Trích xuất tên tác giả bài review"""
+    author_raw = _safe_text(block, SELECTOR_REVIEW_AUTHOR, default="Khách Foody")
+    if not author_raw:
+        return "Khách Foody"
+    lines = [l.strip() for l in author_raw.split("\n") if l.strip()]
+    clean_lines = [
+        l for l in lines
+        if not re.match(r"^(\d+[\.,]?\d*)$", l)
+        and "via " not in l
+        and l.lower() not in ["thích", "thảo luận", "báo lỗi"]
+    ]
+    if clean_lines:
+        return clean_lines[0]
+    elif lines:
+        return lines[0]
+    return "Khách Foody"
+
+
+def _extract_rating(block) -> Optional[float]:
+    """Trích xuất điểm số người dùng đánh giá cho bài viết"""
+    rating_raw = _safe_text(block, SELECTOR_REVIEW_RATING, default="")
+    try:
+        match = re.search(r"(\d+[\.,]?\d*)", rating_raw)
+        return float(match.group(1).replace(",", ".")) if match else None
+    except Exception:
+        return None
+
+
+def _click_load_more(driver) -> bool:
+    """Tìm và click nút 'Xem thêm bình luận' trên Foody"""
+    for sel in SELECTOR_LOAD_MORE_BTNS:
+        try:
+            btns = driver.find_elements(By.CSS_SELECTOR, sel)
+            for btn in btns:
+                if btn.is_displayed():
+                    driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", btn)
+                    time.sleep(0.5)
+                    driver.execute_script("arguments[0].click();", btn)
+                    return True
+        except Exception:
+            continue
+    return False
+
+
+def is_spam_review(text: str) -> bool:
+    """Kiểm tra nhanh review có phải spam không bằng bộ lọc đa tín hiệu"""
+    res = classify_review(text)
+    return res["is_spam"]
+
+
+def crawl_restaurant(
+    url: str,
+    max_reviews: int = 50,
+    headless: bool = True,
+    known_fingerprints: Optional[Set[str]] = None,
+    max_consecutive_existing: int = 3
+) -> Dict[str, Any]:
+    """
+    Cào bài đánh giá của 1 nhà hàng từ URL Foody.
+    Hỗ trợ chế độ Incremental Crawl (Ưu tiên review mới nhất & Early-Stopping):
+    - Đọc từ review mới nhất ở đầu trang xuống dưới.
+    - So sánh với `known_fingerprints` (các review đã lưu trong DB).
+    - Khi gặp `max_consecutive_existing` review liên tiếp đã có trong DB,
+      tự động DỪNG CÀO SỚM để tiết kiệm thời gian, băng thông và không cào lại review cũ.
     """
     driver = build_driver(headless=headless)
-    result = {"url": url, "reviews": []}
+    result = {
+        "url": url,
+        "reviews": [],
+        "skipped_existing_count": 0,
+        "stopped_early": False
+    }
+    known_fps = set(known_fingerprints or [])
 
     try:
         print(f"-> [Crawler] Đang mở trang: {url}")
@@ -163,7 +278,7 @@ def crawl_restaurant(url: str, max_reviews: int = 50, headless: bool = True):
         # Lấy thông tin nhà hàng
         result["name"] = _safe_text(driver, SELECTOR_RESTAURANT_NAME, default="Quán ăn Foody")
         result["address"] = _safe_text(driver, SELECTOR_RESTAURANT_ADDRESS, default="")
-        
+
         rating_raw = _safe_text(driver, SELECTOR_OVERALL_RATING, default="")
         try:
             match = re.search(r"(\d+[\.,]?\d*)", rating_raw)
@@ -173,101 +288,97 @@ def crawl_restaurant(url: str, max_reviews: int = 50, headless: bool = True):
 
         print(f"  Tên: {result['name']} | Điểm: {result['overall_rating']} | Địa chỉ: {result['address']}")
 
-        # Bấm nút 'Xem thêm bình luận' để tải thêm review
+        # Thử chọn tab / bộ lọc 'Mới nhất' nếu giao diện Foody có
+        try:
+            latest_filters = driver.find_elements(
+                By.XPATH,
+                "//a[contains(text(), 'Mới nhất') or contains(@ng-click, 'latest') or contains(@data-filter, 'latest') or contains(@class, 'filter-latest')]"
+            )
+            for lf in latest_filters:
+                if lf.is_displayed():
+                    driver.execute_script("arguments[0].click();", lf)
+                    time.sleep(1.2)
+                    break
+        except Exception:
+            pass
+
+        seen_fingerprints_this_run = set()
+        consecutive_existing_count = 0
         clicks = 0
         max_clicks = max(5, (max_reviews // 10) + 3)
-        no_new_count = 0
-        last_block_count = 0
+        processed_block_count = 0
 
-        while clicks < max_clicks:
+        while True:
             current_blocks = driver.find_elements(By.CSS_SELECTOR, SELECTOR_REVIEW_ITEMS)
-            current_count = len(current_blocks)
+            new_blocks = current_blocks[processed_block_count:]
 
-            if current_count >= max_reviews:
-                print(f"  Đã tải đủ {current_count} bài đánh giá (mục tiêu {max_reviews}).")
+            if not new_blocks and processed_block_count > 0:
+                # Không còn bài đánh giá mới nào để tải thêm
                 break
 
-            if current_count == last_block_count:
-                no_new_count += 1
-                if no_new_count >= 3:
-                    print("  Không còn bài đánh giá mới để tải thêm.")
-                    break
-            else:
-                no_new_count = 0
-            last_block_count = current_count
-
-            # Tìm và click nút Xem thêm
-            clicked = False
-            for sel in SELECTOR_LOAD_MORE_BTNS:
-                try:
-                    btns = driver.find_elements(By.CSS_SELECTOR, sel)
-                    for btn in btns:
-                        if btn.is_displayed():
-                            driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", btn)
-                            time.sleep(0.5)
-                            driver.execute_script("arguments[0].click();", btn)
-                            clicked = True
-                            clicks += 1
-                            time.sleep(2.0)
-                            break
-                    if clicked:
-                        break
-                except Exception:
+            early_stopped = False
+            for block in new_blocks:
+                text = _extract_review_text(block)
+                if not text or not text.strip():
                     continue
 
-            if not clicked:
-                # Nếu không bấm được nút, thử cuộn trang xuống đáy
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                clicks += 1
-                time.sleep(1.8)
+                foody_id = _extract_foody_review_id(block)
+                author = _extract_author(block)
+                rating = _extract_rating(block)
+                date = _safe_text(block, SELECTOR_REVIEW_DATE, default="Gần đây")
 
-        # Trích xuất dữ liệu chi tiết từng review
-        review_blocks = driver.find_elements(By.CSS_SELECTOR, SELECTOR_REVIEW_ITEMS)
-        print(f"  Bắt đầu bóc tách {len(review_blocks)} phần tử đánh giá...")
+                fp = compute_review_fingerprint(url, author, date, text, foody_id)
 
-        seen_texts = set()
-        for idx, block in enumerate(review_blocks):
-            if len(result["reviews"]) >= max_reviews:
+                if fp in seen_fingerprints_this_run:
+                    continue
+                seen_fingerprints_this_run.add(fp)
+
+                # KIỂM TRA ĐÃ TỒN TẠI TRONG DATABASE CHƯA (INCREMENTAL CHECK)
+                if fp in known_fps:
+                    consecutive_existing_count += 1
+                    result["skipped_existing_count"] += 1
+                    if consecutive_existing_count >= max_consecutive_existing:
+                        print(f"  [Incremental Crawl] Gặp {consecutive_existing_count} review liên tiếp đã tồn tại trong DB. DỪNG CÀO SỚM!")
+                        result["stopped_early"] = True
+                        early_stopped = True
+                        break
+                    continue
+                else:
+                    consecutive_existing_count = 0
+
+                # Review mới chưa từng có trong DB -> chạy spam filter & lưu vào kết quả
+                filter_res = classify_review(text, author=author)
+                result["reviews"].append({
+                    "foody_review_id": foody_id,
+                    "fingerprint": fp,
+                    "author": author,
+                    "rating": rating,
+                    "text": text,
+                    "date": date,
+                    "is_spam": 1 if filter_res["is_spam"] else 0,
+                    "spam_score": filter_res["spam_score"],
+                    "spam_category": filter_res["spam_category"],
+                    "spam_reason": json.dumps(filter_res["spam_reason"], ensure_ascii=False)
+                })
+
+                if len(result["reviews"]) >= max_reviews:
+                    break
+
+            processed_block_count = len(current_blocks)
+
+            if early_stopped or len(result["reviews"]) >= max_reviews or clicks >= max_clicks:
                 break
 
-            text = _extract_review_text(block)
-            if not text or len(text) < 10:
-                continue
+            # Bấm 'Xem thêm' để tải lượt tiếp theo
+            clicked = _click_load_more(driver)
+            if not clicked:
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(1.8)
+            else:
+                time.sleep(2.0)
+            clicks += 1
 
-            # Bỏ qua trùng lặp hoặc spam
-            text_norm = " ".join(text.split()[:15])
-            if text_norm in seen_texts or is_spam_review(text):
-                continue
-            seen_texts.add(text_norm)
-
-            author_raw = _safe_text(block, SELECTOR_REVIEW_AUTHOR, default="Khách Foody")
-            author = "Khách Foody"
-            if author_raw:
-                lines = [l.strip() for l in author_raw.split("\n") if l.strip()]
-                # Bỏ các dòng là điểm số (vd: 10, 8.4) hoặc timestamp (vd: via iPhone 20/12/2020)
-                clean_lines = [l for l in lines if not re.match(r"^(\d+[\.,]?\d*)$", l) and "via " not in l and l.lower() not in ["thích", "thảo luận", "báo lỗi"]]
-                if clean_lines:
-                    author = clean_lines[0]
-                elif lines:
-                    author = lines[0]
-
-            rating_raw = _safe_text(block, SELECTOR_REVIEW_RATING, default="")
-            try:
-                match = re.search(r"(\d+[\.,]?\d*)", rating_raw)
-                rating = float(match.group(1).replace(",", ".")) if match else None
-            except Exception:
-                rating = None
-
-            date = _safe_text(block, SELECTOR_REVIEW_DATE, default="Gần đây")
-
-            result["reviews"].append({
-                "author": author,
-                "rating": rating,
-                "text": text,
-                "date": date
-            })
-
-        print(f"-> [Crawler Hoàn tất] Thu thập thành công {len(result['reviews'])} đánh giá thực tế từ quán {result['name']}!")
+        print(f"-> [Crawler Hoàn tất] Thu thập thành công {len(result['reviews'])} đánh giá MỚI từ quán {result['name']} (Bỏ qua {result['skipped_existing_count']} review cũ đã có)!")
 
     except Exception as e:
         print(f"[Crawler Lỗi] {e}")
@@ -277,11 +388,13 @@ def crawl_restaurant(url: str, max_reviews: int = 50, headless: bool = True):
     return result
 
 
-def crawl_multiple(urls: list, max_reviews_per_place: int = 50, out_csv: str = None):
+def crawl_multiple(urls: list, max_reviews_per_place: int = 50, out_csv: str = None, known_fingerprints_map: dict = None):
     all_results = []
+    known_map = known_fingerprints_map or {}
     for i, url in enumerate(urls, 1):
         try:
-            data = crawl_restaurant(url, max_reviews=max_reviews_per_place)
+            fps = known_map.get(url)
+            data = crawl_restaurant(url, max_reviews=max_reviews_per_place, known_fingerprints=fps)
             all_results.append(data)
         except Exception as e:
             print(f"Lỗi khi cào {url}: {e}")

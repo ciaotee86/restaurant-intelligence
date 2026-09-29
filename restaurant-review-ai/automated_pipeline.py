@@ -147,23 +147,24 @@ def crawl_and_analyze_single_place(
     """
     url_clean = url.split("?")[0].strip()
     
+    known_fps = set()
     with get_session() as db:
         existing = db.query(DBRestaurant).filter_by(foody_url=url_clean).first()
-        if existing and not force_refresh:
-            rev_count = db.query(DBReview).filter_by(restaurant_id=existing.id).count()
-            ana_count = (
-                db.query(DBAnalysis)
-                .join(DBReview)
-                .filter(DBReview.restaurant_id == existing.id)
-                .count()
-            )
-            if rev_count > 0 and ana_count > 0:
-                print(f"  [Đã tồn tại] '{existing.name}' đã có {rev_count} review & {ana_count} phân tích -> Bỏ qua.")
-                return {"status": "skipped", "restaurant_id": existing.id, "name": existing.name}
+        if existing:
+            from database.db import get_restaurant_existing_fingerprints
+            known_fps = get_restaurant_existing_fingerprints(db, existing.id)
+            if known_fps:
+                print(f"  [Incremental Crawl] '{existing.name}' đã có {len(known_fps)} review trong DB -> Ưu tiên lấy review mới và dừng sớm nếu gặp review cũ.")
 
     # Tiến hành cào dữ liệu mới
     print(f"  [Đang cào] Bắt đầu lấy dữ liệu từ Foody: {url_clean}")
-    crawl_data = crawl_restaurant(url_clean, max_reviews=max_reviews, headless=True)
+    crawl_data = crawl_restaurant(
+        url_clean,
+        max_reviews=max_reviews,
+        headless=True,
+        known_fingerprints=known_fps,
+        max_consecutive_existing=3
+    )
     
     if not crawl_data or not crawl_data.get("name"):
         print(f"  [Lỗi cào] Không thể trích xuất dữ liệu từ {url_clean}")
@@ -190,10 +191,20 @@ def crawl_and_analyze_single_place(
                 author=rv["author"],
                 rating=rv["rating"],
                 text=rv["text"],
-                review_date=rv["date"]
+                review_date=rv["date"],
+                is_spam=rv.get("is_spam", 0),
+                spam_score=rv.get("spam_score", 0.0),
+                spam_category=rv.get("spam_category", "normal"),
+                spam_reason=rv.get("spam_reason", "[]"),
+                foody_review_id=rv.get("foody_review_id"),
+                fingerprint=rv.get("fingerprint")
             )
             if saved.is_analyzed == 0:
-                new_reviews.append((saved.id, saved.text))
+                # Chỉ đưa các review hợp lệ (không phải spam và không phải low_information) vào Gemini ABSA
+                if saved.is_spam == 0 and saved.spam_category != "low_information":
+                    new_reviews.append((saved.id, saved.text))
+                else:
+                    saved.is_analyzed = 1  # Đánh dấu đã xử lý lọc để không gọi lại AI lãng phí quota
 
         # Phân tích AI theo batch
         analyzed_count = 0

@@ -11,7 +11,7 @@ Schema database cho hệ thống phân tích đánh giá nhà hàng.
 import os
 from datetime import datetime
 from sqlalchemy import (
-    create_engine, Column, Integer, String, Float, Text, DateTime, ForeignKey
+    create_engine, Column, Integer, String, Float, Text, DateTime, ForeignKey, text
 )
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -42,6 +42,12 @@ class Review(Base):
     text = Column(Text, nullable=False)
     review_date = Column(String(50))        # lưu string thô, Foody hay ghi kiểu "2 ngày trước"
     is_analyzed = Column(Integer, default=0)  # 0 = chưa phân tích, 1 = đã phân tích (tránh gọi lại Gemini)
+    is_spam = Column(Integer, default=0)      # 0 = bình thường, 1 = spam/quảng cáo/không liên quan
+    spam_score = Column(Float, default=0.0)   # Điểm số xác suất spam: 0.0 -> 1.0
+    spam_category = Column(String(50), default="normal") # "normal", "low_information", "advertisement", "irrelevant", "duplicate", "suspicious"
+    spam_reason = Column(Text, default="[]")  # Danh sách lý do dưới dạng JSON: ["phone_number", "email", ...]
+    foody_review_id = Column(String(100), index=True, nullable=True)  # ID định danh từ Foody (nếu trích xuất được)
+    fingerprint = Column(String(64), index=True, nullable=True)      # Mã băm SHA-256 duy nhất chống trùng lặp
     created_at = Column(DateTime, default=datetime.utcnow)
 
     restaurant = relationship("Restaurant", back_populates="reviews")
@@ -89,4 +95,21 @@ def init_db(db_path: str = None):
             os.makedirs(dir_name, exist_ok=True)
     engine = create_engine(db_path, echo=False)
     Base.metadata.create_all(engine)
+
+    # Tự động nâng cấp cột mới nếu đang mở SQLite DB cũ
+    with engine.connect() as conn:
+        for col, col_type in [
+            ("is_spam", "INTEGER DEFAULT 0"),
+            ("spam_score", "FLOAT DEFAULT 0.0"),
+            ("spam_category", "VARCHAR(50) DEFAULT 'normal'"),
+            ("spam_reason", "TEXT DEFAULT '[]'"),
+            ("foody_review_id", "VARCHAR(100)"),
+            ("fingerprint", "VARCHAR(64)")
+        ]:
+            try:
+                conn.execute(text(f"ALTER TABLE reviews ADD COLUMN {col} {col_type}"))
+                conn.commit()
+            except Exception:
+                pass
+
     return engine

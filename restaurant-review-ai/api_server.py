@@ -754,7 +754,20 @@ def analyze_foody_url(req: AnalyzeRequest):
 
     try:
         print(f"=== [API] Bắt đầu cào URL: {url} ===")
-        crawl_data = crawl_restaurant(url, max_reviews=req.max_reviews or 30, headless=True)
+        known_fps = set()
+        with get_session() as db:
+            exist_rest = db.query(DBRestaurant).filter_by(foody_url=url).first()
+            if exist_rest:
+                from database.db import get_restaurant_existing_fingerprints
+                known_fps = get_restaurant_existing_fingerprints(db, exist_rest.id)
+
+        crawl_data = crawl_restaurant(
+            url,
+            max_reviews=req.max_reviews or 30,
+            headless=True,
+            known_fingerprints=known_fps,
+            max_consecutive_existing=3
+        )
         
         if not crawl_data or not crawl_data.get("name"):
             raise HTTPException(status_code=400, detail="Không thể trích xuất thông tin quán ăn từ link Foody này.")
@@ -776,10 +789,19 @@ def analyze_foody_url(req: AnalyzeRequest):
                     author=rv["author"],
                     rating=rv["rating"],
                     text=rv["text"],
-                    review_date=rv["date"]
+                    review_date=rv["date"],
+                    is_spam=rv.get("is_spam", 0),
+                    spam_score=rv.get("spam_score", 0.0),
+                    spam_category=rv.get("spam_category", "normal"),
+                    spam_reason=rv.get("spam_reason", "[]"),
+                    foody_review_id=rv.get("foody_review_id"),
+                    fingerprint=rv.get("fingerprint")
                 )
                 if saved.is_analyzed == 0:
-                    new_review_ids.append((saved.id, saved.text))
+                    if saved.is_spam == 0 and saved.spam_category != "low_information":
+                        new_review_ids.append((saved.id, saved.text))
+                    else:
+                        saved.is_analyzed = 1
 
             # Chạy phân tích Gemini nếu có review mới
             if new_review_ids:
@@ -909,7 +931,20 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
     for place in foody_results:
         target_url = place["url"]
         print(f"-> [Search & Crawl] Bắt đầu cào thử đánh giá: '{place['name']}' ({target_url})")
-        data = crawl_restaurant(target_url, max_reviews=req.max_reviews or 25, headless=True)
+        known_fps = set()
+        with get_session() as db:
+            exist_p = db.query(DBRestaurant).filter_by(foody_url=target_url).first()
+            if exist_p:
+                from database.db import get_restaurant_existing_fingerprints
+                known_fps = get_restaurant_existing_fingerprints(db, exist_p.id)
+
+        data = crawl_restaurant(
+            target_url,
+            max_reviews=req.max_reviews or 25,
+            headless=True,
+            known_fingerprints=known_fps,
+            max_consecutive_existing=3
+        )
         
         if data and data.get("name"):
             crawl_data = data
@@ -942,10 +977,19 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                 author=rv["author"],
                 rating=rv["rating"],
                 text=rv["text"],
-                review_date=rv["date"]
+                review_date=rv["date"],
+                is_spam=rv.get("is_spam", 0),
+                spam_score=rv.get("spam_score", 0.0),
+                spam_category=rv.get("spam_category", "normal"),
+                spam_reason=rv.get("spam_reason", "[]"),
+                foody_review_id=rv.get("foody_review_id"),
+                fingerprint=rv.get("fingerprint")
             )
             if saved.is_analyzed == 0:
-                new_review_ids.append((saved.id, saved.text))
+                if saved.is_spam == 0 and saved.spam_category != "low_information":
+                    new_review_ids.append((saved.id, saved.text))
+                else:
+                    saved.is_analyzed = 1
 
         if new_review_ids:
             print(f"-> [Search & Crawl] Gọi Gemini AI phân tích {len(new_review_ids)} review mới...")

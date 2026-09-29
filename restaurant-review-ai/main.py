@@ -35,8 +35,21 @@ def step_1_crawl_and_save():
         return
 
     print("=== BƯỚC 1: Cào dữ liệu từ Foody ===")
-    results = crawl_multiple(RESTAURANT_URLS, max_reviews_per_place=MAX_REVIEWS_PER_PLACE,
-                              out_csv="data/raw_reviews_backup.csv")
+    known_fps_map = {}
+    with get_session() as db:
+        from database.db import get_restaurant_existing_fingerprints
+        from database.models import Restaurant
+        for url in RESTAURANT_URLS:
+            rest = db.query(Restaurant).filter_by(foody_url=url).first()
+            if rest:
+                known_fps_map[url] = get_restaurant_existing_fingerprints(db, rest.id)
+
+    results = crawl_multiple(
+        RESTAURANT_URLS,
+        max_reviews_per_place=MAX_REVIEWS_PER_PLACE,
+        out_csv="data/raw_reviews_backup.csv",
+        known_fingerprints_map=known_fps_map
+    )
 
     print("=== BƯỚC 2: Lưu vào database ===")
     with get_session() as db:
@@ -49,6 +62,12 @@ def step_1_crawl_and_save():
                 save_review(
                     db, restaurant_id=restaurant.id, author=rv["author"],
                     rating=rv["rating"], text=rv["text"], review_date=rv["date"],
+                    is_spam=rv.get("is_spam", 0),
+                    spam_score=rv.get("spam_score", 0.0),
+                    spam_category=rv.get("spam_category", "normal"),
+                    spam_reason=rv.get("spam_reason", "[]"),
+                    foody_review_id=rv.get("foody_review_id"),
+                    fingerprint=rv.get("fingerprint")
                 )
     print("Đã lưu xong review vào database.\n")
 
