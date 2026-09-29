@@ -288,6 +288,17 @@ def crawl_restaurant(
 
         print(f"  Tên: {result['name']} | Điểm: {result['overall_rating']} | Địa chỉ: {result['address']}")
 
+        # Kiểm tra nếu trang 404 không tồn tại trên Foody
+        if "không tìm thấy dữ liệu" in result["name"].lower() or "hệ thống không tìm thấy" in driver.title.lower():
+            print(f"  [Crawler Cảnh báo] Trang quán không tồn tại trên Foody (404): {url}")
+            return result
+
+        restaurant_name = result.get("name", "")
+
+        # Cuộn xuống nhẹ để kích hoạt tải các block đánh giá của Foody
+        driver.execute_script("window.scrollBy(0, 600);")
+        time.sleep(1.0)
+
         # Thử chọn tab / bộ lọc 'Mới nhất' nếu giao diện Foody có
         try:
             latest_filters = driver.find_elements(
