@@ -90,15 +90,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       />
 
       {/* 2. TAB SELECTOR: BỘ CHUYỂN ĐỔI 3 GÓC NHÌN */}
-      <div className="bg-white border-b border-[#E5E5E0] sticky top-16 z-30 shadow-2xs">
+      <div className="bg-[#FBF9F5] border-b border-[#E5E3DE] sticky top-16 z-30 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-2 sm:gap-3 overflow-x-auto py-2.5">
           <button
             type="button"
             onClick={() => setActiveTab('diner')}
             className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
               activeTab === 'diner'
-                ? 'bg-[#C2410C] text-white shadow-2xs'
-                : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                ? 'bg-[#C2410C] text-white shadow-craft-sm'
+                : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/5'
             }`}
           >
             <Utensils className="w-4 h-4" />
@@ -110,8 +110,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             onClick={() => setActiveTab('owner')}
             className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
               activeTab === 'owner'
-                ? 'bg-[#18181B] text-white shadow-2xs'
-                : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                ? 'bg-[#18181B] text-white shadow-craft-sm'
+                : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/5'
             }`}
           >
             <Store className="w-4 h-4" />
@@ -123,8 +123,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             onClick={() => setActiveTab('reviews')}
             className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
               activeTab === 'reviews'
-                ? 'bg-zinc-800 text-white shadow-2xs'
-                : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                ? 'bg-[#18181B] text-white shadow-craft-sm'
+                : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/5'
             }`}
           >
             <MessageSquare className="w-4 h-4" />

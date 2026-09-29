@@ -2,21 +2,24 @@
 
 @layer base {
   :root {
-    --bg-main: #fafaf8;
-    --text-primary: #18181b;
-    --text-secondary: #52525b;
+    --bg-canvas: #fbf9f5;
+    --bg-card: #ffffff;
+    --text-ink: #18181b;
+    --text-body: #3f3f46;
     --text-muted: #71717a;
-    --border-light: #e4e4e7;
-    --accent-orange: #c2410c;
-    --positive: #16a34a;
-    --negative: #dc2626;
-    --neutral-amber: #d97706;
+    --border-craft: #e5e3de;
+    --border-strong: #18181b;
+    --accent-terracotta: #c2410c;
+    --accent-terracotta-hover: #9a3412;
+    --accent-emerald: #0f766e;
+    --accent-amber: #b45309;
+    --accent-crimson: #dc2626;
   }
 
   body {
-    background-color: var(--bg-main);
-    color: var(--text-primary);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-canvas);
+    color: var(--text-ink);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
@@ -41,23 +44,36 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #f4f4f5;
+  background: #f4f3ee;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d4d4d8;
+  background: #d5d3cb;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a1a1aa;
+  background: #a8a69e;
+}
+
+/* Editorial Neo-Craft Shadow Utilities */
+.shadow-craft {
+  box-shadow: 3px 3px 0px 0px rgba(24, 24, 27, 0.9);
+}
+
+.shadow-craft-sm {
+  box-shadow: 2px 2px 0px 0px rgba(24, 24, 27, 0.9);
+}
+
+.shadow-craft-orange {
+  box-shadow: 3px 3px 0px 0px rgba(194, 65, 12, 0.9);
 }
 
 /* Crisp Analytical Badges & Highlights */
 .sentiment-highlight-pos {
-  background-color: rgba(22, 163, 74, 0.12);
-  color: #15803d;
-  border-bottom: 2px solid rgba(22, 163, 74, 0.4);
+  background-color: rgba(15, 118, 110, 0.12);
+  color: #0f766e;
+  border-bottom: 2px solid rgba(15, 118, 110, 0.4);
   padding: 1px 4px;
   border-radius: 2px;
   font-weight: 500;

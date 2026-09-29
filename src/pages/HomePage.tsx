@@ -14,12 +14,14 @@ import {
   ThumbsUp, 
   AlertTriangle, 
   Trophy, 
-  Clock, 
-  Users, 
   TrendingUp,
   CheckCircle2,
   MapPin,
-  ChevronRight
+  ChevronRight,
+  Scale,
+  Activity,
+  Flame,
+  Filter
 } from 'lucide-react';
 import { formatNumber } from '../utils/sentimentUtils';
 
@@ -44,6 +46,10 @@ export const HomePage: React.FC<HomePageProps> = ({
   // Trạng thái chuyển đổi góc nhìn Thực khách vs Chủ quán
   const [perspectiveTab, setPerspectiveTab] = useState<'diner' | 'owner'>('diner');
 
+  // Trạng thái so sánh đối đầu (Head-to-Head Comparison)
+  const [compareIdA, setCompareIdA] = useState<string>(restaurants[0]?.id || '');
+  const [compareIdB, setCompareIdB] = useState<string>(restaurants[1]?.id || '');
+
   // Lấy danh sách 3 quán mẫu hiển thị ở Hero
   const sampleRestaurants = restaurants.slice(0, 3);
   const activeSample = sampleRestaurants[selectedSampleIndex] || restaurants[0];
@@ -53,35 +59,51 @@ export const HomePage: React.FC<HomePageProps> = ({
     .sort((a, b) => b.sentimentDistribution.positive - a.sentimentDistribution.positive)
     .slice(0, 3);
 
+  // Quán tiêu biểu của tuần (Top 1)
+  const heroFeatured = leaderboard[0] || restaurants[0];
+
+  // Top quán có điểm ẩm thực cao nhất
+  const topFoodRestaurant = [...restaurants].sort((a, b) => {
+    const foodA = a.aspects.find(asp => asp.category === 'Món ăn')?.positivePercentage || 0;
+    const foodB = b.aspects.find(asp => asp.category === 'Món ăn')?.positivePercentage || 0;
+    return foodB - foodA;
+  })[0] || restaurants[0];
+
   // Mẫu trích dẫn của quán đang chọn
   const activeQuote = activeSample?.reviews?.[0]?.text || activeSample?.sentimentSummarySentence || 'Nhận xét chân thực từ khách hàng.';
-  const displayQuote = activeQuote.length > 120 ? `${activeQuote.slice(0, 117)}...` : activeQuote;
+  const displayQuote = activeQuote.length > 130 ? `${activeQuote.slice(0, 127)}...` : activeQuote;
+
+  // Lấy dữ liệu cho module so sánh 2 quán
+  const restaurantA = restaurants.find(r => r.id === compareIdA) || restaurants[0];
+  const restaurantB = restaurants.find(r => r.id === compareIdB) || restaurants[1] || restaurants[0];
+
+  const aspectCategories = ['Món ăn', 'Dịch vụ', 'Giá cả', 'Không gian', 'Vị trí'] as const;
 
   return (
     <div className="space-y-16 sm:space-y-24 pb-20">
       
-      {/* 1. HERO SECTION: BỐ CỤC BẤT ĐỐI XỨNG (SPLIT HERO + LIVE SCORECARD SPOTLIGHT) */}
-      <section className="pt-10 sm:pt-16 pb-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      {/* 1. HERO SECTION: BỐ CỤC BẤT ĐỐI XỨNG (SPLIT HERO + LIVE RADAR SPOTLIGHT) */}
+      <section className="pt-8 sm:pt-14 pb-4 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
           
           {/* CỘT TRÁI: THÔNG ĐIỆP CHÍNH & TÌM KIẾM NHANH (7 CỘT) */}
           <div className="lg:col-span-7 space-y-6 text-left">
             
             {/* Category Pill */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-50/90 border border-orange-200/90 text-xs font-semibold text-[#C2410C]">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FAF9F5] border border-[#E5E3DE] text-xs font-bold text-[#C2410C]">
               <span className="w-2 h-2 rounded-full bg-[#C2410C] animate-pulse" />
               <span>Bản đồ đọc vị ẩm thực từ thực khách thực tế</span>
             </div>
 
-            {/* Tiêu đề chính thức (Lựa chọn 3) */}
-            <h1 className="text-3xl sm:text-5xl lg:text-[52px] font-black text-[#18181B] tracking-tight leading-[1.15]">
+            {/* Tiêu đề chính thức */}
+            <h1 className="text-3xl sm:text-5xl lg:text-[54px] font-black text-[#18181B] tracking-tight leading-[1.15]">
               Đọc vị mọi <br className="hidden sm:inline" />
               đánh giá quán ăn.
             </h1>
 
             {/* Dòng mô tả trực diện giá trị */}
             <p className="text-base sm:text-lg text-[#52525B] max-w-xl leading-relaxed">
-              Thay vì mất 30 phút đọc hàng trăm bình luận — xem ngay bức tranh toàn cảnh về <span className="font-semibold text-[#18181B]">Món ăn</span>, <span className="font-semibold text-[#18181B]">Giá cả</span>, <span className="font-semibold text-[#18181B]">Thái độ phục vụ</span> và <span className="font-semibold text-[#18181B]">Không gian</span>.
+              Thay vì mất 30 phút đọc hàng trăm bình luận — xem ngay bức tranh toàn cảnh về <strong className="text-[#18181B] font-bold">Món ăn</strong>, <strong className="text-[#18181B] font-bold">Giá cả</strong>, <strong className="text-[#18181B] font-bold">Thái độ phục vụ</strong> và <strong className="text-[#18181B] font-bold">Không gian</strong>.
             </p>
 
             {/* Khung tìm kiếm chính */}
@@ -90,38 +112,38 @@ export const HomePage: React.FC<HomePageProps> = ({
                 size="large"
                 onSearch={onSearch}
                 onSelectRestaurant={onSelectRestaurant}
-                placeholder="Tìm quán ăn hoặc món ngon (vd: Pizza 4P's, Phở Thìn, Bánh tráng cuốn)..."
+                placeholder="Tìm quán ăn hoặc món ngon (vd: Pizza 4P's, Cơm Gà 9 Ly, Phở Thìn)..."
               />
             </div>
 
             {/* Gợi ý nhu cầu thực tế (Quick Demand Chips) */}
             <div className="flex flex-wrap items-center gap-2 text-xs pt-1">
-              <span className="text-zinc-500 font-medium">Nhu cầu phổ biến:</span>
+              <span className="text-zinc-500 font-semibold">Nhu cầu phổ biến:</span>
               <button
                 type="button"
                 onClick={() => onSearch('gia đình')}
-                className="px-2.5 py-1 bg-white hover:bg-zinc-100 text-zinc-700 rounded-md border border-zinc-200 transition-colors"
+                className="px-2.5 py-1 bg-white hover:bg-[#FAF9F5] text-zinc-800 rounded border border-[#E5E3DE] hover:border-zinc-400 font-medium transition-colors"
               >
                 👨‍👩‍👧 Ăn gia đình
               </button>
               <button
                 type="button"
                 onClick={() => onSearch('cơm')}
-                className="px-2.5 py-1 bg-white hover:bg-zinc-100 text-zinc-700 rounded-md border border-zinc-200 transition-colors"
+                className="px-2.5 py-1 bg-white hover:bg-[#FAF9F5] text-zinc-800 rounded border border-[#E5E3DE] hover:border-zinc-400 font-medium transition-colors"
               >
                 ⚡ Phục vụ nhanh
               </button>
               <button
                 type="button"
                 onClick={() => onSearch('bình dân')}
-                className="px-2.5 py-1 bg-white hover:bg-zinc-100 text-zinc-700 rounded-md border border-zinc-200 transition-colors"
+                className="px-2.5 py-1 bg-white hover:bg-[#FAF9F5] text-zinc-800 rounded border border-[#E5E3DE] hover:border-zinc-400 font-medium transition-colors"
               >
                 💰 Ngon bình dân
               </button>
               <button
                 type="button"
                 onClick={() => onSearch('đặc sản')}
-                className="px-2.5 py-1 bg-white hover:bg-zinc-100 text-zinc-700 rounded-md border border-zinc-200 transition-colors"
+                className="px-2.5 py-1 bg-white hover:bg-[#FAF9F5] text-zinc-800 rounded border border-[#E5E3DE] hover:border-zinc-400 font-medium transition-colors"
               >
                 🍜 Đặc sản vùng miền
               </button>
@@ -129,15 +151,15 @@ export const HomePage: React.FC<HomePageProps> = ({
 
             {/* Trust Badges */}
             <div className="pt-3 flex flex-wrap items-center gap-6 text-xs text-[#71717A]">
-              <span className="flex items-center gap-1.5 font-medium text-zinc-700">
+              <span className="flex items-center gap-1.5 font-semibold text-zinc-800">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                Tra cứu mở, không cần đăng nhập
+                Không cần đăng nhập
               </span>
-              <span className="flex items-center gap-1.5 font-medium text-zinc-700">
+              <span className="flex items-center gap-1.5 font-semibold text-zinc-800">
                 <CheckCircle2 className="w-4 h-4 text-[#C2410C] shrink-0" />
-                Dữ liệu thực khách thật
+                Lọc sạch spam & seeding
               </span>
-              <span className="flex items-center gap-1.5 font-medium text-zinc-700">
+              <span className="flex items-center gap-1.5 font-semibold text-zinc-800">
                 <BarChart3 className="w-4 h-4 text-blue-600 shrink-0" />
                 Bóc tách 5 khía cạnh cốt lõi
               </span>
@@ -145,30 +167,31 @@ export const HomePage: React.FC<HomePageProps> = ({
 
           </div>
 
-          {/* CỘT PHẢI: INTERACTIVE LIVE SCORECARD SPOTLIGHT (5 CỘT) */}
+          {/* CỘT PHẢI: INTERACTIVE LIVE RADAR SPOTLIGHT (5 CỘT) */}
           <div className="lg:col-span-5">
             {activeSample ? (
-              <div className="bg-white border-2 border-zinc-900 rounded-2xl p-6 sm:p-7 shadow-[6px_6px_0px_0px_rgba(24,24,27,1)] relative transition-all">
+              <div className="bg-white border border-[#18181B] rounded-2xl p-6 sm:p-7 shadow-craft relative transition-all">
                 
                 {/* Header widget */}
-                <div className="flex items-center justify-between gap-2 pb-4 border-b border-zinc-100 mb-4">
+                <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-[#E5E3DE] mb-4">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
-                      Hồ sơ đọc vị mẫu trực tiếp
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-600">
+                      Báo cáo đọc vị trực tiếp
                     </span>
                   </div>
 
                   {/* Nút chuyển đổi quán mẫu */}
                   <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-zinc-400 uppercase font-semibold mr-1">Quán:</span>
                     {sampleRestaurants.map((r, idx) => (
                       <button
                         key={r.id}
                         type="button"
                         onClick={() => setSelectedSampleIndex(idx)}
-                        className={`w-6 h-6 rounded text-[11px] font-bold transition-all ${
+                        className={`w-6 h-6 rounded text-[11px] font-extrabold transition-all ${
                           selectedSampleIndex === idx
-                            ? 'bg-[#C2410C] text-white shadow-2xs'
+                            ? 'bg-[#C2410C] text-white shadow-craft-sm'
                             : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                         }`}
                         title={r.name}
@@ -182,51 +205,52 @@ export const HomePage: React.FC<HomePageProps> = ({
                 {/* Tên quán & Điểm số */}
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div>
-                    <span className="text-[11px] font-semibold text-[#C2410C] bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
+                    <span className="text-[11px] font-bold text-[#C2410C] bg-orange-50 px-2 py-0.5 rounded border border-orange-200/90">
                       {activeSample.cuisine}
                     </span>
-                    <h3 className="text-xl font-bold text-[#18181B] tracking-tight mt-1.5">
+                    <h3 className="text-xl font-black text-[#18181B] tracking-tight mt-1.5">
                       {activeSample.name}
                     </h3>
-                    <p className="text-xs text-zinc-500 flex items-center gap-1 mt-0.5">
-                      <MapPin className="w-3 h-3 text-zinc-400" />
+                    <p className="text-xs text-zinc-500 flex items-center gap-1 mt-0.5 font-medium">
+                      <MapPin className="w-3.5 h-3.5 text-zinc-400" />
                       {activeSample.city} · {formatNumber(activeSample.totalReviews)} đánh giá thực
                     </p>
                   </div>
 
                   {/* Vòng tròn điểm hài lòng */}
-                  <div className="text-right shrink-0 bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-center min-w-[76px]">
-                    <span className="text-2xl font-black text-emerald-800 leading-none block">
+                  <div className="text-right shrink-0 bg-emerald-50 border border-emerald-300 rounded-xl p-2.5 text-center min-w-[78px]">
+                    <span className="text-2xl font-black text-emerald-900 leading-none block">
                       {activeSample.sentimentDistribution.positive}%
                     </span>
-                    <span className="text-[10px] font-bold text-emerald-700 tracking-tight uppercase block mt-0.5">
+                    <span className="text-[10px] font-bold text-emerald-800 tracking-tight uppercase block mt-1">
                       Hài lòng
                     </span>
                   </div>
                 </div>
 
                 {/* Trích dẫn thực khách thật */}
-                <div className="my-3.5 p-3 rounded-lg bg-[#FBFBFA] border border-zinc-200/80 text-xs text-zinc-700 leading-relaxed italic relative">
-                  <Quote className="w-3.5 h-3.5 text-zinc-300 absolute -top-1.5 left-2 bg-[#FBFBFA] px-0.5" />
+                <div className="my-3.5 p-3 rounded-lg bg-[#FAF9F5] border-l-2 border-[#C2410C] border-y border-r border-[#E5E3DE] text-xs text-zinc-700 leading-relaxed italic relative">
+                  <Quote className="w-3.5 h-3.5 text-zinc-300 absolute -top-1.5 left-2 bg-[#FAF9F5] px-0.5" />
                   "{displayQuote}"
                 </div>
 
                 {/* 5 Thước đo yếu tố cốt lõi */}
-                <div className="space-y-2 py-3 border-y border-zinc-100 my-3">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
-                    Bóc tách 5 yếu tố đo lường:
+                <div className="space-y-2 py-3 border-y border-[#E5E3DE] my-3">
+                  <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-zinc-600">
+                    <span>Thước đo 5 khía cạnh cốt lõi:</span>
+                    <span className="text-[10px] text-zinc-400 font-mono">Tỷ lệ khen</span>
                   </div>
                   <div className="space-y-1.5">
                     {activeSample.aspects.slice(0, 4).map((aspect) => (
                       <div key={aspect.category} className="flex items-center justify-between text-xs">
-                        <span className="text-zinc-600 font-medium w-20">{aspect.category}</span>
+                        <span className="text-zinc-700 font-semibold w-20">{aspect.category}</span>
                         <div className="flex-1 mx-3 h-2 bg-zinc-100 rounded-full overflow-hidden">
                           <div 
                             className="h-full bg-emerald-600 rounded-full" 
                             style={{ width: `${aspect.positivePercentage}%` }} 
                           />
                         </div>
-                        <span className="font-bold text-zinc-800 text-[11px] w-9 text-right">
+                        <span className="font-mono font-bold text-zinc-900 text-xs w-9 text-right">
                           {aspect.positivePercentage}%
                         </span>
                       </div>
@@ -237,7 +261,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 {/* Món nên thử & Điểm trừ */}
                 <div className="space-y-1.5 text-xs mb-5">
                   {activeSample.strengths?.[0] && (
-                    <div className="flex items-center gap-1.5 text-emerald-800">
+                    <div className="flex items-center gap-1.5 text-emerald-900 font-medium">
                       <ThumbsUp className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
                       <span className="truncate">
                         <strong>Nên gọi:</strong> {activeSample.strengths[0].title}
@@ -245,7 +269,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                     </div>
                   )}
                   {activeSample.attentionAreas?.[0] && (
-                    <div className="flex items-center gap-1.5 text-amber-800">
+                    <div className="flex items-center gap-1.5 text-amber-900 font-medium">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
                       <span className="truncate">
                         <strong>Lưu ý:</strong> {activeSample.attentionAreas[0].commonComplaints?.[0] || 'Giờ cao điểm đợi món hơi lâu'}
@@ -258,9 +282,9 @@ export const HomePage: React.FC<HomePageProps> = ({
                 <button
                   type="button"
                   onClick={() => onSelectRestaurant(activeSample.id)}
-                  className="w-full py-3 bg-[#18181B] hover:bg-[#C2410C] text-white font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"
+                  className="w-full py-3 bg-[#18181B] hover:bg-[#C2410C] text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 shadow-craft-sm"
                 >
-                  <span>Xem toàn bộ báo cáo quán này</span>
+                  <span>Xem báo cáo đầy đủ quán này</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
 
@@ -271,97 +295,325 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </section>
 
-      {/* 2. BẢNG XẾP HẠNG THỰC KHÁCH HÀI LÒNG NHẤT (LEADERBOARD) */}
+      {/* 2. ASYMMETRIC BENTO GRID: BẢNG XẾP HẠNG & TIÊU ĐIỂM ẨM THỰC */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-[#FBFBFA] border border-zinc-200/90 rounded-2xl p-6 sm:p-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-600 mb-1">
-                <Trophy className="w-4 h-4 text-amber-500" />
-                <span>Bảng xếp hạng thực khách</span>
-              </div>
-              <h2 className="text-xl sm:text-2xl font-bold text-[#18181B] tracking-tight">
-                Top quán ăn có tỷ lệ hài lòng cao nhất
-              </h2>
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+          <div>
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#C2410C] mb-1">
+              <Trophy className="w-4 h-4 text-[#C2410C]" />
+              <span>Tiêu điểm tuần</span>
             </div>
-            <button
-              onClick={onNavigateExplore}
-              className="text-xs font-semibold text-[#18181B] hover:text-[#C2410C] flex items-center gap-1 self-start sm:self-auto"
-            >
-              <span>Xem toàn bộ xếp hạng</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            <h2 className="text-2xl sm:text-3xl font-black text-[#18181B] tracking-tight">
+              Bảng xếp hạng & Dấu ấn nổi bật
+            </h2>
           </div>
+          <button
+            onClick={onNavigateExplore}
+            className="text-xs font-bold text-[#18181B] hover:text-[#C2410C] flex items-center gap-1 self-start sm:self-auto group"
+          >
+            <span>Xem toàn bộ xếp hạng</span>
+            <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-            {leaderboard.map((item, index) => {
-              const medals = ['🥇 Top 1', '🥈 Top 2', '🥉 Top 3'];
-              const medalColors = [
-                'bg-amber-100 text-amber-900 border-amber-300',
-                'bg-slate-100 text-slate-800 border-slate-300',
-                'bg-orange-100 text-orange-900 border-orange-300'
-              ];
-
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => onSelectRestaurant(item.id)}
-                  className="bg-white border border-zinc-200 rounded-xl p-5 hover:border-zinc-400 hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between group"
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-2.5">
-                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${medalColors[index]}`}>
-                        {medals[index]}
-                      </span>
-                      <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        {item.sentimentDistribution.positive}% hài lòng
-                      </span>
-                    </div>
-
-                    <h4 className="font-bold text-base text-[#18181B] group-hover:text-[#C2410C] transition-colors line-clamp-1 mb-1">
-                      {item.name}
-                    </h4>
-
-                    <p className="text-xs text-zinc-500 flex items-center gap-1 mb-3">
-                      <MapPin className="w-3 h-3 text-zinc-400" />
-                      {item.city} · {item.cuisine}
-                    </p>
-
-                    {item.strengths?.[0] && (
-                      <div className="text-xs text-emerald-800 bg-emerald-50/60 p-2 rounded border border-emerald-100 line-clamp-1 mb-3">
-                        ✓ {item.strengths[0].title}
-                      </div>
-                    )}
-                  </div>
-
-                  <span className="text-xs font-semibold text-zinc-800 group-hover:text-[#C2410C] flex items-center gap-1 pt-2 border-t border-zinc-100">
-                    Xem báo cáo quán này →
+        {/* Bento Grid Bất Đối Xứng */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          {/* Card Lớn (Hero Bento): Quán Xuất Sắc Nhất Tuần (7 Cột) */}
+          {heroFeatured && (
+            <div 
+              onClick={() => onSelectRestaurant(heroFeatured.id)}
+              className="lg:col-span-7 bg-white border border-[#E5E3DE] hover:border-[#18181B] rounded-2xl p-6 sm:p-8 flex flex-col justify-between hover:shadow-craft transition-all cursor-pointer group"
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-4">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold">
+                    <Flame className="w-3.5 h-3.5 text-amber-600" />
+                    Quán được đánh giá cao nhất tuần
+                  </span>
+                  <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
+                    {heroFeatured.sentimentDistribution.positive}% Hài lòng
                   </span>
                 </div>
-              );
-            })}
+
+                <h3 className="text-2xl sm:text-3xl font-black text-[#18181B] group-hover:text-[#C2410C] transition-colors tracking-tight mb-2">
+                  {heroFeatured.name}
+                </h3>
+
+                <p className="text-xs sm:text-sm text-zinc-500 flex items-center gap-2 mb-4">
+                  <MapPin className="w-4 h-4 text-zinc-400" />
+                  {heroFeatured.address} · {heroFeatured.cuisine}
+                </p>
+
+                <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed mb-6 bg-[#FAF9F5] p-4 rounded-xl border border-[#E5E3DE] italic">
+                  "{heroFeatured.sentimentSummarySentence || heroFeatured.reviews?.[0]?.text}"
+                </p>
+
+                {/* 4 Chỉ số khía cạnh hàng đầu */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                  {heroFeatured.aspects.slice(0, 4).map(asp => (
+                    <div key={asp.category} className="bg-[#FAF9F5] border border-[#E5E3DE] p-3 rounded-lg text-center">
+                      <span className="block text-[11px] font-semibold text-zinc-500 uppercase">{asp.category}</span>
+                      <span className="text-base font-black text-[#18181B]">{asp.positivePercentage}%</span>
+                      <span className="block text-[10px] text-emerald-700 font-medium">tích cực</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-[#E5E3DE]">
+                <span className="text-xs text-zinc-500 font-medium">
+                  Tổng hợp từ {formatNumber(heroFeatured.totalReviews)} đánh giá thực tế
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#18181B] group-hover:text-[#C2410C]">
+                  Khám phá toàn bộ báo cáo →
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Cột Vệ Tinh (5 Cột): Gồm 2 card xếp tầng */}
+          <div className="lg:col-span-5 flex flex-col gap-6">
+            
+            {/* Card Vệ Tinh 1: Top Vị Ngon Đậm Đà */}
+            {topFoodRestaurant && (
+              <div
+                onClick={() => onSelectRestaurant(topFoodRestaurant.id)}
+                className="bg-white border border-[#E5E3DE] hover:border-[#18181B] rounded-2xl p-6 flex flex-col justify-between hover:shadow-craft transition-all cursor-pointer group"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      🏆 Đỉnh cao vị giác
+                    </span>
+                    <span className="text-xs font-mono font-bold text-zinc-600">
+                      {topFoodRestaurant.aspects.find(a => a.category === 'Món ăn')?.positivePercentage}% Khen món
+                    </span>
+                  </div>
+
+                  <h4 className="text-lg font-bold text-[#18181B] group-hover:text-[#C2410C] transition-colors line-clamp-1 mb-1">
+                    {topFoodRestaurant.name}
+                  </h4>
+
+                  <p className="text-xs text-zinc-500 mb-3">
+                    {topFoodRestaurant.cuisine} · {topFoodRestaurant.city}
+                  </p>
+
+                  {topFoodRestaurant.strengths?.[0] && (
+                    <div className="text-xs text-emerald-900 bg-emerald-50/70 p-2.5 rounded-lg border border-emerald-100 mb-2">
+                      <strong>Món khách khen nhiều nhất:</strong> {topFoodRestaurant.strengths[0].title}
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-xs font-bold text-zinc-800 group-hover:text-[#C2410C] flex items-center gap-1 pt-2">
+                  <span>Xem phân tích món ăn →</span>
+                </div>
+              </div>
+            )}
+
+            {/* Card Vệ Tinh 2: Minh Bạch Dữ Liệu & Lọc Spam */}
+            <div className="bg-[#FAF9F5] border border-[#E5E3DE] rounded-2xl p-6 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-zinc-700">
+                    Cơ chế lọc review rác độc lập
+                  </span>
+                </div>
+
+                <h4 className="text-base font-bold text-[#18181B] mb-2">
+                  Dữ liệu sạch, không thiên vị
+                </h4>
+
+                <p className="text-xs text-zinc-600 leading-relaxed mb-4">
+                  Hệ thống tự động loại bỏ các tài khoản bot cày xu, nội dung lặp lại tên quán vô nghĩa hoặc seeding nhận thưởng ảo trước khi phân tích cảm xúc.
+                </p>
+
+                <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                  <div className="bg-white p-2.5 rounded-lg border border-[#E5E3DE]">
+                    <span className="block font-black text-sm text-[#18181B]">100%</span>
+                    <span className="text-[10px] text-zinc-500">Khách thật</span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-lg border border-[#E5E3DE]">
+                    <span className="block font-black text-sm text-emerald-700">0%</span>
+                    <span className="text-[10px] text-zinc-500">Quảng cáo tài trợ</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={onNavigateHowItWorks}
+                className="mt-4 text-xs font-bold text-[#C2410C] hover:underline flex items-center gap-1"
+              >
+                <span>Tìm hiểu quy trình làm sạch dữ liệu →</span>
+              </button>
+            </div>
+
           </div>
+
         </div>
       </section>
 
-      {/* 3. DUAL PERSPECTIVE SWITCHER: BỘ CHUYỂN ĐỔI 2 GÓC NHÌN */}
+      {/* 3. HEAD-TO-HEAD COMPARISON: SO SÁNH ĐỐI ĐẦU 2 QUÁN ĂN */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-white border border-[#18181B] rounded-2xl p-6 sm:p-8 shadow-craft">
+          
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[#E5E3DE]">
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#C2410C] mb-1">
+                <Scale className="w-4 h-4 text-[#C2410C]" />
+                <span>Công cụ đối chiếu trực quan</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-[#18181B] tracking-tight">
+                So sánh đối đầu: Chọn quán nào?
+              </h2>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                Đặt 2 quán ăn cạnh nhau trên cùng một trục 5 tiêu chí để tìm ra lựa chọn phù hợp nhất cho bạn.
+              </p>
+            </div>
+
+            {/* Bộ chọn 2 quán ăn */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-zinc-500">Quán A:</span>
+                <select
+                  value={compareIdA}
+                  onChange={(e) => setCompareIdA(e.target.value)}
+                  className="bg-[#FAF9F5] border border-[#E5E3DE] rounded-lg px-3 py-1.5 text-xs font-bold text-zinc-800 focus:outline-none focus:border-zinc-900"
+                >
+                  {restaurants.map(r => (
+                    <option key={r.id} value={r.id}>{r.name} ({r.city})</option>
+                  ))}
+                </select>
+              </div>
+
+              <span className="text-xs font-bold text-[#C2410C]">VS</span>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-zinc-500">Quán B:</span>
+                <select
+                  value={compareIdB}
+                  onChange={(e) => setCompareIdB(e.target.value)}
+                  className="bg-[#FAF9F5] border border-[#E5E3DE] rounded-lg px-3 py-1.5 text-xs font-bold text-zinc-800 focus:outline-none focus:border-zinc-900"
+                >
+                  {restaurants.map(r => (
+                    <option key={r.id} value={r.id}>{r.name} ({r.city})</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Bảng so sánh 5 khía cạnh trực quan */}
+          <div className="pt-6 space-y-5">
+            
+            {/* Header 2 quán */}
+            <div className="grid grid-cols-12 gap-4 items-center font-bold text-xs pb-2 border-b border-[#E5E3DE]">
+              <div className="col-span-4 text-left">
+                <span className="text-sm font-black text-[#18181B] block">{restaurantA.name}</span>
+                <span className="text-[11px] text-zinc-500 font-normal">{restaurantA.cuisine} · {restaurantA.sentimentDistribution.positive}% hài lòng</span>
+              </div>
+              <div className="col-span-4 text-center text-zinc-400 font-mono uppercase text-[11px]">
+                5 Tiêu chí bóc tách
+              </div>
+              <div className="col-span-4 text-right">
+                <span className="text-sm font-black text-[#18181B] block">{restaurantB.name}</span>
+                <span className="text-[11px] text-zinc-500 font-normal">{restaurantB.cuisine} · {restaurantB.sentimentDistribution.positive}% hài lòng</span>
+              </div>
+            </div>
+
+            {/* 5 Hàng đối chiếu */}
+            {aspectCategories.map((aspect) => {
+              const scoreA = restaurantA.aspects.find(a => a.category === aspect)?.positivePercentage || 0;
+              const scoreB = restaurantB.aspects.find(a => a.category === aspect)?.positivePercentage || 0;
+              const isAWinner = scoreA > scoreB;
+              const isBWinner = scoreB > scoreA;
+
+              return (
+                <div key={aspect} className="grid grid-cols-12 gap-4 items-center text-xs">
+                  {/* Quán A Score & Bar */}
+                  <div className="col-span-4 flex items-center justify-end gap-2.5">
+                    <span className={`font-mono font-bold ${isAWinner ? 'text-emerald-700 text-sm' : 'text-zinc-600'}`}>
+                      {scoreA}%
+                    </span>
+                    <div className="w-24 sm:w-36 h-2.5 bg-zinc-100 rounded-full overflow-hidden flex justify-end">
+                      <div 
+                        className={`h-full rounded-full ${isAWinner ? 'bg-emerald-600' : 'bg-zinc-400'}`} 
+                        style={{ width: `${scoreA}%` }} 
+                      />
+                    </div>
+                  </div>
+
+                  {/* Tên khía cạnh ở giữa */}
+                  <div className="col-span-4 text-center">
+                    <span className="px-2.5 py-1 rounded bg-[#FAF9F5] border border-[#E5E3DE] font-bold text-zinc-800 text-[11px]">
+                      {aspect}
+                    </span>
+                  </div>
+
+                  {/* Quán B Bar & Score */}
+                  <div className="col-span-4 flex items-center justify-start gap-2.5">
+                    <div className="w-24 sm:w-36 h-2.5 bg-zinc-100 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full ${isBWinner ? 'bg-emerald-600' : 'bg-zinc-400'}`} 
+                        style={{ width: `${scoreB}%` }} 
+                      />
+                    </div>
+                    <span className={`font-mono font-bold ${isBWinner ? 'text-emerald-700 text-sm' : 'text-zinc-600'}`}>
+                      {scoreB}%
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Nút xem chi tiết từng quán */}
+            <div className="grid grid-cols-12 gap-4 pt-4 border-t border-[#E5E3DE]">
+              <div className="col-span-6 text-left">
+                <button
+                  type="button"
+                  onClick={() => onSelectRestaurant(restaurantA.id)}
+                  className="px-3.5 py-2 bg-white hover:bg-zinc-100 border border-zinc-900 rounded-lg text-xs font-bold text-zinc-900 shadow-craft-sm"
+                >
+                  Xem báo cáo {restaurantA.name} →
+                </button>
+              </div>
+              <div className="col-span-6 text-right">
+                <button
+                  type="button"
+                  onClick={() => onSelectRestaurant(restaurantB.id)}
+                  className="px-3.5 py-2 bg-white hover:bg-zinc-100 border border-zinc-900 rounded-lg text-xs font-bold text-zinc-900 shadow-craft-sm"
+                >
+                  Xem báo cáo {restaurantB.name} →
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* 4. DUAL PERSPECTIVE SWITCHER: BỘ CHUYỂN ĐỔI 2 GÓC NHÌN */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-8">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-[#18181B] tracking-tight mb-2">
-            Được xây dựng cho cả 2 nhu cầu
+          <h2 className="text-2xl sm:text-3xl font-black text-[#18181B] tracking-tight mb-2">
+            Được xây dựng cho cả 2 góc nhìn
           </h2>
           <p className="text-sm text-[#71717A]">
             Dù bạn là người đi ăn hay người vận hành quán, thông tin đều được bóc tách phục vụ đúng mục đích của bạn.
           </p>
 
           {/* Tab Selector */}
-          <div className="inline-flex p-1 bg-zinc-100 rounded-xl mt-5 border border-zinc-200">
+          <div className="inline-flex p-1 bg-[#FAF9F5] rounded-xl mt-5 border border-[#E5E3DE]">
             <button
               type="button"
               onClick={() => setPerspectiveTab('diner')}
               className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 ${
                 perspectiveTab === 'diner'
-                  ? 'bg-white text-[#C2410C] shadow-xs'
+                  ? 'bg-[#18181B] text-white shadow-craft-sm'
                   : 'text-zinc-600 hover:text-zinc-900'
               }`}
             >
@@ -373,7 +625,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               onClick={() => setPerspectiveTab('owner')}
               className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 ${
                 perspectiveTab === 'owner'
-                  ? 'bg-white text-[#18181B] shadow-xs'
+                  ? 'bg-[#18181B] text-white shadow-craft-sm'
                   : 'text-zinc-600 hover:text-zinc-900'
               }`}
             >
@@ -386,8 +638,8 @@ export const HomePage: React.FC<HomePageProps> = ({
         {/* Nội dung Tab Thực khách */}
         {perspectiveTab === 'diner' ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-300">
-            <div className="bg-white border border-[#E5E5E0] rounded-xl p-6 sm:p-7 space-y-3">
-              <div className="w-10 h-10 rounded-lg bg-orange-50 text-[#C2410C] flex items-center justify-center font-bold text-lg border border-orange-100">
+            <div className="bg-white border border-[#E5E3DE] rounded-xl p-6 sm:p-7 space-y-3 hover:shadow-craft transition-all">
+              <div className="w-10 h-10 rounded-lg bg-orange-50 text-[#C2410C] flex items-center justify-center font-bold text-lg border border-orange-200">
                 🍜
               </div>
               <h3 className="text-base sm:text-lg font-bold text-[#18181B]">
@@ -398,8 +650,8 @@ export const HomePage: React.FC<HomePageProps> = ({
               </p>
             </div>
 
-            <div className="bg-white border border-[#E5E5E0] rounded-xl p-6 sm:p-7 space-y-3">
-              <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-lg border border-amber-100">
+            <div className="bg-white border border-[#E5E3DE] rounded-xl p-6 sm:p-7 space-y-3 hover:shadow-craft transition-all">
+              <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-lg border border-amber-200">
                 ⚠️
               </div>
               <h3 className="text-base sm:text-lg font-bold text-[#18181B]">
@@ -410,8 +662,8 @@ export const HomePage: React.FC<HomePageProps> = ({
               </p>
             </div>
 
-            <div className="bg-white border border-[#E5E5E0] rounded-xl p-6 sm:p-7 space-y-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-lg border border-emerald-100">
+            <div className="bg-white border border-[#E5E3DE] rounded-xl p-6 sm:p-7 space-y-3 hover:shadow-craft transition-all">
+              <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-lg border border-emerald-200">
                 💰
               </div>
               <h3 className="text-base sm:text-lg font-bold text-[#18181B]">
@@ -425,8 +677,8 @@ export const HomePage: React.FC<HomePageProps> = ({
         ) : (
           /* Nội dung Tab Chủ quán */
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-300">
-            <div className="bg-white border border-[#E5E5E0] rounded-xl p-6 sm:p-7 space-y-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-lg border border-blue-100">
+            <div className="bg-white border border-[#E5E3DE] rounded-xl p-6 sm:p-7 space-y-3 hover:shadow-craft transition-all">
+              <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-lg border border-blue-200">
                 👥
               </div>
               <h3 className="text-base sm:text-lg font-bold text-[#18181B]">
@@ -437,8 +689,8 @@ export const HomePage: React.FC<HomePageProps> = ({
               </p>
             </div>
 
-            <div className="bg-white border border-[#E5E5E0] rounded-xl p-6 sm:p-7 space-y-3">
-              <div className="w-10 h-10 rounded-lg bg-red-50 text-red-700 flex items-center justify-center font-bold text-lg border border-red-100">
+            <div className="bg-white border border-[#E5E3DE] rounded-xl p-6 sm:p-7 space-y-3 hover:shadow-craft transition-all">
+              <div className="w-10 h-10 rounded-lg bg-red-50 text-red-700 flex items-center justify-center font-bold text-lg border border-red-200">
                 🎯
               </div>
               <h3 className="text-base sm:text-lg font-bold text-[#18181B]">
@@ -449,8 +701,8 @@ export const HomePage: React.FC<HomePageProps> = ({
               </p>
             </div>
 
-            <div className="bg-white border border-[#E5E5E0] rounded-xl p-6 sm:p-7 space-y-3">
-              <div className="w-10 h-10 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-lg border border-purple-100">
+            <div className="bg-white border border-[#E5E3DE] rounded-xl p-6 sm:p-7 space-y-3 hover:shadow-craft transition-all">
+              <div className="w-10 h-10 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-lg border border-purple-200">
                 📈
               </div>
               <h3 className="text-base sm:text-lg font-bold text-[#18181B]">
@@ -464,14 +716,14 @@ export const HomePage: React.FC<HomePageProps> = ({
         )}
       </section>
 
-      {/* 4. BỘ SƯU TẬP QUÁN ĂN NỔI BẬT (EDITORIAL CURATION GRID) */}
+      {/* 5. BỘ SƯU TẬP QUÁN ĂN CHỌN LỌC (EDITORIAL CURATION GRID) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-[#C2410C] mb-1">
               Bộ sưu tập chọn lọc
             </div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-[#18181B] tracking-tight">
+            <h2 className="text-2xl sm:text-3xl font-black text-[#18181B] tracking-tight">
               Quán ăn nổi bật đã được đánh giá
             </h2>
             <p className="text-xs sm:text-sm text-zinc-500 mt-1">
@@ -499,24 +751,24 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </section>
 
-      {/* 5. QUY TRÌNH 4 BƯỚC MINH BẠCH (METHODOLOGY BANNER) */}
+      {/* 6. QUY TRÌNH 4 BƯỚC MINH BẠCH (METHODOLOGY BANNER) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-[#18181B] text-white rounded-2xl p-8 sm:p-10 flex flex-col lg:flex-row items-center justify-between gap-8">
+        <div className="bg-[#18181B] text-white rounded-2xl p-8 sm:p-10 flex flex-col lg:flex-row items-center justify-between gap-8 shadow-craft">
           <div className="space-y-3 text-center lg:text-left">
             <span className="text-xs font-bold text-orange-400 uppercase tracking-wider">
               Minh bạch & Độc lập
             </span>
-            <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            <h3 className="text-2xl sm:text-3xl font-black tracking-tight">
               Restaurant Intelligence đọc vị đánh giá như thế nào?
             </h3>
             <p className="text-xs sm:text-sm text-zinc-300 max-w-2xl leading-relaxed">
-              Từ hàng ngàn bài nhận xét rời rạc của thực khách trên Foody, hệ thống tự động làm sạch bình luận rác, bóc tách tỷ lệ khen - chê theo 5 khía cạnh và đưa ra bản tóm tắt trung thực chỉ trong vài giây.
+              Từ hàng ngàn bài nhận xét rời rạc của thực khách trên Foody, hệ thống tự động làm sạch bình luận rác và bot cày xu, bóc tách tỷ lệ khen - chê theo 5 khía cạnh và đưa ra bản tóm tắt trung thực chỉ trong vài giây.
             </p>
           </div>
 
           <button
             onClick={onNavigateHowItWorks}
-            className="px-6 py-3.5 bg-white hover:bg-zinc-100 text-[#18181B] rounded-xl text-xs sm:text-sm font-bold tracking-wide transition-colors shrink-0 shadow-sm"
+            className="px-6 py-3.5 bg-white hover:bg-zinc-100 text-[#18181B] rounded-xl text-xs sm:text-sm font-bold tracking-wide transition-all shrink-0 shadow-craft-sm"
           >
             Xem cách thức hoạt động →
           </button>

@@ -167,13 +167,13 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
       
       {/* Tiêu đề & Ô tìm kiếm */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#E4E4E7] pb-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#E5E3DE] pb-6">
         <div>
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#C2410C] mb-1">
             <Compass className="w-4 h-4" />
             <span>Danh mục quán ăn đã đánh giá</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#18181B] tracking-tight">
+          <h1 className="text-3xl sm:text-4xl font-black text-[#18181B] tracking-tight">
             {isSearchActive ? `Kết quả cho "${filters.query}"` : 'Khám phá quán ăn'}
           </h1>
           <p className="text-xs sm:text-sm text-[#71717A] mt-1">
@@ -196,7 +196,7 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
 
       {/* Quick Category Chips: Thẻ món ăn chọn nhanh */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-        <span className="text-xs font-semibold text-zinc-500 shrink-0 flex items-center gap-1 mr-1">
+        <span className="text-xs font-bold text-zinc-500 shrink-0 flex items-center gap-1 mr-1">
           <Sparkles className="w-3.5 h-3.5 text-[#C2410C]" />
           <span>Món phổ biến:</span>
         </span>
@@ -208,10 +208,10 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
             <button
               key={cat.label}
               onClick={() => handleQuickCategoryClick(cat.query)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
                 isSelected
-                  ? 'bg-[#C2410C] text-white shadow-2xs font-semibold'
-                  : 'bg-white border border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50'
+                  ? 'bg-[#18181B] text-white shadow-craft-sm'
+                  : 'bg-white border border-[#E5E3DE] text-zinc-700 hover:border-zinc-500 hover:bg-[#FAF9F5]'
               }`}
             >
               {cat.label}
