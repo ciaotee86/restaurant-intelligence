@@ -43,6 +43,7 @@ from database.models import (
 from database.db import get_session, get_or_create_restaurant, save_review, save_analysis
 from analysis.gemini_analyzer import analyze_batch
 from crawler.foody_crawler import crawl_restaurant, search_foody_places
+from crawler.review_filter import classify_review
 
 app = FastAPI(
     title="Restaurant Intelligence API",
@@ -187,7 +188,22 @@ def format_restaurant_full(restaurant: DBRestaurant, db) -> dict:
     - Key Findings tóm tắt tỷ lệ thật của quán
     - Operational Checklist đưa ra giải pháp ứng với lỗi thật của quán
     """
-    reviews = db.query(DBReview).filter_by(restaurant_id=restaurant.id).all()
+    raw_reviews = db.query(DBReview).filter_by(restaurant_id=restaurant.id).all()
+    
+    # LỌC BỎ TOÀN BỘ REVIEW SPAM / SEEDING / BOT PLACEHOLDER / SĂN XU
+    reviews = []
+    for r in raw_reviews:
+        if getattr(r, 'is_spam', None) == 1:
+            continue
+        # Chạy kiểm tra theo tên quán & nhận diện review không có cảm xúc/ý kiến thật
+        f_res = classify_review(r.text, author=r.author, restaurant_name=restaurant.name)
+        if f_res["is_spam"]:
+            if hasattr(r, 'is_spam') and r.is_spam != 1:
+                r.is_spam = 1
+                r.spam_category = f_res["spam_category"]
+            continue
+        reviews.append(r)
+
     review_ids = [r.id for r in reviews]
     
     analyses = []
@@ -286,9 +302,7 @@ def format_restaurant_full(restaurant: DBRestaurant, db) -> dict:
             "dateDisplay": r.review_date or "Gần đây",
             "text": text_str,
             "overallSentiment": overall_sentiment,
-            "aspects": extracted_aspects if extracted_aspects else [
-                {"aspect": "Món ăn", "sentiment": overall_sentiment, "phrase": "Món ăn tổng thể", "confidence": 0.85}
-            ],
+            "aspects": extracted_aspects,  # KHÔNG BỊA ĐẶT KHÍA CẠNH ẢO CHO REVIEW KHÔNG CÓ ASPECT
             "highlightSpans": highlight_spans,
             "source": "Foody",
             "verifiedVisit": True,

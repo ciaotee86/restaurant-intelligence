@@ -65,6 +65,28 @@ TEST_CASES = [
         "text": "Cần bán gấp lô đất nền bất động sản chính chủ sổ đỏ tại trung tâm thành phố, liên hệ ngay.",
         "expected_spam": True,
         "expected_category": ["irrelevant", "advertisement"]
+    },
+    {
+        "id": "CASE 9",
+        "name": "Review chép lại tên quán kèm ký hiệu chi nhánh bot (ChaChaanTeng F / J)",
+        "text": "“港式甜品店 Trôi Nước HongKong - ChaChaanTeng F”",
+        "restaurant_name": "Trôi Nước HongKong - ChaChaanTeng",
+        "expected_spam": True,
+        "expected_category": ["bot_placeholder", "no_opinion_placeholder"]
+    },
+    {
+        "id": "CASE 10",
+        "name": "Review dạng chuỗi tên nhãn hiệu có đuôi bot không truyền restaurant_name",
+        "text": "“港式甜品店 Trôi Nước HongKong - ChaChaanTeng G”",
+        "expected_spam": True,
+        "expected_category": ["bot_placeholder", "no_opinion_placeholder"]
+    },
+    {
+        "id": "CASE 11",
+        "name": "Review spam săn xu / chấm nhận xu",
+        "text": "hình ảnh chỉ mang tính chất nhận xu thôi ạ",
+        "expected_spam": True,
+        "expected_category": ["coin_farming"]
     }
 ]
 
@@ -77,6 +99,7 @@ def run_tests():
     for tc in TEST_CASES:
         res = classify_review(
             text=tc["text"],
+            restaurant_name=tc.get("restaurant_name"),
             recent_texts=tc.get("recent_texts", [])
         )
         
@@ -104,7 +127,7 @@ def run_tests():
 
     print("\n" + "=" * 70)
     if all_passed:
-        print("KẾT QUẢ TỔNG THỂ: TẤT CẢ 8/8 TEST CASES ĐỀU ĐẠT CHUẨN!")
+        print(f"KẾT QUẢ TỔNG THỂ: TẤT CẢ {len(TEST_CASES)}/{len(TEST_CASES)} TEST CASES ĐỀU ĐẠT CHUẨN!")
     else:
         print("KẾT QUẢ TỔNG THỂ: CÓ TEST CASE CHƯA ĐẠT.")
     print("=" * 70)

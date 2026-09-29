@@ -66,6 +66,11 @@ Với mỗi review:
 
 6. Phải giữ nguyên review_id.
 
+7. NGUYÊN TẮC BẮT BUỘC VỀ SPAM / NỘI DUNG VÔ NGHĨA / KHÔNG CÓ CẢM XÚC:
+   - Nếu review chỉ là tên quán, mã chi nhánh (ví dụ: "Trôi Nước HongKong - ChaChaanTeng F"), nội dung nhận xu, văn bản lặp lại vô nghĩa, hoặc KHÔNG CHỨA BẤT KỲ CẢM XÚC/Ý KIẾN ĐÁNH GIÁ THỰC TẾ NÀO của thực khách:
+   - BẮT BUỘC TRẢ VỀ: "aspects": []
+   - TUYỆT ĐỐI KHÔNG tự suy đoán là "món ăn", KHÔNG gán sentiment "neutral" hay bất kỳ khía cạnh nào.
+
 CHỈ trả về JSON, không giải thích.
 
 Cấu trúc bắt buộc:

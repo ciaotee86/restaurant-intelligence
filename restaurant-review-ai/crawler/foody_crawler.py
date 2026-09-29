@@ -347,7 +347,13 @@ def crawl_restaurant(
                     consecutive_existing_count = 0
 
                 # Review mới chưa từng có trong DB -> chạy spam filter & lưu vào kết quả
-                filter_res = classify_review(text, author=author)
+                recent_session_texts = [r["text"] for r in result["reviews"]]
+                filter_res = classify_review(
+                    text,
+                    author=author,
+                    restaurant_name=restaurant_name,
+                    recent_texts=recent_session_texts
+                )
                 result["reviews"].append({
                     "foody_review_id": foody_id,
                     "fingerprint": fp,

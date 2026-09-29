@@ -196,18 +196,20 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
               </p>
 
               {/* Tag các khía cạnh trích xuất */}
-              <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-zinc-100">
-                <span className="text-[11px] font-semibold text-zinc-400 mr-1 uppercase font-mono">
-                  Trích xuất:
-                </span>
-                {rev.aspects.map((aspectItem, aIdx) => (
-                  <AspectPill
-                    key={aIdx}
-                    aspect={aspectItem.aspect}
-                    sentiment={aspectItem.sentiment}
-                  />
-                ))}
-              </div>
+              {rev.aspects && rev.aspects.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-zinc-100">
+                  <span className="text-[11px] font-semibold text-zinc-400 mr-1 uppercase font-mono">
+                    Trích xuất:
+                  </span>
+                  {rev.aspects.map((aspectItem, aIdx) => (
+                    <AspectPill
+                      key={aIdx}
+                      aspect={aspectItem.aspect}
+                      sentiment={aspectItem.sentiment}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -101,6 +101,33 @@ SHORT_REVIEW_WORDS = {
     "thơm ngon", "thom ngon", "đậm đà", "dam da", "hợp khẩu vị", "hop vi"
 }
 
+# Tín hiệu săn xu / chấm nhận xu / spam review thương mại điện tử
+COIN_FARMING_SIGNALS = [
+    "chấm nhận xu", "cham nhan xu", "chấm lấy xu", "cham lay xu", "nhận xu", "nhan xu",
+    "lấy xu", "lay xu", "kiếm xu", "kiem xu", "săn xu", "san xu", "cmt dạo", "cmt dao",
+    "hình ảnh mang tính chất nhận xu", "hinh anh mang tinh chat nhan xu",
+    "hình ảnh chỉ mang tính chất nhận xu", "video mang tính chất nhận xu",
+    "hình ảnh chỉ mang tính minh họa", "đánh giá nhận xu", "danh gia nhan xu",
+    "shop giao nhanh", "giao hàng nhanh", "đóng gói cẩn thận", "chưa dùng thử nên chưa biết",
+    "mua lần đầu", "hàng giống hình"
+]
+
+# Từ vựng chỉ cảm xúc / nhận xét / ý kiến đánh giá thực tế (dùng word-boundary/token matching)
+SENTIMENT_OPINION_WORDS = {
+    "ngon", "dở", "do", "tệ", "te", "chán", "chan", "thích", "thich", "ghét", "ghet",
+    "hài lòng", "hai long", "thất vọng", "that vong", "ổn", "on", "tốt", "tot",
+    "được", "duoc", "tuyệt", "tuyet", "xịn", "xin", "đậm đà", "dam da", "vừa miệng", "vua mieng",
+    "nhạt", "nhat", "mặn", "man", "chua", "cay", "ngọt", "ngot", "béo", "beo",
+    "thơm", "thom", "tanh", "hôi", "hoi", "sạch", "sach", "bẩn", "ban", "dơ",
+    "đắt", "dat", "rẻ", "re", "mắc", "mac", "hợp lý", "hop ly",
+    "nhiệt tình", "nhiet tinh", "chu đáo", "chu dao", "thân thiện", "than thien",
+    "thô lỗ", "tho lo", "chậm", "cham", "nhanh", "lâu", "lau", "chờ", "cho",
+    "thoáng", "thoang", "đẹp", "dep", "xấu", "xau", "chật", "chat", "ồn",
+    "yên tĩnh", "yen tinh", "quay lại", "quay lai", "ủng hộ", "ung ho",
+    "chê", "che", "khen", "đáng tiền", "dang tien", "đáng thử", "dang thu",
+    "né", "ne", "tránh", "tranh", "10/10", "9/10", "8/10", "ok", "oke", "okay", "good", "nice"
+}
+
 
 # ==============================================================================
 # 2. HÀM CHUẨN HÓA VĂN BẢN
@@ -132,6 +159,7 @@ def remove_accents(text: str) -> str:
 def classify_review(
     text: str,
     author: str = "",
+    restaurant_name: Optional[str] = None,
     recent_texts: Optional[List[str]] = None,
     allow_ai: bool = False
 ) -> Dict[str, Any]:
@@ -142,7 +170,7 @@ def classify_review(
     {
         "is_spam": bool,
         "spam_score": float,       # 0.0 -> 1.0
-        "spam_category": str,      # "normal" | "low_information" | "advertisement" | "irrelevant" | "duplicate" | "suspicious"
+        "spam_category": str,      # "normal" | "low_information" | "advertisement" | "irrelevant" | "duplicate" | "bot_placeholder" | "no_opinion_placeholder" | "coin_farming" | "suspicious"
         "spam_reason": list[str],  # Danh sách các nguyên nhân phát hiện
     }
     """
@@ -162,10 +190,76 @@ def classify_review(
     word_count = len(words)
 
     # --------------------------------------------------------------------------
-    # TÍN HIỆU 0: KIỂM TRA TRÙNG LẶP (DUPLICATE CHECK)
+    # TÍN HIỆU 0: SPAM SĂN XU / CHẤM NHẬN XU (COIN FARMING & E-COMMERCE SEEDING)
+    # --------------------------------------------------------------------------
+    for kw in COIN_FARMING_SIGNALS:
+        if kw in lower_text or kw in no_accent_text:
+            return {
+                "is_spam": True,
+                "spam_score": 0.95,
+                "spam_category": "coin_farming",
+                "spam_reason": [f"matched_{kw}"]
+            }
+
+    # --------------------------------------------------------------------------
+    # TÍN HIỆU 1: CHÉP LẠI TÊN QUÁN / THƯƠNG HIỆU (RESTAURANT NAME ECHOING)
+    # --------------------------------------------------------------------------
+    cleaned_quotes = re.sub(r"^[\"“'«\s]+|[\"”'»\s]+$", "", norm_text).strip()
+    is_fully_quoted = (norm_text.startswith(('"', '“', '‘', '«')) and norm_text.endswith(('"', '”', '’', '»')))
+
+    if restaurant_name:
+        r_norm = normalize_text(restaurant_name).lower()
+        r_no_acc = remove_accents(r_norm)
+        # Bỏ trailing suffix kiểu F, J, G, 1, 2 và ngoặc kép
+        stripped_text = re.sub(r"[\s\-_]+[A-Za-z0-9]{1,2}$", "", lower_text).strip()
+        stripped_text = re.sub(r"^[\"“'«\s]+|[\"”'»\s]+$", "", stripped_text).strip()
+        stripped_no_acc = remove_accents(stripped_text)
+        if (
+            (len(stripped_text) >= 5 and (stripped_text in r_norm or r_norm in stripped_text)) or
+            (len(stripped_no_acc) >= 5 and (stripped_no_acc in r_no_acc or r_no_acc in stripped_no_acc))
+        ):
+            return {
+                "is_spam": True,
+                "spam_score": 0.96,
+                "spam_category": "bot_placeholder",
+                "spam_reason": ["restaurant_name_echo"]
+            }
+
+    # --------------------------------------------------------------------------
+    # TÍN HIỆU 2: REVIEW HOÀN TOÀN KHÔNG CÓ CẢM XÚC / ĐÁNH GIÁ (ZERO OPINION BOT)
+    # --------------------------------------------------------------------------
+    words_set = set(re.findall(r"[\w]+", lower_text))
+    no_acc_words_set = set(re.findall(r"[\w]+", no_accent_text))
+    has_sentiment = any(sw in words_set or sw in no_acc_words_set for sw in SENTIMENT_OPINION_WORDS)
+    if not has_sentiment:
+        multi_words = [sw for sw in SENTIMENT_OPINION_WORDS if " " in sw]
+        has_sentiment = any(f" {mw} " in f" {lower_text} " or f" {mw} " in f" {no_accent_text} " for mw in multi_words)
+
+    if not has_sentiment:
+        # Chuỗi thương hiệu có hậu tố chi nhánh bot: e.g. "Trôi Nước - ChaChaanTeng F"
+        if re.search(r"[-–—]\s*[\w\s]+?\s+[A-Za-z0-9]$", cleaned_quotes) or re.search(r"\b[A-Za-z0-9]\s*$", cleaned_quotes):
+            if "-" in norm_text or is_fully_quoted:
+                return {
+                    "is_spam": True,
+                    "spam_score": 0.92,
+                    "spam_category": "bot_placeholder",
+                    "spam_reason": ["templated_branch_suffix_no_opinion"]
+                }
+        # Toàn bộ nội dung đặt trong ngoặc kép hoặc dạng nhãn tên quán ngắn không cảm xúc
+        if is_fully_quoted or ("-" in norm_text and word_count <= 10):
+            return {
+                "is_spam": True,
+                "spam_score": 0.88,
+                "spam_category": "no_opinion_placeholder",
+                "spam_reason": ["quoted_or_title_without_sentiment"]
+            }
+
+    # --------------------------------------------------------------------------
+    # TÍN HIỆU 3: KIỂM TRA TRÙNG LẶP & TEMPLATE CLUSTER (DUPLICATE CHECK)
     # --------------------------------------------------------------------------
     if recent_texts:
         norm_compact = " ".join(lower_text.split())
+        stem = re.sub(r"[\s\-_]+[A-Za-z0-9]{1,2}$", "", cleaned_quotes.lower()).strip()
         for prev in recent_texts:
             prev_norm = " ".join(normalize_text(prev).lower().split())
             if norm_compact and norm_compact == prev_norm:
@@ -174,6 +268,16 @@ def classify_review(
                     "spam_score": 0.98,
                     "spam_category": "duplicate",
                     "spam_reason": ["duplicate_content"]
+                }
+            # Biến thể cùng cụm gốc template nhưng khác ký tự đuôi
+            prev_cleaned = re.sub(r"^[\"“'«\s]+|[\"”'»\s]+$", "", normalize_text(prev)).strip()
+            prev_stem = re.sub(r"[\s\-_]+[A-Za-z0-9]{1,2}$", "", prev_cleaned.lower()).strip()
+            if stem and len(stem) >= 8 and stem == prev_stem:
+                return {
+                    "is_spam": True,
+                    "spam_score": 0.95,
+                    "spam_category": "duplicate",
+                    "spam_reason": ["templated_cluster_variation"]
                 }
             # Trùng lặp phần lớn (near duplicate: cùng 15 từ đầu tiên trên văn bản dài)
             if word_count >= 10:
