@@ -10,7 +10,7 @@ interface RestaurantHeroProps {
 
 export const RestaurantHero: React.FC<RestaurantHeroProps> = ({ restaurant, onBack }) => {
   // Tìm khía cạnh có phản hồi tiêu cực đáng chú ý (nếu > 12%)
-  const urgentComplaintAspect = restaurant.aspects.find(a => a.negativePercentage >= 12);
+  const urgentComplaintAspect = restaurant.aspects?.find(a => a.negativePercentage >= 12);
   const complaintDetail = restaurant.attentionAreas?.[0]?.commonComplaints?.[0] || urgentComplaintAspect?.category;
 
   return (

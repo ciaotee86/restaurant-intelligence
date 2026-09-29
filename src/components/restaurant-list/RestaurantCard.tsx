@@ -9,23 +9,27 @@ interface RestaurantCardProps {
 }
 
 export const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurant, onSelect }) => {
+  if (!restaurant) return null;
+
   // Trích xuất món nên thử hàng đầu
   const topStrength = restaurant.strengths?.[0];
   // Trích xuất điểm cần lưu ý thực tế
   const topComplaint = restaurant.attentionAreas?.[0]?.commonComplaints?.[0] || restaurant.attentionAreas?.[0]?.aspect;
   
   // Trích xuất nhận xét thực tế từ thực khách
-  const sampleReview = restaurant.reviews?.[0]?.text || restaurant.sentimentSummarySentence;
-  const quoteText = sampleReview.length > 115 ? `${sampleReview.slice(0, 112)}...` : sampleReview;
+  const sampleReview = restaurant.reviews?.[0]?.text || restaurant.sentimentSummarySentence || '';
+  const quoteText = sampleReview && sampleReview.length > 115 
+    ? `${sampleReview.slice(0, 112)}...` 
+    : (sampleReview || 'Đang cập nhật đánh giá thực tế...');
 
   // Lấy chỉ số 3 yếu tố quan trọng nhất: Món ăn, Dịch vụ, Giá cả
-  const foodAspect = restaurant.aspects.find(a => a.category === 'Món ăn');
-  const serviceAspect = restaurant.aspects.find(a => a.category === 'Dịch vụ');
-  const priceAspect = restaurant.aspects.find(a => a.category === 'Giá cả');
+  const foodAspect = restaurant.aspects?.find(a => a.category === 'Món ăn');
+  const serviceAspect = restaurant.aspects?.find(a => a.category === 'Dịch vụ');
+  const priceAspect = restaurant.aspects?.find(a => a.category === 'Giá cả');
 
-  const posPct = restaurant.sentimentDistribution.positive;
-  const neuPct = restaurant.sentimentDistribution.neutral;
-  const negPct = restaurant.sentimentDistribution.negative;
+  const posPct = restaurant.sentimentDistribution?.positive ?? 0;
+  const neuPct = restaurant.sentimentDistribution?.neutral ?? 0;
+  const negPct = restaurant.sentimentDistribution?.negative ?? 0;
 
   return (
     <article 
@@ -37,16 +41,16 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurant, onSe
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[11px] font-bold text-[#C2410C] bg-orange-50 px-2.5 py-0.5 rounded border border-orange-200/90 tracking-tight">
-              {restaurant.cuisine}
+              {restaurant.cuisine || 'Ẩm thực'}
             </span>
             <span className="text-[11px] font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200">
-              {restaurant.priceLevel || '$$'} · {restaurant.priceRange}
+              {restaurant.priceLevel || '$$'} · {restaurant.priceRange || 'Bình dân'}
             </span>
           </div>
 
           <span className="text-xs text-[#71717A] font-medium flex items-center gap-1 shrink-0">
             <MapPin className="w-3.5 h-3.5 text-zinc-400" />
-            {restaurant.city}
+            {restaurant.city || 'Việt Nam'}
           </span>
         </div>
 
@@ -60,12 +64,12 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurant, onSe
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-300 px-2 py-0.5 rounded font-black">
               <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-              <span>{restaurant.rating}</span>
+              <span>{restaurant.rating ?? 5.0}</span>
             </div>
 
             <div className="flex items-center gap-1 text-[#52525B] text-xs">
               <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
-              <span>{formatNumber(restaurant.totalReviews)} đánh giá</span>
+              <span>{formatNumber(restaurant.totalReviews || 0)} đánh giá</span>
             </div>
           </div>
 

@@ -36,7 +36,7 @@ export const AspectAnalysis: React.FC<AspectAnalysisProps> = ({
 
       {/* Danh sách thanh phân bổ theo từng khía cạnh */}
       <div className="space-y-4">
-        {restaurant.aspects.map((aspect) => {
+        {(restaurant.aspects || []).map((aspect) => {
           const isSelected = selectedAspect === aspect.category;
           return (
             <div
@@ -88,7 +88,7 @@ export const AspectAnalysis: React.FC<AspectAnalysisProps> = ({
               {/* Cụm từ trích xuất phổ biến */}
               <div className="flex flex-wrap items-center gap-1.5 text-xs text-[#71717A]">
                 <span className="text-zinc-500 font-semibold text-[11px]">Từ khóa tiêu biểu:</span>
-                {aspect.sampleKeywords.map((kw, i) => (
+                {(aspect.sampleKeywords || []).map((kw, i) => (
                   <span
                     key={i}
                     className="bg-white border border-[#E5E3DE] text-zinc-800 px-2 py-0.5 rounded font-mono text-[11px]"

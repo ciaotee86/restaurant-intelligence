@@ -15,7 +15,7 @@ export function App() {
   const [currentView, setCurrentView] = useState<ViewType>('home');
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>('pizza-4ps-trang-tien');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
+  const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>(() => restaurantService.getCachedRestaurants());
   const [isAnalyzeModalOpen, setIsAnalyzeModalOpen] = useState(false);
 
   const loadRestaurants = async () => {

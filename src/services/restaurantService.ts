@@ -68,6 +68,10 @@ class RestaurantService {
     return this.isBackendConnected === true;
   }
 
+  public getCachedRestaurants(): Restaurant[] {
+    return [...this.cachedRestaurants];
+  }
+
   public async getAllRestaurants(): Promise<Restaurant[]> {
     const apiData = await this.fetchFromApi<Restaurant[]>('/restaurants');
     
