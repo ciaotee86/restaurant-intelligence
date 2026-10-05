@@ -108,20 +108,44 @@ def search_restaurants_db(
         }
 
 
+def find_restaurant(db, identifier: str) -> Optional[DBRestaurant]:
+    """Tìm nhà hàng linh hoạt theo id số, res-{id}, foody_url slug, hoặc tên"""
+    if identifier.isdigit():
+        r = db.query(DBRestaurant).filter_by(id=int(identifier)).first()
+        if r:
+            return r
+
+    if identifier.startswith("res-") and identifier[4:].isdigit():
+        r = db.query(DBRestaurant).filter_by(id=int(identifier[4:])).first()
+        if r:
+            return r
+
+    restaurants = db.query(DBRestaurant).all()
+    # 1. Khớp chính xác tên hoặc res-{id}
+    for r in restaurants:
+        if r.name.lower() == identifier.lower() or f"res-{r.id}" == identifier:
+            return r
+
+    # 2. Khớp theo URL Foody (slug trên url)
+    for r in restaurants:
+        if r.foody_url and identifier.lower() in r.foody_url.lower():
+            return r
+
+    # 3. Khớp mờ theo tên không dấu
+    norm_id = remove_accents(identifier.lower()).replace("-", " ").strip()
+    for r in restaurants:
+        norm_name = remove_accents(r.name.lower()).replace("-", " ")
+        if norm_id in norm_name or norm_name in norm_id:
+            return r
+
+    return None
+
+
 @router.get("/restaurants/{identifier}")
 def get_restaurant_detail(identifier: str):
     """Lấy chi tiết phân tích của một nhà hàng theo ID hoặc Slug"""
     with get_session() as db:
-        restaurant = None
-        if identifier.isdigit():
-            restaurant = db.query(DBRestaurant).filter_by(id=int(identifier)).first()
-        if not restaurant:
-            restaurants = db.query(DBRestaurant).all()
-            for r in restaurants:
-                if f"res-{r.id}" == identifier or r.name.lower() == identifier.lower():
-                    restaurant = r
-                    break
-        
+        restaurant = find_restaurant(db, identifier)
         if not restaurant:
             raise HTTPException(status_code=404, detail="Không tìm thấy nhà hàng trong cơ sở dữ liệu")
 
@@ -169,15 +193,7 @@ class AskAssistantRequest(BaseModel):
 def get_restaurant_quick_questions(identifier: str):
     """Lấy danh sách 4 câu hỏi gợi ý nhanh cho quán"""
     with get_session() as db:
-        restaurant = None
-        if identifier.isdigit():
-            restaurant = db.query(DBRestaurant).filter_by(id=int(identifier)).first()
-        if not restaurant:
-            restaurants = db.query(DBRestaurant).all()
-            for r in restaurants:
-                if f"res-{r.id}" == identifier or r.name.lower() == identifier.lower():
-                    restaurant = r
-                    break
+        restaurant = find_restaurant(db, identifier)
         name = restaurant.name if restaurant else "quán ăn"
         return get_quick_questions(name)
 
@@ -193,18 +209,10 @@ def ask_restaurant_ai(identifier: str, req: AskAssistantRequest):
         raise HTTPException(status_code=400, detail="Vui lòng nhập câu hỏi.")
 
     with get_session() as db:
-        restaurant = None
-        if identifier.isdigit():
-            restaurant = db.query(DBRestaurant).filter_by(id=int(identifier)).first()
-        if not restaurant:
-            restaurants = db.query(DBRestaurant).all()
-            for r in restaurants:
-                if f"res-{r.id}" == identifier or r.name.lower() == identifier.lower():
-                    restaurant = r
-                    break
-
+        restaurant = find_restaurant(db, identifier)
         if not restaurant:
             raise HTTPException(status_code=404, detail="Không tìm thấy nhà hàng trong cơ sở dữ liệu.")
 
         return ask_assistant(restaurant, db, q, force_ai=req.force_ai)
+
 

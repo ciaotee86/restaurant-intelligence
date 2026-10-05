@@ -46,23 +46,34 @@ def get_quick_questions(restaurant_name: str = "quán") -> List[str]:
 
 def detect_question_intent(question: str) -> Optional[str]:
     """Phát hiện ý định của câu hỏi để điều hướng sang Local Synthesis hoặc Gemini AI"""
-    norm = remove_accents(question.lower())
+    norm = remove_accents(question.lower().strip())
 
-    # 1. Tư vấn mở rộng menu / thêm món (Cần Gemini hoặc bộ tư vấn F&B chuyên biệt)
-    if any(k in norm for k in ["them mon", "mon moi", "mo rong thuc don", "mon gi vao", "them vao menu", "bo sung mon", "mon an nao vao", "thay doi menu", "mon gi kem"]):
-        return "menu_expansion"
-
-    # 2. Các chỉ số thống kê & câu hỏi định hướng chuẩn (Local BI 0-token)
-    if any(k in norm for k in ["mon nao", "mon ngon", "mon an", "huong vi", "do an", "dac san", "mon dinh", "thuc don", "nem nem"]):
-        return "food"
-    if any(k in norm for k in ["dich vu", "nhan vien", "phuc vu", "thai do", "cho lau", "len mon", "order", "tiep don"]):
-        return "service"
-    if any(k in norm for k in ["gia ca", "gia tien", "dat", "re", "khau phan", "tui tien", "dinh luong", "menu", "bao nhieu"]):
-        return "price"
-    if any(k in norm for k in ["khong gian", "ve sinh", "sach se", "ban ghe", "dieu hoa", "thoang", "cho ngoi", "cho de xe", "do xe"]):
-        return "space_hygiene"
-    if any(k in norm for k in ["ke hoach", "hanh dong", "cai thien", "khac phuc", "giai phap", "goi y", "checklist", "nang cao", "chien luoc"]):
+    # 1. Kế hoạch hành động chuẩn (Local BI hoặc Checklist)
+    if "ke hoach" in norm or "checklist" in norm:
         return "action_plan"
+
+    # 2. Câu hỏi tư vấn / hành động / mở rộng thực đơn -> Luôn là menu_expansion hoặc advisory (gọi Gemini)
+    consult_markers = [
+        "nen", "co nen", "them", "bot", "tang", "giam", "lam sao", "lam the nao",
+        "tai sao", "vi sao", "cach nao", "phat trien", "mo rong", "tu van",
+        "goi y", "thay doi", "bo sung", "mot mon", "mon gi", "mon nao vao"
+    ]
+    if any(m in norm for m in consult_markers):
+        if any(k in norm for k in ["mon", "thuc don", "menu", "do an", "an kem", "topping", "uong"]):
+            return "menu_expansion"
+        return "advisory"
+
+    # 3. Các chỉ số thống kê & câu hỏi định hướng chuẩn (Local BI 0-token)
+    if any(k in norm for k in ["khen nhieu nhat", "ngon nhat", "dac sac nhat", "khen nhat", "dac trung"]) or (("mon" in norm or "an" in norm) and "khen" in norm):
+        return "food"
+    if ("mon nao" in norm or "mon gi" in norm) and "ngon" in norm:
+        return "food"
+    if any(k in norm for k in ["nhan vien", "phuc vu", "thai do", "cho lau", "len mon"]) and any(k in norm for k in ["the nao", "ra sao", "van de", "luu y", "nhanh", "co khong"]):
+        return "service"
+    if any(k in norm for k in ["muc gia", "gia ca", "gia tien", "dat", "re", "khau phan", "tui tien", "dinh luong"]):
+        return "price"
+    if any(k in norm for k in ["khong gian", "ve sinh", "sach se", "ban ghe", "dieu hoa", "thoang", "cho ngoi", "cho de xe"]):
+        return "space_hygiene"
     if any(k in norm for k in ["tong quan", "tong the", "chung", "ti le", "bao nhieu danh gia", "danh gia the nao", "chat luong"]):
         return "overview"
 
@@ -301,7 +312,7 @@ def ask_assistant(
     # 2. Xử lý câu hỏi:
     # - Nếu câu hỏi là các chỉ số chuẩn (food, service, price, space_hygiene, action_plan, overview) VÀ không yêu cầu force_ai -> Local Synthesis (0 Token)
     # - Nếu là tư vấn thực đơn (menu_expansion), câu hỏi tự do mở rộng, hoặc force_ai=True -> Gọi Gemini AI (gemini-3.5-flash-lite)
-    if intent and intent != "menu_expansion" and not force_ai:
+    if intent in ["food", "service", "price", "space_hygiene", "action_plan", "overview"] and not force_ai:
         answer = synthesize_local_answer(restaurant_data, intent)
         source = "local_bi"
     else:

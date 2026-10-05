@@ -278,16 +278,42 @@ class RestaurantService {
     const serviceAsp = r.aspects?.find(a => a.category === 'Dịch vụ');
     const priceAsp = r.aspects?.find(a => a.category === 'Giá cả');
 
-    if (normQ.includes('them mon') || normQ.includes('mon moi') || normQ.includes('bo sung') || normQ.includes('thay doi menu')) {
-      const isBanhXeo = r.name.toLowerCase().includes('banh xeo') || r.name.toLowerCase().includes('nem');
-      const isCom = r.name.toLowerCase().includes('ga') || r.name.toLowerCase().includes('com');
-      const dishAdvice = isBanhXeo
-        ? '- **Món ăn kèm & Topping:** Ram bắp Quảng Ngãi, Chả giò giòn rụm, Bò cuốn lá lốt.\n- **Đồ uống giải ngấy:** Trà tắc hạt chia, Sữa bắp nếp nhà làm, Nước mía tươi sạch.\n- **Combo đề xuất:** Combo "Đặc Sản Cuốn" dành cho 2 người (bánh xèo + nem lụi + nước uống).'
-        : isCom
-        ? '- **Món ăn kèm:** Trứng ốp la lòng đào, Canh rong biển thịt bằm, Da gà chiên mắm tỏi.\n- **Đồ uống:** Trà quất mật ong, Nước sâm dứa giải nhiệt.\n- **Combo đề xuất:** Combo Cơm đùi góc tư + Trứng ốp + Trà tắc.'
-        : '- **Món ăn vặt / Khai vị:** Bổ sung nem chua rán, khoai tây chiên hoặc chả giò để khách nhâm nhi lúc đợi món.\n- **Đồ uống:** Bổ sung các loại trà trái cây giải nhiệt để tăng giá trị đơn hàng.';
+    const isAdvisoryOrMenu = 
+      normQ.includes('them') || 
+      normQ.includes('mon moi') || 
+      normQ.includes('menu') || 
+      normQ.includes('thuc don') || 
+      normQ.includes('nen') || 
+      normQ.includes('goi y') || 
+      normQ.includes('tu van') || 
+      normQ.includes('lam sao');
+
+    if (isAdvisoryOrMenu) {
+      const nameLower = r.name.toLowerCase();
+      let dishAdvice = '';
+      if (nameLower.includes('che') || nameLower.includes('sinh to') || nameLower.includes('tra')) {
+        dishAdvice = 
+          '- **Đồ uống giải khát pha chế sẵn (pha nhanh < 1 phút):** Trà trái cây nhiệt đới (trà đào cam sả, trà mãng cầu), Trà sữa lài thạch củ năng để phục vụ tức thì khi đông khách.\n' +
+          '- **Món ăn vặt đi kèm:** Bánh tráng kẹp Đà Nẵng, Bánh tráng nướng, khô gà lá chanh để khách nhâm nhi trong lúc chờ chè.\n' +
+          '- **Combo giải nhiệt:** Combo 1 Chè Thái sầu riêng + 1 Trà trái cây (giảm 5k so với mua lẻ).';
+      } else if (nameLower.includes('banh xeo') || nameLower.includes('nem')) {
+        dishAdvice = 
+          '- **Món ăn kèm & Topping mới:** Ram bắp Quảng Ngãi, Chả giò giòn rụm, Bò cuốn lá lốt.\n' +
+          '- **Đồ uống giải ngấy:** Trà tắc hạt chia, Sữa bắp nếp nhà làm, Nước mía tươi sạch.\n' +
+          '- **Combo đề xuất:** Combo "Đặc Sản Cuốn" dành cho 2 người (bánh xèo + nem lụi + nước uống).';
+      } else if (nameLower.includes('ga') || nameLower.includes('com')) {
+        dishAdvice = 
+          '- **Món ăn kèm:** Trứng ốp la lòng đào, Canh rong biển thịt bằm, Da gà chiên mắm tỏi.\n' +
+          '- **Đồ uống:** Trà quất mật ong, Nước sâm dứa giải nhiệt.\n' +
+          '- **Combo đề xuất:** Combo Cơm đùi góc tư + Trứng ốp + Trà tắc.';
+      } else {
+        dishAdvice = 
+          '- **Món ăn vặt / Khai vị:** Bổ sung nem chua rán, khoai tây chiên hoặc chả giò để khách nhâm nhi lúc đợi món.\n' +
+          '- **Đồ uống giải nhiệt:** Bổ sung các loại trà trái cây giải nhiệt để tăng giá trị đơn hàng.\n' +
+          '- **Combo dùng thử:** Kết hợp món chính + 1 đồ uống với mức giá ưu đãi.';
+      }
       answer = `💡 **Tư vấn Mở rộng Thực đơn & Thêm Món cho ${r.name}:**\n\n${dishAdvice}\n\n🎯 **Khuyến nghị:** Thử nghiệm món mới dưới dạng combo giá ưu đãi trong 2 tuần đầu để đo lường độ tiếp nhận của khách hàng.`;
-    } else if (normQ.includes('mon') || normQ.includes('huong vi') || normQ.includes('do an') || normQ.includes('ngon')) {
+    } else if (normQ.includes('khen') || normQ.includes('ngon nhat') || normQ.includes('dac sac') || normQ.includes('huong vi') || normQ.includes('do an')) {
       const pos = foodAsp?.positivePercentage || 85;
       const kw = foodAsp?.sampleKeywords?.join(', ') || 'hương vị, đậm đà';
       answer = `🍴 **Phân tích về Ẩm thực & Món ăn tại ${r.name}:**\n\n- **Tỷ lệ khen ngợi:** Khía cạnh Món ăn đạt **${pos}% phản hồi tích cực** từ thực khách.\n- **Từ khóa nổi bật:** \`${kw}\`.\n- **Đặc trưng:** ${r.strengths?.[0]?.description || 'Món ăn nêm nếm vừa vặn, hấp dẫn thực khách.'}`;
