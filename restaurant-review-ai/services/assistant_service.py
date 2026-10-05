@@ -48,11 +48,15 @@ def detect_question_intent(question: str) -> Optional[str]:
     """Phát hiện ý định của câu hỏi để điều hướng sang Local Synthesis hoặc Gemini AI"""
     norm = remove_accents(question.lower().strip())
 
-    # 1. Kế hoạch hành động chuẩn (Local BI hoặc Checklist)
+    # 1. Luồng vận hành, điểm nghẽn, trục trặc
+    if any(k in norm for k in ["diem nghen", "luong chinh", "tron tru", "dau den cuoi", "un tac", "nghen", "ach tac", "van de gi", "khach che", "phan nan"]):
+        return "bottleneck_flow"
+
+    # 2. Kế hoạch hành động chuẩn (Local BI hoặc Checklist)
     if "ke hoach" in norm or "checklist" in norm:
         return "action_plan"
 
-    # 2. Câu hỏi tư vấn / hành động / mở rộng thực đơn -> Luôn là menu_expansion hoặc advisory (gọi Gemini)
+    # 3. Câu hỏi tư vấn / hành động / mở rộng thực đơn -> menu_expansion
     consult_markers = [
         "nen", "co nen", "them", "bot", "tang", "giam", "lam sao", "lam the nao",
         "tai sao", "vi sao", "cach nao", "phat trien", "mo rong", "tu van",
@@ -63,7 +67,7 @@ def detect_question_intent(question: str) -> Optional[str]:
             return "menu_expansion"
         return "advisory"
 
-    # 3. Các chỉ số thống kê & câu hỏi định hướng chuẩn (Local BI 0-token)
+    # 4. Các chỉ số thống kê & câu hỏi định hướng chuẩn (Local BI 0-token)
     if any(k in norm for k in ["khen nhieu nhat", "ngon nhat", "dac sac nhat", "khen nhat", "dac trung"]) or (("mon" in norm or "an" in norm) and "khen" in norm):
         return "food"
     if ("mon nao" in norm or "mon gi" in norm) and "ngon" in norm:
@@ -101,9 +105,52 @@ def synthesize_local_answer(restaurant_data: Dict[str, Any], intent: str) -> str
     space_asp = aspect_map.get("Không gian", {})
     hygiene_asp = aspect_map.get("Vệ sinh", {})
 
-    if intent == "menu_expansion":
+    if intent == "bottleneck_flow":
+        pos_pct = dist.get("positive", 50)
+        neg_pct = dist.get("negative", 20)
+
+        status_line = (
+            f"⚠️ **Cảnh báo vận hành:** Luồng hoạt động hiện tại **CHƯA TRƠN TRU**, có đến **{neg_pct}% đánh giá chưa ưng ý** từ khách hàng Foody!"
+            if neg_pct >= 30 else
+            f"✅ **Đánh giá tổng thể:** Luồng hoạt động cơ bản trơn tru với **{pos_pct}% khách hài lòng**, tuy nhiên vẫn tồn tại một số điểm nghẽn cục bộ."
+        )
+
+        complaints_list = []
+        for att in attentions:
+            aspect_name = att.get("aspect", "Vận hành")
+            for c in att.get("commonComplaints", []):
+                complaints_list.append(f"  • **[{aspect_name}]** {c}")
+
+        complaints_text = "\n".join(complaints_list) if complaints_list else "  • Chưa ghi nhận phàn nàn tập trung về một khâu cụ thể."
+
+        checklist_items = []
+        for item in checklist[:3]:
+            checklist_items.append(f"  • **[{item.get('priority', 'Ưu tiên')} - {item.get('area', '')}]:** {item.get('issue', '')} → *Khắc phục:* {item.get('suggestedFix', '')}")
+        checklist_text = "\n".join(checklist_items) if checklist_items else "  • Tiếp tục theo dõi và duy trì tốc độ phục vụ hiện tại."
+
+        return (
+            f"🚨 **Báo cáo Luồng Vận hành & Điểm nghẽn Thực tế tại {name}:**\n\n"
+            f"{status_line}\n\n"
+            f"**1. Các điểm nghẽn chính gây gián đoạn luồng phục vụ:**\n"
+            f"{complaints_text}\n\n"
+            f"**2. Giải pháp tháo gỡ điểm nghẽn ngay (Từ Checklist Vận hành):**\n"
+            f"{checklist_text}\n\n"
+            f"💡 **Khuyến nghị:** Ưu tiên số 1 của quán là tối ưu tốc độ ra món giờ cao điểm và quy chuẩn hóa thái độ giao tiếp của nhân viên để luồng khách từ lúc vào đến lúc ra về hoàn toàn thoải mái."
+        )
+
+    elif intent == "menu_expansion":
         name_lower = name.lower()
-        if "banh xeo" in name_lower or "nem lui" in name_lower or "bun" in name_lower:
+        if "che" in name_lower or "sinh to" in name_lower or "tra" in name_lower:
+            dishes_addon = (
+                "- **Đồ uống giải khát pha chế sẵn (pha nhanh < 1 phút):**\n"
+                "  • *Trà trái cây nhiệt đới (trà đào cam sả, trà mãng cầu):* Giúp phục vụ tức thì khi đông khách.\n"
+                "  • *Trà sữa lài thạch củ năng:* Dễ làm sẵn cốt trà và topping từ trước.\n"
+                "- **Món ăn vặt đi kèm:**\n"
+                "  • *Bánh tráng kẹp Đà Nẵng / Bánh tráng nướng:* Rất hút khách nhâm nhi lúc chờ chè.\n"
+                "- **Combo giải nhiệt:**\n"
+                "  • *Combo Cặp Đôi:* 1 Chè Thái + 1 Trà trái cây giảm 5k so với mua lẻ."
+            )
+        elif "banh xeo" in name_lower or "nem lui" in name_lower or "bun" in name_lower:
             dishes_addon = (
                 "- **Món ăn kèm & Topping mới:**\n"
                 "  • *Ram bắp / Chả giò giòn rụm:* Dễ cuốn kèm bánh xèo, làm phong phú đĩa cuốn.\n"
@@ -154,7 +201,6 @@ def synthesize_local_answer(restaurant_data: Dict[str, Any], intent: str) -> str
         neg_pct = service_asp.get("negativePercentage", 15)
         pos_pct = service_asp.get("positivePercentage", 80)
         
-        # Tìm phàn nàn dịch vụ nếu có
         service_att = next((a for a in attentions if a.get("aspect") == "Dịch vụ"), None)
         complaint_bullets = ""
         if service_att:
@@ -221,15 +267,13 @@ def synthesize_local_answer(restaurant_data: Dict[str, Any], intent: str) -> str
         )
 
 
-def call_gemini_assistant(restaurant_data: Dict[str, Any], question: str) -> str:
+def call_gemini_assistant_raw(restaurant_data: Dict[str, Any], question: str) -> Optional[str]:
     """
-    Gọi Gemini API cho các câu hỏi tùy biến mở rộng.
-    Sử dụng context thông minh dựa trên dữ liệu thật của quán và model gemini-3.5-flash-lite.
+    Gọi Gemini API cho chế độ Sáng tạo sâu.
+    Trả về None nếu lỗi để caller xử lý chuyển đổi nguồn chính xác.
     """
     if not API_KEY:
-        # Nếu chưa cấu hình API key, fallback an toàn sang Local Synthesis
-        fallback_intent = detect_question_intent(question) or "overview"
-        return synthesize_local_answer(restaurant_data, fallback_intent)
+        return None
 
     name = restaurant_data.get("name", "Quán")
     cuisine = restaurant_data.get("cuisine", "Ẩm thực")
@@ -256,7 +300,7 @@ Hãy trả lời câu hỏi của người dùng/chủ quán về nhà hàng sau
 - Từ khóa khách nhắc nhiều: {keywords_str}
 
 Yêu cầu trả lời:
-- Trả lời ĐÚNG TRỌNG TÂM câu hỏi của người dùng. Nếu hỏi về thêm món, hãy tư vấn các món ăn, đồ uống hoặc combo thực tế phù hợp với mô hình của quán.
+- Trả lời ĐÚNG TRỌNG TÂM câu hỏi của người dùng.
 - Thân thiện, thực tế, hành văn chuyên nghiệp của chuyên gia F&B.
 - Trình bày mạch lạc với gạch đầu dòng Markdown rõ ràng, dễ đọc."""
 
@@ -271,11 +315,9 @@ Yêu cầu trả lời:
             return response.text.strip()
     except Exception as e:
         safe_err = str(e).encode("ascii", "replace").decode("ascii")
-        print(f"[Gemini Assistant Error] {safe_err}. Chuyển sang Local Synthesis fallback.")
+        print(f"[Gemini Assistant Error] {safe_err}")
 
-    # Fallback mượt mà nếu Gemini hết Quota hoặc mạng lỗi
-    fallback_intent = detect_question_intent(question) or "overview"
-    return synthesize_local_answer(restaurant_data, fallback_intent)
+    return None
 
 
 def ask_assistant(
@@ -287,15 +329,16 @@ def ask_assistant(
     """
     Hàm điều phối chính:
     1. Kiểm tra Cache nội bộ
-    2. Phân loại câu hỏi (Local Synthesis vs Gemini AI)
-    3. Trả về câu trả lời kèm nguồn minh bạch (local_bi / cache / gemini_ai)
+    2. Phân tách rạch ròi 2 chế độ:
+       - force_ai = False (MẶC ĐỊNH): 100% Local BI (0 Quota, 0 Token, source='local_bi')
+       - force_ai = True: Gọi Gemini 3.5 Flash Lite (source='gemini_ai')
     """
     q_clean = question.strip()
     norm_q = remove_accents(q_clean.lower())
-    cache_key = f"{restaurant.id}:{norm_q}"
+    cache_key = f"{restaurant.id}:{norm_q}:force_{force_ai}"
 
     # 1. Kiểm tra bộ nhớ đệm Cache
-    if not force_ai and cache_key in _QUESTION_CACHE:
+    if cache_key in _QUESTION_CACHE:
         cached = _QUESTION_CACHE[cache_key]
         return {
             "success": True,
@@ -307,17 +350,27 @@ def ask_assistant(
 
     # Lấy dữ liệu phân tích BI đầy đủ của quán
     restaurant_data = format_restaurant_full(restaurant, db)
-    intent = detect_question_intent(q_clean)
+    intent = detect_question_intent(q_clean) or "overview"
 
-    # 2. Xử lý câu hỏi:
-    # - Nếu câu hỏi là các chỉ số chuẩn (food, service, price, space_hygiene, action_plan, overview) VÀ không yêu cầu force_ai -> Local Synthesis (0 Token)
-    # - Nếu là tư vấn thực đơn (menu_expansion), câu hỏi tự do mở rộng, hoặc force_ai=True -> Gọi Gemini AI (gemini-3.5-flash-lite)
-    if intent in ["food", "service", "price", "space_hygiene", "action_plan", "overview"] and not force_ai:
+    # 2. Xử lý câu hỏi theo đúng chế độ:
+    if force_ai:
+        # CHẾ ĐỘ SÁNG TẠO SÂU: GỌI GEMINI AI
+        ai_resp = call_gemini_assistant_raw(restaurant_data, q_clean)
+        if ai_resp:
+            answer = ai_resp
+            source = "gemini_ai"
+        else:
+            # Fallback nếu lỗi kết nối Gemini
+            answer = (
+                "> [!NOTE]\n"
+                "> *Hệ thống tự động chuyển sang Phân tích Số liệu Cục bộ do lỗi kết nối Gemini API.*\n\n"
+                + synthesize_local_answer(restaurant_data, intent)
+            )
+            source = "local_bi"
+    else:
+        # CHẾ ĐỘ TIẾT KIỆM QUOTA (TẮT): 100% LOCAL BI
         answer = synthesize_local_answer(restaurant_data, intent)
         source = "local_bi"
-    else:
-        answer = call_gemini_assistant(restaurant_data, q_clean)
-        source = "gemini_ai"
 
     # 3. Lưu vào Cache để tái sử dụng
     _QUESTION_CACHE[cache_key] = {

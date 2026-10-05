@@ -23,8 +23,12 @@ const getApiBaseUrl = (): string => {
     return import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '');
   }
   if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
     const port = window.location.port;
-    if (port === '5173' || port === '3000') {
+    if (port === '8000') {
+      return '/api';
+    }
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:8000/api';
     }
     return '/api';
@@ -278,6 +282,16 @@ class RestaurantService {
     const serviceAsp = r.aspects?.find(a => a.category === 'Dịch vụ');
     const priceAsp = r.aspects?.find(a => a.category === 'Giá cả');
 
+    const isBottleneck = 
+      normQ.includes('nghen') || 
+      normQ.includes('luong') || 
+      normQ.includes('tron tru') || 
+      normQ.includes('dau den cuoi') || 
+      normQ.includes('un tac') || 
+      normQ.includes('ach tac') || 
+      normQ.includes('van de') || 
+      normQ.includes('phan nan');
+
     const isAdvisoryOrMenu = 
       normQ.includes('them') || 
       normQ.includes('mon moi') || 
@@ -288,7 +302,16 @@ class RestaurantService {
       normQ.includes('tu van') || 
       normQ.includes('lam sao');
 
-    if (isAdvisoryOrMenu) {
+    if (isBottleneck) {
+      const pos = r.sentimentDistribution?.positive || 50;
+      const neg = r.sentimentDistribution?.negative || 20;
+      const statusLine = neg >= 30
+        ? `⚠️ **Cảnh báo vận hành:** Luồng hoạt động hiện tại **CHƯA TRƠN TRU**, có đến **${neg}% phản hồi chưa ưng ý** từ khách hàng Foody!`
+        : `✅ **Đánh giá tổng thể:** Luồng hoạt động cơ bản trơn tru với **${pos}% khách hài lòng**, nhưng vẫn tồn tại điểm nghẽn cục bộ.`;
+      const complaints = (r.attentionAreas || []).flatMap(a => a.commonComplaints || []).slice(0, 3).map(c => `  • ${c}`).join('\n') || '  • Chưa ghi nhận phàn nàn tập trung.';
+      const checklist = (r.operationalChecklist || []).slice(0, 3).map(c => `  • **[${c.priority} - ${c.area}]:** ${c.issue} → *Khắc phục:* ${c.suggestedFix}`).join('\n') || '  • Tiếp tục duy trì phong độ phục vụ.';
+      answer = `🚨 **Báo cáo Luồng Vận hành & Điểm nghẽn Thực tế tại ${r.name}:**\n\n${statusLine}\n\n**1. Các điểm nghẽn chính gây gián đoạn luồng phục vụ:**\n${complaints}\n\n**2. Giải pháp tháo gỡ điểm nghẽn ngay (Từ Checklist Vận hành):**\n${checklist}\n\n💡 **Khuyến nghị:** Ưu tiên số 1 của quán là tối ưu tốc độ ra món giờ cao điểm và quy chuẩn hóa tác phong phục vụ của nhân viên.`;
+    } else if (isAdvisoryOrMenu) {
       const nameLower = r.name.toLowerCase();
       let dishAdvice = '';
       if (nameLower.includes('che') || nameLower.includes('sinh to') || nameLower.includes('tra')) {
