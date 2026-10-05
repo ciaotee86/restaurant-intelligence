@@ -20,24 +20,18 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   initialValue = ''
 }) => {
   const [query, setQuery] = useState(initialValue);
-  const [suggestions, setSuggestions] = useState<{ name: string; cuisine: string; city: string; id: string }[]>([]);
+  const [prevInitialValue, setPrevInitialValue] = useState(initialValue);
+  if (initialValue !== prevInitialValue) {
+    setPrevInitialValue(initialValue);
+    setQuery(initialValue);
+  }
+
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    setQuery(initialValue);
-  }, [initialValue]);
-
-  useEffect(() => {
-    if (query.trim().length > 0) {
-      const results = restaurantService.getSearchSuggestions(query);
-      setSuggestions(results);
-      setIsOpen(true);
-    } else {
-      setSuggestions([]);
-      setIsOpen(false);
-    }
-  }, [query]);
+  const suggestions = query.trim().length > 0
+    ? restaurantService.getSearchSuggestions(query)
+    : [];
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -77,7 +71,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setIsOpen(true);
+            }}
             onFocus={() => {
               if (suggestions.length > 0) setIsOpen(true);
             }}

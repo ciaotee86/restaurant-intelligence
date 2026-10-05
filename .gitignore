@@ -40,4 +40,7 @@ ENV/
 *.njsproj
 *.sln
 *.sw?
-.git_temp/ 
+.git_temp/
+.git_corrupted_old/
+.git_repo_clean/
+.git_broken_sid/

@@ -24,7 +24,15 @@ export function App() {
   };
 
   useEffect(() => {
-    loadRestaurants();
+    let active = true;
+    restaurantService.getAllRestaurants().then((data) => {
+      if (active) {
+        setAllRestaurants(data);
+      }
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Window history/hash listener for deep linking & browser back/forward support

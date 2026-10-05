@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Restaurant } from '../../types/restaurant';
-import { MapPin, Star, ArrowRight, MessageSquare, Quote, ThumbsUp, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { MapPin, Star, ArrowRight, MessageSquare, ThumbsUp, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { formatNumber } from '../../utils/sentimentUtils';
 
 interface RestaurantCardProps {

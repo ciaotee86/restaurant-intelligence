@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Restaurant, AspectCategory } from '../../types/restaurant';
 import { formatNumber } from '../../utils/sentimentUtils';
-import { BarChart2, CheckCircle2 } from 'lucide-react';
+import { BarChart2 } from 'lucide-react';
 
 interface AspectAnalysisProps {
   restaurant: Restaurant;

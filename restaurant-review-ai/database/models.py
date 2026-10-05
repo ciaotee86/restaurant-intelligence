@@ -11,7 +11,7 @@ Schema database cho hệ thống phân tích đánh giá nhà hàng.
 import os
 from datetime import datetime
 from sqlalchemy import (
-    create_engine, Column, Integer, String, Float, Text, DateTime, ForeignKey, text
+    create_engine, Column, Integer, String, Float, Text, DateTime, ForeignKey, text, event
 )
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -93,11 +93,36 @@ def init_db(db_path: str = None):
         dir_name = os.path.dirname(file_path)
         if dir_name:
             os.makedirs(dir_name, exist_ok=True)
-    engine = create_engine(db_path, echo=False)
+
+    connect_args = {}
+    is_sqlite = db_path.startswith("sqlite")
+    if is_sqlite:
+        connect_args = {"check_same_thread": False, "timeout": 30.0}
+
+    engine = create_engine(db_path, echo=False, connect_args=connect_args)
+
+    if is_sqlite:
+        @event.listens_for(engine, "connect")
+        def set_sqlite_pragma(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL;")
+            cursor.execute("PRAGMA synchronous=NORMAL;")
+            cursor.execute("PRAGMA busy_timeout=30000;")
+            cursor.close()
+
     Base.metadata.create_all(engine)
 
     # Tự động nâng cấp cột mới nếu đang mở SQLite DB cũ
     with engine.connect() as conn:
+        if is_sqlite:
+            try:
+                conn.execute(text("PRAGMA journal_mode=WAL;"))
+                conn.execute(text("PRAGMA synchronous=NORMAL;"))
+                conn.execute(text("PRAGMA busy_timeout=30000;"))
+                conn.commit()
+            except Exception:
+                pass
+
         for col, col_type in [
             ("is_spam", "INTEGER DEFAULT 0"),
             ("spam_score", "FLOAT DEFAULT 0.0"),

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Link2, ArrowRight, Loader2, CheckCircle2, AlertCircle, Sparkles, Search, Globe } from 'lucide-react';
+import { X, Link2, ArrowRight, Loader2, CheckCircle2, AlertCircle, Sparkles, Search } from 'lucide-react';
 import { restaurantService } from '../../services/restaurantService';
 
 interface AnalyzeUrlModalProps {

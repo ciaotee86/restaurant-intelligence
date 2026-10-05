@@ -1,5 +1,5 @@
 import React from 'react';
-import { Database, ShieldCheck, Sparkles } from 'lucide-react';
+import { Database, ShieldCheck } from 'lucide-react';
 
 interface FooterProps {
   onNavigate: (view: 'home' | 'explore' | 'dashboard' | 'how-it-works', restaurantId?: string) => void;

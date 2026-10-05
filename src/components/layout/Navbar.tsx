@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Compass, HelpCircle, Layers, PlusCircle, Sparkles } from 'lucide-react';
+import { Search, Compass, HelpCircle, PlusCircle, Sparkles } from 'lucide-react';
 
 interface NavbarProps {
   currentView: 'home' | 'explore' | 'dashboard' | 'how-it-works';

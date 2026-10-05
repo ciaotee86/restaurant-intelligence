@@ -10,8 +10,9 @@ import { WhatNeedsAttention } from '../components/dashboard/WhatNeedsAttention';
 import { KeyFindings } from '../components/dashboard/KeyFindings';
 import { OperationalAdvice } from '../components/dashboard/OperationalAdvice';
 import { ReviewExplorer } from '../components/dashboard/ReviewExplorer';
+import { AiAssistantWidget } from '../components/dashboard/AiAssistantWidget';
 import { restaurantService } from '../services/restaurantService';
-import { Utensils, Store, MessageSquare, ArrowRight } from 'lucide-react';
+import { Utensils, Store, MessageSquare, ArrowRight, Bot } from 'lucide-react';
 
 interface DashboardPageProps {
   restaurantId: string;
@@ -25,7 +26,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedAspect, setSelectedAspect] = useState<AspectCategory | 'all'>('all');
-  const [activeTab, setActiveTab] = useState<'diner' | 'owner' | 'reviews'>('diner');
+  const [activeTab, setActiveTab] = useState<'diner' | 'owner' | 'assistant' | 'reviews'>('diner');
 
   useEffect(() => {
     let isMounted = true;
@@ -120,6 +121,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
           <button
             type="button"
+            onClick={() => setActiveTab('assistant')}
+            className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
+              activeTab === 'assistant'
+                ? 'bg-[#18181B] text-white shadow-craft-sm'
+                : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/5'
+            }`}
+          >
+            <Bot className="w-4 h-4 text-orange-400" />
+            <span>Trợ lý AI Nhà Hàng (Hỏi - Đáp)</span>
+            <span className="px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 text-[10px] font-black uppercase tracking-wider">
+              Mới
+            </span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('reviews')}
             className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
               activeTab === 'reviews'
@@ -153,6 +170,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               selectedAspect={selectedAspect}
               onSelectAspect={handleSelectAspectFromAnalysis}
             />
+
+            {/* Khung Trợ lý AI Hỏi-Đáp chuyên sâu */}
+            <AiAssistantWidget restaurant={restaurant} />
 
             {/* Những phát hiện cốt lõi */}
             <KeyFindings restaurant={restaurant} />
@@ -191,6 +211,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 <SentimentTrendChart restaurant={restaurant} />
               </div>
             </div>
+
+            {/* Khung Trợ lý AI hỗ trợ vận hành */}
+            <AiAssistantWidget restaurant={restaurant} />
 
             {/* Đề xuất cải thiện vận hành */}
             <OperationalAdvice restaurant={restaurant} />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { SearchBar } from '../components/common/SearchBar';
 import { RestaurantCard } from '../components/restaurant-list/RestaurantCard';
 import type { Restaurant } from '../types/restaurant';
@@ -8,7 +8,6 @@ import {
   ShieldCheck, 
   Utensils, 
   Store, 
-  Sparkles, 
   Quote, 
   ThumbsUp, 
   AlertTriangle, 
@@ -46,16 +45,13 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [compareIdA, setCompareIdA] = useState<string>('');
   const [compareIdB, setCompareIdB] = useState<string>('');
 
-  useEffect(() => {
-    if (restaurants && restaurants.length > 0) {
-      if (!compareIdA || !restaurants.some(r => r.id === compareIdA)) {
-        setCompareIdA(restaurants[0].id);
-      }
-      if (!compareIdB || !restaurants.some(r => r.id === compareIdB)) {
-        setCompareIdB(restaurants[1]?.id || restaurants[0].id);
-      }
-    }
-  }, [restaurants]);
+  const selectedCompareIdA = (compareIdA && restaurants.some(r => r.id === compareIdA))
+    ? compareIdA
+    : (restaurants[0]?.id || '');
+
+  const selectedCompareIdB = (compareIdB && restaurants.some(r => r.id === compareIdB))
+    ? compareIdB
+    : (restaurants[1]?.id || restaurants[0]?.id || '');
 
   // Lấy danh sách quán mẫu hiển thị ở Hero
   const sampleRestaurants = (restaurants && restaurants.length > 0) ? restaurants.slice(0, 3) : [];
@@ -85,8 +81,8 @@ export const HomePage: React.FC<HomePageProps> = ({
   const displayQuote = activeQuote && activeQuote.length > 130 ? `${activeQuote.slice(0, 127)}...` : (activeQuote || '');
 
   // Lấy dữ liệu cho module so sánh 2 quán
-  const restaurantA = restaurants.find(r => r.id === compareIdA) || restaurants[0] || null;
-  const restaurantB = restaurants.find(r => r.id === compareIdB) || restaurants[1] || restaurants[0] || null;
+  const restaurantA = restaurants.find(r => r.id === selectedCompareIdA) || restaurants[0] || null;
+  const restaurantB = restaurants.find(r => r.id === selectedCompareIdB) || restaurants[1] || restaurants[0] || null;
 
   const aspectCategories = ['Món ăn', 'Dịch vụ', 'Giá cả', 'Không gian', 'Vị trí'] as const;
 
@@ -503,7 +499,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-zinc-500">Quán A:</span>
                   <select
-                    value={compareIdA}
+                    value={selectedCompareIdA}
                     onChange={(e) => setCompareIdA(e.target.value)}
                     className="bg-[#FAF9F5] border border-[#E5E3DE] rounded-lg px-3 py-1.5 text-xs font-bold text-zinc-800 focus:outline-none focus:border-zinc-900"
                   >
@@ -518,7 +514,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-zinc-500">Quán B:</span>
                   <select
-                    value={compareIdB}
+                    value={selectedCompareIdB}
                     onChange={(e) => setCompareIdB(e.target.value)}
                     className="bg-[#FAF9F5] border border-[#E5E3DE] rounded-lg px-3 py-1.5 text-xs font-bold text-zinc-800 focus:outline-none focus:border-zinc-900"
                   >

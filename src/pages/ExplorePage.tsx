@@ -6,9 +6,7 @@ import { SearchBar } from '../components/common/SearchBar';
 import { restaurantService } from '../services/restaurantService';
 import {
   Compass,
-  UtensilsCrossed,
   PlusCircle,
-  Search,
   Sparkles,
   CheckCircle2,
   Inbox,
@@ -51,6 +49,12 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
     sortBy: 'reviews'
   });
 
+  const [prevInitialQuery, setPrevInitialQuery] = useState(initialQuery);
+  if (initialQuery !== prevInitialQuery) {
+    setPrevInitialQuery(initialQuery);
+    setFilters((prev) => ({ ...prev, query: initialQuery }));
+  }
+
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [allAvailableRestaurants, setAllAvailableRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,10 +62,6 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
   // Trạng thái gửi yêu cầu cào quán ngầm
   const [queueStatus, setQueueStatus] = useState<'idle' | 'submitting' | 'submitted'>('idle');
   const [queueMessage, setQueueMessage] = useState<string>('');
-
-  useEffect(() => {
-    setFilters((prev) => ({ ...prev, query: initialQuery }));
-  }, [initialQuery]);
 
   useEffect(() => {
     let isMounted = true;
