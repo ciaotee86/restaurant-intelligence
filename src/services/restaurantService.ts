@@ -278,7 +278,16 @@ class RestaurantService {
     const serviceAsp = r.aspects?.find(a => a.category === 'Dịch vụ');
     const priceAsp = r.aspects?.find(a => a.category === 'Giá cả');
 
-    if (normQ.includes('mon') || normQ.includes('huong vi') || normQ.includes('do an') || normQ.includes('ngon')) {
+    if (normQ.includes('them mon') || normQ.includes('mon moi') || normQ.includes('bo sung') || normQ.includes('thay doi menu')) {
+      const isBanhXeo = r.name.toLowerCase().includes('banh xeo') || r.name.toLowerCase().includes('nem');
+      const isCom = r.name.toLowerCase().includes('ga') || r.name.toLowerCase().includes('com');
+      const dishAdvice = isBanhXeo
+        ? '- **Món ăn kèm & Topping:** Ram bắp Quảng Ngãi, Chả giò giòn rụm, Bò cuốn lá lốt.\n- **Đồ uống giải ngấy:** Trà tắc hạt chia, Sữa bắp nếp nhà làm, Nước mía tươi sạch.\n- **Combo đề xuất:** Combo "Đặc Sản Cuốn" dành cho 2 người (bánh xèo + nem lụi + nước uống).'
+        : isCom
+        ? '- **Món ăn kèm:** Trứng ốp la lòng đào, Canh rong biển thịt bằm, Da gà chiên mắm tỏi.\n- **Đồ uống:** Trà quất mật ong, Nước sâm dứa giải nhiệt.\n- **Combo đề xuất:** Combo Cơm đùi góc tư + Trứng ốp + Trà tắc.'
+        : '- **Món ăn vặt / Khai vị:** Bổ sung nem chua rán, khoai tây chiên hoặc chả giò để khách nhâm nhi lúc đợi món.\n- **Đồ uống:** Bổ sung các loại trà trái cây giải nhiệt để tăng giá trị đơn hàng.';
+      answer = `💡 **Tư vấn Mở rộng Thực đơn & Thêm Món cho ${r.name}:**\n\n${dishAdvice}\n\n🎯 **Khuyến nghị:** Thử nghiệm món mới dưới dạng combo giá ưu đãi trong 2 tuần đầu để đo lường độ tiếp nhận của khách hàng.`;
+    } else if (normQ.includes('mon') || normQ.includes('huong vi') || normQ.includes('do an') || normQ.includes('ngon')) {
       const pos = foodAsp?.positivePercentage || 85;
       const kw = foodAsp?.sampleKeywords?.join(', ') || 'hương vị, đậm đà';
       answer = `🍴 **Phân tích về Ẩm thực & Món ăn tại ${r.name}:**\n\n- **Tỷ lệ khen ngợi:** Khía cạnh Món ăn đạt **${pos}% phản hồi tích cực** từ thực khách.\n- **Từ khóa nổi bật:** \`${kw}\`.\n- **Đặc trưng:** ${r.strengths?.[0]?.description || 'Món ăn nêm nếm vừa vặn, hấp dẫn thực khách.'}`;

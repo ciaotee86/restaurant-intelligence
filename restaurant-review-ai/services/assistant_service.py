@@ -16,6 +16,13 @@ env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 load_dotenv()
 
+# Đảm bảo console UTF-8 trên Windows
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 from database.models import Restaurant as DBRestaurant
 from services.bi_service import format_restaurant_full, remove_accents
 
@@ -23,6 +30,7 @@ from services.bi_service import format_restaurant_full, remove_accents
 _QUESTION_CACHE: Dict[str, Dict[str, Any]] = {}
 
 API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+MODEL_NAME = "gemini-3.5-flash-lite"
 
 
 def get_quick_questions(restaurant_name: str = "quán") -> List[str]:
@@ -40,6 +48,11 @@ def detect_question_intent(question: str) -> Optional[str]:
     """Phát hiện ý định của câu hỏi để điều hướng sang Local Synthesis hoặc Gemini AI"""
     norm = remove_accents(question.lower())
 
+    # 1. Tư vấn mở rộng menu / thêm món (Cần Gemini hoặc bộ tư vấn F&B chuyên biệt)
+    if any(k in norm for k in ["them mon", "mon moi", "mo rong thuc don", "mon gi vao", "them vao menu", "bo sung mon", "mon an nao vao", "thay doi menu", "mon gi kem"]):
+        return "menu_expansion"
+
+    # 2. Các chỉ số thống kê & câu hỏi định hướng chuẩn (Local BI 0-token)
     if any(k in norm for k in ["mon nao", "mon ngon", "mon an", "huong vi", "do an", "dac san", "mon dinh", "thuc don", "nem nem"]):
         return "food"
     if any(k in norm for k in ["dich vu", "nhan vien", "phuc vu", "thai do", "cho lau", "len mon", "order", "tiep don"]):
@@ -77,7 +90,42 @@ def synthesize_local_answer(restaurant_data: Dict[str, Any], intent: str) -> str
     space_asp = aspect_map.get("Không gian", {})
     hygiene_asp = aspect_map.get("Vệ sinh", {})
 
-    if intent == "food":
+    if intent == "menu_expansion":
+        name_lower = name.lower()
+        if "banh xeo" in name_lower or "nem lui" in name_lower or "bun" in name_lower:
+            dishes_addon = (
+                "- **Món ăn kèm & Topping mới:**\n"
+                "  • *Ram bắp / Chả giò giòn rụm:* Dễ cuốn kèm bánh xèo, làm phong phú đĩa cuốn.\n"
+                "  • *Bò cuốn lá lốt / Bò nướng mè:* Tăng lựa chọn thịt cao cấp, nâng giá trị đơn hàng.\n"
+                "  • *Thêm phần rau rừng & xoài băm:* Tăng độ tươi mát, giảm cảm giác ngấy mỡ.\n"
+                "- **Đồ uống giải ngấy (tăng biên lợi nhuận):**\n"
+                "  • *Trà tắc mật ong / Nước mía tươi:* Rất hợp vị đồ chiên cuốn, khách dễ gọi thêm.\n"
+                "  • *Sữa bắp / Sữa đậu nành nhà làm:* Tăng cảm giác thân thiện, ngon miệng."
+            )
+        elif "ga" in name_lower or "com" in name_lower:
+            dishes_addon = (
+                "- **Món ăn kèm & Topping gia tăng:**\n"
+                "  • *Trứng ốp la lòng đào / Trứng non cháy tỏi:* Tăng cảm giác đầy đặn cho đĩa cơm.\n"
+                "  • *Canh rong biển thịt bằm / Canh cải chua:* Giúp khách ăn ngon miệng, không bị khô.\n"
+                "  • *Da gà chiên giòn mắm tỏi:* Món lai rai ăn vặt cực kỳ hút khách gọi thêm.\n"
+                "- **Đồ uống đi kèm:**\n"
+                "  • *Trà tắc hạt chia / Trà quất:* Bán theo combo cơm + nước với giá ưu đãi."
+            )
+        else:
+            dishes_addon = (
+                "- **Món ăn vặt / Khai vị:** Bổ sung các món ăn nhẹ (chả ram tôm đất, nem rán) để khách nhâm nhi khi chờ món chính.\n"
+                "- **Combo bữa ăn trọn gói:** Kết hợp món chính + 1 đồ uống thanh nhiệt + 1 món tráng miệng nhẹ.\n"
+                "- **Đồ uống giải khát:** Bổ sung các dòng trà trái cây, nước sâm hoặc trà đá chất lượng cao."
+            )
+
+        return (
+            f"💡 **Tư vấn Phát triển Thực đơn & Thêm Món Mới cho {name}:**\n\n"
+            f"Dựa trên phản hồi thực tế của khách hàng và định vị hiện tại của quán:\n\n"
+            f"{dishes_addon}\n\n"
+            f"🎯 **Chiến lược đề xuất:** Nên đưa các món mới vào thực đơn dưới dạng **Combo dùng thử** trong 2-3 tuần đầu để đo lường phản hồi của thực khách trước khi bổ sung chính thức."
+        )
+
+    elif intent == "food":
         pos_pct = food_asp.get("positivePercentage", 75)
         keywords = ", ".join(food_asp.get("sampleKeywords", ["hương vị", "đậm đà"]))
         top_str = strengths[0] if strengths else {}
@@ -165,50 +213,58 @@ def synthesize_local_answer(restaurant_data: Dict[str, Any], intent: str) -> str
 def call_gemini_assistant(restaurant_data: Dict[str, Any], question: str) -> str:
     """
     Gọi Gemini API cho các câu hỏi tùy biến mở rộng.
-    Sử dụng context thu gọn (~150 tokens) để tối ưu quota và phản hồi nhanh (< 1 giây).
+    Sử dụng context thông minh dựa trên dữ liệu thật của quán và model gemini-3.5-flash-lite.
     """
     if not API_KEY:
         # Nếu chưa cấu hình API key, fallback an toàn sang Local Synthesis
-        return synthesize_local_answer(restaurant_data, "overview")
+        fallback_intent = detect_question_intent(question) or "overview"
+        return synthesize_local_answer(restaurant_data, fallback_intent)
 
     name = restaurant_data.get("name", "Quán")
     cuisine = restaurant_data.get("cuisine", "Ẩm thực")
     city = restaurant_data.get("city", "Đà Nẵng")
     rating = restaurant_data.get("rating", 4.0)
     sentiment = restaurant_data.get("sentimentDistribution", {})
-    strengths = [s.get("title", "") for s in restaurant_data.get("strengths", [])]
+    strengths = [s.get("description", "") for s in restaurant_data.get("strengths", [])]
     complaints = [a.get("commonComplaints", []) for a in restaurant_data.get("attentionAreas", [])]
-    flat_complaints = [c for sub in complaints for c in sub][:3]
-    sample_quote = restaurant_data.get("reviews", [{}])[0].get("text", "")[:100]
+    flat_complaints = [c for sub in complaints for c in sub][:4]
+    aspect_words = []
+    for a in restaurant_data.get("aspects", []):
+        aspect_words.extend(a.get("sampleKeywords", []))
+    keywords_str = ", ".join(aspect_words[:10])
 
-    system_context = f"""Bạn là Trợ lý Chuyên gia Quản trị Ẩm thực (Restaurant Intelligence AI).
+    system_context = f"""Bạn là Chuyên gia Tư vấn Quản trị & Vận hành F&B (Restaurant Intelligence AI).
 Hãy trả lời câu hỏi của người dùng/chủ quán về nhà hàng sau:
-- Tên quán: {name} ({cuisine} tại {city})
-- Điểm đánh giá: {rating}/5.0
+- Tên quán: {name}
+- Loại hình ẩm thực: {cuisine} tại {city}
+- Khung giá tham khảo: {restaurant_data.get('priceRange', 'Bình dân')}
+- Điểm đánh giá: {rating}/5.0 ({restaurant_data.get('totalReviews', 0)} bài đánh giá)
 - Tỷ lệ hài lòng thực khách: {sentiment.get('positive', 0)}% tích cực, {sentiment.get('negative', 0)}% tiêu cực
-- Điểm mạnh chính: {', '.join(strengths) if strengths else 'Hương vị thơm ngon'}
-- Điểm khách chê / cần lưu ý: {', '.join(flat_complaints) if flat_complaints else 'Thời gian chờ đợi lúc đông'}
-- Trích dẫn thực tế từ khách: "{sample_quote}"
+- Điểm mạnh nổi bật từ khách: {'; '.join(strengths) if strengths else 'Hương vị thơm ngon, hợp khẩu vị'}
+- Điểm khách chê / cần cải thiện: {'; '.join(flat_complaints) if flat_complaints else 'Thời gian chờ đợi lúc quán đông'}
+- Từ khóa khách nhắc nhiều: {keywords_str}
 
 Yêu cầu trả lời:
-- Ngắn gọn, chuyên nghiệp, thực tế (khoảng 3-5 câu hoặc gạch đầu dòng rõ ràng).
-- Sử dụng số liệu và bối cảnh ở trên, không bịa đặt thông tin ngoài dữ liệu.
-- Trình bày đẹp mắt với định dạng Markdown."""
+- Trả lời ĐÚNG TRỌNG TÂM câu hỏi của người dùng. Nếu hỏi về thêm món, hãy tư vấn các món ăn, đồ uống hoặc combo thực tế phù hợp với mô hình của quán.
+- Thân thiện, thực tế, hành văn chuyên nghiệp của chuyên gia F&B.
+- Trình bày mạch lạc với gạch đầu dòng Markdown rõ ràng, dễ đọc."""
 
     try:
         from google import genai
         client = genai.Client(api_key=API_KEY)
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=f"{system_context}\n\nCâu hỏi: {question}"
+            model=MODEL_NAME,
+            contents=f"{system_context}\n\nCâu hỏi của chủ quán / người dùng: {question}"
         )
         if response and response.text:
             return response.text.strip()
     except Exception as e:
-        print(f"[Gemini Assistant Error] {e}. Chuyển sang Local Synthesis fallback.")
+        safe_err = str(e).encode("ascii", "replace").decode("ascii")
+        print(f"[Gemini Assistant Error] {safe_err}. Chuyển sang Local Synthesis fallback.")
 
     # Fallback mượt mà nếu Gemini hết Quota hoặc mạng lỗi
-    return synthesize_local_answer(restaurant_data, detect_question_intent(question) or "overview")
+    fallback_intent = detect_question_intent(question) or "overview"
+    return synthesize_local_answer(restaurant_data, fallback_intent)
 
 
 def ask_assistant(
@@ -242,13 +298,13 @@ def ask_assistant(
     restaurant_data = format_restaurant_full(restaurant, db)
     intent = detect_question_intent(q_clean)
 
-    # 2. Xử lý câu hỏi
-    if intent and not force_ai:
-        # Tầng 1: Trả lời siêu tốc bằng Local Synthesis (0 Token, 0ms)
+    # 2. Xử lý câu hỏi:
+    # - Nếu câu hỏi là các chỉ số chuẩn (food, service, price, space_hygiene, action_plan, overview) VÀ không yêu cầu force_ai -> Local Synthesis (0 Token)
+    # - Nếu là tư vấn thực đơn (menu_expansion), câu hỏi tự do mở rộng, hoặc force_ai=True -> Gọi Gemini AI (gemini-3.5-flash-lite)
+    if intent and intent != "menu_expansion" and not force_ai:
         answer = synthesize_local_answer(restaurant_data, intent)
         source = "local_bi"
     else:
-        # Tầng 2: Gọi Gemini AI cho câu hỏi mở
         answer = call_gemini_assistant(restaurant_data, q_clean)
         source = "gemini_ai"
 
