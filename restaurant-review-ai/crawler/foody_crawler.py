@@ -69,6 +69,12 @@ def build_driver(headless: bool = True):
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument("--blink-settings=imagesEnabled=false")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-sync")
+    options.add_argument("--disable-default-apps")
+    options.add_argument("--disable-background-networking")
+    options.page_load_strategy = "eager"
     options.add_argument("--window-size=1366,900")
     options.add_argument(
         "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -273,7 +279,7 @@ def crawl_restaurant(
         WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, SELECTOR_RESTAURANT_NAME))
         )
-        time.sleep(2)
+        time.sleep(0.5)
 
         # Lấy thông tin nhà hàng
         result["name"] = _safe_text(driver, SELECTOR_RESTAURANT_NAME, default="Quán ăn Foody")
@@ -297,7 +303,7 @@ def crawl_restaurant(
 
         # Cuộn xuống nhẹ để kích hoạt tải các block đánh giá của Foody
         driver.execute_script("window.scrollBy(0, 600);")
-        time.sleep(1.0)
+        time.sleep(0.3)
 
         # Thử chọn tab / bộ lọc 'Mới nhất' nếu giao diện Foody có
         try:
@@ -308,7 +314,7 @@ def crawl_restaurant(
             for lf in latest_filters:
                 if lf.is_displayed():
                     driver.execute_script("arguments[0].click();", lf)
-                    time.sleep(1.2)
+                    time.sleep(0.4)
                     break
         except Exception:
             pass
@@ -390,9 +396,9 @@ def crawl_restaurant(
             clicked = _click_load_more(driver)
             if not clicked:
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(1.8)
+                time.sleep(0.8)
             else:
-                time.sleep(2.0)
+                time.sleep(0.8)
             clicks += 1
 
         print(f"-> [Crawler Hoàn tất] Thu thập thành công {len(result['reviews'])} đánh giá MỚI từ quán {result['name']} (Bỏ qua {result['skipped_existing_count']} review cũ đã có)!")
@@ -433,26 +439,87 @@ def _export_csv(results: list, path: str):
                 writer.writerow([r.get("name", ""), r["url"], rv["author"], rv["rating"], rv["text"], rv["date"]])
 
 
+def _search_foody_via_http(query: str, city_slug: str = "da-nang", max_results: int = 5):
+    """
+    Tìm kiếm nhanh trên Foody qua HTTP request và BeautifulSoup (< 1 giây).
+    Không cần khởi động Chrome browser nặng nề.
+    """
+    from bs4 import BeautifulSoup
+    encoded_q = urllib.parse.quote(query.strip())
+    search_url = f"https://www.foody.vn/{city_slug}/dia-diem?q={encoded_q}"
+    req = urllib.request.Request(
+        search_url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        }
+    )
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        html = resp.read().decode("utf-8", errors="ignore")
+
+    soup = BeautifulSoup(html, "html.parser")
+    items = soup.select(".filter-result-item, .row-item, .content-item")
+    results = []
+    seen_urls = set()
+
+    for item in items:
+        if len(results) >= max_results:
+            break
+        link_el = item.select_one("h2 a, .result-name a, a.res-name")
+        if not link_el:
+            continue
+        name = link_el.get_text(strip=True)
+        url = link_el.get("href", "")
+        if url.startswith("/"):
+            url = f"https://www.foody.vn{url}"
+
+        addr_el = item.select_one(".address, .res-common-add")
+        addr = addr_el.get_text(strip=True) if addr_el else ""
+
+        if name and url and "foody.vn" in url and "/dia-diem" not in url and "/khu-vuc" not in url:
+            clean_url = url.split("?")[0]
+            if clean_url not in seen_urls:
+                seen_urls.add(clean_url)
+                results.append({
+                    "name": name,
+                    "url": clean_url,
+                    "address": addr
+                })
+
+    return results
+
+
 def search_foody_places(query: str, city_slug: str = "da-nang", max_results: int = 5):
     """
-    Tìm kiếm các quán ăn trên Foody theo từ khóa người dùng nhập vào.
-    Trả về danh sách: [{ name, url, address }, ...]
+    Tìm kiếm các quán ăn trên Foody theo từ khóa:
+    Ưu tiên Fast HTTP Path (< 1 giây).
+    Fallback sang Selenium Headless nếu HTTP bị chặn.
     """
     encoded_q = urllib.parse.quote(query.strip())
-    # Thử tìm theo thành phố hoặc toàn quốc
     search_url = f"https://www.foody.vn/{city_slug}/dia-diem?q={encoded_q}"
     print(f"-> [Foody Search] Đang tìm kiếm từ khóa '{query}': {search_url}")
 
+    # 1. Thử HTTP Fast Path (< 1s, tiết kiệm 100% thời gian khởi động Chrome)
+    try:
+        http_results = _search_foody_via_http(query, city_slug=city_slug, max_results=max_results)
+        if http_results and len(http_results) > 0:
+            print(f"-> [Foody Search Fast Path] Đã tìm thấy {len(http_results)} quán qua Direct HTTP trong < 1s!")
+            return http_results
+    except Exception as http_err:
+        print(f"-> [Foody Search HTTP Fallback] Không dùng được HTTP ({http_err}), chuyển sang Selenium...")
+
+    # 2. Fallback Selenium nếu cần
     driver = build_driver(headless=True)
     results = []
     seen_urls = set()
 
     try:
         driver.get(search_url)
-        time.sleep(2.5)
+        time.sleep(1.0)
 
         items = driver.find_elements(By.CSS_SELECTOR, ".filter-result-item, .row-item, .content-item")
-        print(f"  Phát hiện {len(items)} kết quả trên Foody.")
+        print(f"  [Selenium Search] Phát hiện {len(items)} kết quả trên Foody.")
 
         for item in items:
             if len(results) >= max_results:

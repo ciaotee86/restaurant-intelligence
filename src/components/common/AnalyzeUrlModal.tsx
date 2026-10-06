@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Link2, ArrowRight, Loader2, CheckCircle2, AlertCircle, Sparkles, Search } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Link2, ArrowRight, Loader2, CheckCircle2, AlertCircle, Sparkles, Search, Zap } from 'lucide-react';
 import { restaurantService } from '../../services/restaurantService';
 
 interface AnalyzeUrlModalProps {
@@ -13,22 +13,66 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
   const [keyword, setKeyword] = useState('');
   const [city, setCity] = useState('da-nang');
   const [url, setUrl] = useState('');
-  const [maxReviews, setMaxReviews] = useState(25);
+  const [maxReviews, setMaxReviews] = useState(15);
   const [status, setStatus] = useState<'idle' | 'crawling' | 'analyzing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [statusText, setStatusText] = useState('');
 
+  // Autocomplete suggestions từ DB có sẵn (233 quán)
+  const [suggestions, setSuggestions] = useState<{ name: string; cuisine: string; city: string; id: string }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Stepper tiến trình xử lý
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    let interval: any;
+    if (status === 'crawling') {
+      setElapsedSeconds(0);
+      setCurrentStep(1);
+      interval = setInterval(() => {
+        setElapsedSeconds((prev) => {
+          const next = prev + 1;
+          if (next >= 2 && next < 6) setCurrentStep(2);
+          else if (next >= 6) setCurrentStep(3);
+          return next;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [status]);
+
   if (!isOpen) return null;
+
+  const handleKeywordChange = (val: string) => {
+    setKeyword(val);
+    if (val.trim().length >= 2) {
+      const matched = restaurantService.getSearchSuggestions(val.trim());
+      setSuggestions(matched);
+      setShowSuggestions(matched.length > 0);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSelectSuggestion = (restaurantId: string) => {
+    setShowSuggestions(false);
+    onSuccess(restaurantId);
+    onClose();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setShowSuggestions(false);
     setStatus('crawling');
     setErrorMessage('');
 
     try {
       if (tab === 'keyword') {
         if (!keyword.trim()) return;
-        setStatusText(`Đang tìm "${keyword.trim()}" trên Foody.vn, cào đánh giá và phân tích Gemini AI...`);
+        setStatusText(`Đang tra cứu "${keyword.trim()}" trên hệ thống và Foody...`);
         const res = await restaurantService.searchAndCrawlFoody(keyword.trim(), city, maxReviews);
         
         if (res.success && res.restaurant) {
@@ -38,14 +82,14 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
             onClose();
             setStatus('idle');
             setKeyword('');
-          }, 1200);
+          }, 800);
         } else {
           setStatus('error');
           setErrorMessage(res.message || 'Không tìm thấy quán nào trên Foody.');
         }
       } else {
         if (!url.trim()) return;
-        setStatusText('Đang cào dữ liệu từ URL Foody và phân tích bằng Gemini AI...');
+        setStatusText('Đang nạp dữ liệu từ URL Foody và phân tích bằng Gemini AI...');
         const res = await restaurantService.analyzeFoodyUrl(url.trim(), maxReviews);
         
         if (res.success && res.restaurant) {
@@ -55,7 +99,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
             onClose();
             setStatus('idle');
             setUrl('');
-          }, 1200);
+          }, 800);
         } else {
           setStatus('error');
           setErrorMessage(res.message || 'Không thể xử lý URL này.');
@@ -82,13 +126,13 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                 Tổng hợp đánh giá quán ăn mới
               </h3>
               <p className="text-[11px] text-[#71717A]">
-                Tìm quán trên Foody hoặc dán liên kết để xem tóm tắt đánh giá
+                Tra cứu nhanh dữ liệu hoặc tổng hợp quán mới từ Foody qua Gemini AI
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            disabled={status === 'crawling' || status === 'analyzing'}
+            disabled={status === 'crawling'}
             className="w-7 h-7 rounded-md flex items-center justify-center text-zinc-400 hover:text-[#18181B] hover:bg-zinc-200/60 transition-colors disabled:opacity-40"
           >
             <X className="w-4 h-4" />
@@ -99,7 +143,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
         <div className="flex border-b border-zinc-200 bg-zinc-100/60 p-1 gap-1">
           <button
             type="button"
-            onClick={() => setTab('keyword')}
+            onClick={() => { setTab('keyword'); setShowSuggestions(false); }}
             disabled={status === 'crawling'}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-md transition-all ${
               tab === 'keyword'
@@ -112,7 +156,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
           </button>
           <button
             type="button"
-            onClick={() => setTab('url')}
+            onClick={() => { setTab('url'); setShowSuggestions(false); }}
             disabled={status === 'crawling'}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-md transition-all ${
               tab === 'url'
@@ -129,23 +173,65 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {tab === 'keyword' ? (
             <>
-              <div>
-                <label className="block text-xs font-semibold text-[#18181B] mb-1.5">
-                  Tên quán ăn hoặc từ khóa món ăn
-                </label>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-[#18181B]">
+                    Tên quán ăn hoặc từ khóa món ăn
+                  </label>
+                  <span className="text-[10px] text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/60">
+                    ⚡ Có sẵn 230+ quán mở tức thì
+                  </span>
+                </div>
+                
                 <div className="relative">
                   <input
                     type="text"
                     required
                     value={keyword}
-                    onChange={(e) => setKeyword(e.target.value)}
+                    onChange={(e) => handleKeywordChange(e.target.value)}
+                    onFocus={() => {
+                      if (keyword.trim().length >= 2 && suggestions.length > 0) {
+                        setShowSuggestions(true);
+                      }
+                    }}
                     placeholder="Ví dụ: Bánh tráng Tiên Tiên, Pizza 4P's, Cơm gà Gia Vĩnh..."
                     disabled={status === 'crawling'}
                     className="w-full text-xs sm:text-sm px-3.5 py-2.5 bg-white border border-[#D4D4D8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C2410C]/20 focus:border-[#C2410C] transition-all text-[#18181B]"
                   />
+
+                  {/* Autocomplete Dropdown */}
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-zinc-200 rounded-lg shadow-xl z-30 overflow-hidden divide-y divide-zinc-100 max-h-56 overflow-y-auto">
+                      <div className="px-3 py-1.5 bg-zinc-50 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <Zap className="w-3 h-3 text-amber-500" />
+                        <span>Quán đã có sẵn trong hệ thống (Bấm để mở ngay &lt; 0.1s):</span>
+                      </div>
+                      {suggestions.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleSelectSuggestion(item.id)}
+                          className="w-full px-3.5 py-2 text-left hover:bg-orange-50/60 flex items-center justify-between transition-colors group"
+                        >
+                          <div>
+                            <p className="text-xs font-bold text-zinc-900 group-hover:text-[#C2410C] transition-colors">
+                              {item.name}
+                            </p>
+                            <p className="text-[10px] text-zinc-500">
+                              {item.cuisine} • {item.city}
+                            </p>
+                          </div>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-semibold rounded-md">
+                            <Zap className="w-2.5 h-2.5" /> Mở ngay
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
+
                 <p className="text-[11px] text-[#71717A] mt-1">
-                  Hệ thống sẽ tự động tìm kiếm trên Foody, lấy đánh giá và phân tích bằng Gemini AI.
+                  Nếu quán chưa có trong hệ thống, hệ thống sẽ tự động tìm trên Foody và phân tích bằng Gemini AI.
                 </p>
               </div>
 
@@ -197,19 +283,73 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
               disabled={status === 'crawling'}
               className="w-full text-xs px-3 py-2 bg-zinc-50 border border-[#D4D4D8] rounded-md focus:outline-none focus:ring-1 focus:ring-zinc-800 text-[#18181B]"
             >
-              <option value={20}>20 đánh giá (Nhanh nhất - ~15 giây)</option>
-              <option value={30}>30 đánh giá (Tiêu chuẩn - ~25 giây)</option>
-              <option value={50}>50 đánh giá (Chuyên sâu - ~45 giây)</option>
+              <option value={15}>15 đánh giá (Siêu tốc - ~5-8 giây)</option>
+              <option value={25}>25 đánh giá (Tiêu chuẩn - ~12-15 giây)</option>
+              <option value={40}>40 đánh giá (Chuyên sâu - ~25 giây)</option>
             </select>
           </div>
 
-          {/* Loading / Status State */}
+          {/* Stepper Progress State khi đang cào & phân tích */}
           {status === 'crawling' && (
-            <div className="p-3.5 bg-orange-50 border border-orange-200/80 rounded-lg flex items-center gap-3 text-xs text-orange-900">
-              <Loader2 className="w-4 h-4 text-[#C2410C] animate-spin shrink-0" />
-              <div>
-                <p className="font-semibold">Đang tổng hợp đánh giá từ thực khách...</p>
-                <p className="text-[11px] text-orange-800/80 mt-0.5">{statusText || 'Hệ thống đang đọc các nhận xét mới nhất và tính toán mức độ hài lòng...'}</p>
+            <div className="p-3.5 bg-orange-50/80 border border-orange-200/80 rounded-xl space-y-2.5 animate-in fade-in">
+              <div className="flex items-center justify-between text-xs font-bold text-[#18181B]">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 text-[#C2410C] animate-spin" />
+                  <span>Đang tổng hợp dữ liệu ({elapsedSeconds}s)</span>
+                </div>
+                <span className="text-[10px] text-[#C2410C] font-semibold bg-white px-2 py-0.5 rounded border border-orange-200">
+                  Bước {currentStep}/3
+                </span>
+              </div>
+
+              {/* 3-Step Timeline */}
+              <div className="space-y-1.5 text-xs">
+                <div className={`flex items-center gap-2 p-1.5 rounded-md transition-colors ${
+                  currentStep === 1
+                    ? 'bg-white shadow-xs font-semibold text-[#C2410C]'
+                    : currentStep > 1
+                    ? 'text-emerald-700 bg-emerald-50/60'
+                    : 'text-zinc-400'
+                }`}>
+                  {currentStep > 1 ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  ) : currentStep === 1 ? (
+                    <Loader2 className="w-3.5 h-3.5 text-[#C2410C] animate-spin shrink-0" />
+                  ) : (
+                    <span className="w-3.5 h-3.5 rounded-full border border-zinc-300 flex items-center justify-center text-[9px] shrink-0">1</span>
+                  )}
+                  <span>1. Tra cứu thông tin quán trên Foody (Fast HTTP)</span>
+                </div>
+
+                <div className={`flex items-center gap-2 p-1.5 rounded-md transition-colors ${
+                  currentStep === 2
+                    ? 'bg-white shadow-xs font-semibold text-[#C2410C]'
+                    : currentStep > 2
+                    ? 'text-emerald-700 bg-emerald-50/60'
+                    : 'text-zinc-400'
+                }`}>
+                  {currentStep > 2 ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  ) : currentStep === 2 ? (
+                    <Loader2 className="w-3.5 h-3.5 text-[#C2410C] animate-spin shrink-0" />
+                  ) : (
+                    <span className="w-3.5 h-3.5 rounded-full border border-zinc-300 flex items-center justify-center text-[9px] shrink-0">2</span>
+                  )}
+                  <span>2. Thu thập {maxReviews} đánh giá thực tế mới nhất</span>
+                </div>
+
+                <div className={`flex items-center gap-2 p-1.5 rounded-md transition-colors ${
+                  currentStep === 3
+                    ? 'bg-white shadow-xs font-semibold text-[#C2410C]'
+                    : 'text-zinc-400'
+                }`}>
+                  {currentStep === 3 ? (
+                    <Loader2 className="w-3.5 h-3.5 text-[#C2410C] animate-spin shrink-0" />
+                  ) : (
+                    <span className="w-3.5 h-3.5 rounded-full border border-zinc-300 flex items-center justify-center text-[9px] shrink-0">3</span>
+                  )}
+                  <span>3. Gemini AI phân tích khía cạnh &amp; trích xuất cảm xúc</span>
+                </div>
               </div>
             </div>
           )}

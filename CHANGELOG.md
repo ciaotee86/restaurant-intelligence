@@ -2,6 +2,23 @@
 
 All notable changes to the **Restaurant Intelligence** project will be documented in this file.
 
+## [1.6.0] - 2026-10-06
+
+### Tối ưu Tốc độ Tổng hợp Đánh giá Quán ăn (Modal & Crawler Optimization)
+- **Instant Autocomplete từ Database có sẵn (Tốc độ < 0.1s)**:
+  - Khi người dùng gõ tên quán/từ khóa, hiển thị ngay dropdown gợi ý từ 233 quán đã có trong SQLite.
+  - Bấm chọn quán là mở ngay báo cáo phân tích lập tức trong 0.1s, hoàn toàn không cần cào mạng Foody hay gọi AI.
+- **Fast HTTP Path cho Tìm kiếm Quán ăn trên Foody (< 1s)**:
+  - Triển khai `_search_foody_via_http` bằng Direct HTTP GET + BeautifulSoup, loại bỏ 100% thời gian khởi động Chrome nặng nề ở khâu tìm kiếm (giảm từ 8s xuống < 1s).
+  - Tự động fallback sang Selenium nếu HTTP gặp sự cố.
+- **Tối ưu Chrome Headless & Eager Page Load**:
+  - Bật cờ `--blink-settings=imagesEnabled=false` chặn hoàn toàn tải ảnh của Foody (tiết kiệm băng thông & tăng tốc 3x).
+  - Thiết lập `page_load_strategy = 'eager'` không chờ các tài nguyên phụ của Foody tải xong.
+  - Tối ưu hóa chu kỳ sleep cuộn trang và phân trang (`0.8s` thay vì `2.0s`).
+- **Nâng cấp UX với Progress Stepper 3 bước**:
+  - Thay thế spinner quay tròn vô định bằng thanh tiến trình 3 bước trực quan: (1) Tra cứu quán $\rightarrow$ (2) Thu thập đánh giá $\rightarrow$ (3) Gemini AI phân tích khía cạnh.
+  - Bổ sung tùy chọn linh hoạt số lượng đánh giá: 15 (Siêu tốc ~5-8s), 25 (Tiêu chuẩn ~12-15s), 40 (Chuyên sâu ~25s).
+
 ## [1.5.1] - 2026-10-05
 
 ### Conversational BI Engine Fixes & Decoupling

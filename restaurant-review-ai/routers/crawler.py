@@ -117,18 +117,18 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
         all_res = db.query(DBRestaurant).all()
         matching_res = None
 
-        # Ưu tiên 1: Khớp nguyên cụm từ trong tên quán
+        # Ưu tiên 1: Khớp nguyên cụm từ trong tên quán hoặc slug
         for r in all_res:
             r_norm = remove_accents(r.name)
-            if norm_q in r_norm:
+            if norm_q in r_norm or (r.slug and norm_q in remove_accents(r.slug)):
                 matching_res = r
                 break
 
-        # Ưu tiên 2: Khớp tất cả các token từ khóa
+        # Ưu tiên 2: Khớp tất cả các token từ khóa trong tên, địa chỉ hoặc món ăn
         if not matching_res and len(tokens) >= 2:
             for r in all_res:
-                r_norm = remove_accents(r.name)
-                if all(t in r_norm for t in tokens):
+                r_full = remove_accents(f"{r.name} {r.address or ''} {r.cuisine or ''}")
+                if all(t in r_full for t in tokens):
                     matching_res = r
                     break
 
