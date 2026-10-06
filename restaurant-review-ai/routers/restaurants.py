@@ -4,6 +4,7 @@ gợi ý tự động và kiểm tra sức khỏe hệ thống (Health Check).
 """
 
 from datetime import datetime
+from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
