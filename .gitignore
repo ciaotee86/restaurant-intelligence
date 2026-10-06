@@ -49,4 +49,9 @@ ENV/
 *.db-shm
 *.db-wal
 *.db-journal
+*.bak*
+
+# Vite cache
+.vite_cache/
+
 
