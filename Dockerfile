@@ -31,7 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV CHROME_BIN=/usr/bin/chromium \
     CHROMEDRIVER_PATH=/usr/bin/chromedriver \
     PYTHONUNBUFFERED=1 \
-    PORT=8000
+    PORT=10000
 
 # Cài đặt thư viện Python
 COPY restaurant-review-ai/requirements.txt ./
@@ -46,7 +46,7 @@ COPY --from=frontend-builder /app/dist /app/dist
 # Tạo thư mục data để lưu SQLite DB
 RUN mkdir -p /app/data
 
-EXPOSE 8000
+EXPOSE 10000
 
 # Chạy server FastAPI phục vụ cả REST API và Web tĩnh
-CMD ["sh", "-c", "uvicorn api_server:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "uvicorn api_server:app --host 0.0.0.0 --port ${PORT:-10000}"]
