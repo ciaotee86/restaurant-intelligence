@@ -44,15 +44,38 @@ def health_check():
         return {"status": "error", "detail": str(e)}
 
 
+import time
+
+# Bộ nhớ đệm trong RAM (In-Memory Cache) cho danh sách nhà hàng đầy đủ
+_RESTAURANTS_CACHE = None
+_CACHE_TIMESTAMP = 0.0
+_CACHE_TTL_SECONDS = 300.0  # 5 phút tự động làm mới nếu không có yêu cầu cập nhật
+
+
+def invalidate_restaurants_cache():
+    """Hủy bộ nhớ đệm khi có quán ăn mới được cào và phân tích thành công"""
+    global _RESTAURANTS_CACHE, _CACHE_TIMESTAMP
+    _RESTAURANTS_CACHE = None
+    _CACHE_TIMESTAMP = 0.0
+
+
 @router.get("/restaurants")
 def get_restaurants():
-    """Lấy danh sách toàn bộ nhà hàng và chỉ số ABSA tổng quan từ SQLite"""
+    """Lấy danh sách toàn bộ nhà hàng và chỉ số ABSA tổng quan từ SQLite (kèm In-Memory Cache)"""
+    global _RESTAURANTS_CACHE, _CACHE_TIMESTAMP
+    now = time.time()
+    if _RESTAURANTS_CACHE is not None and (now - _CACHE_TIMESTAMP) < _CACHE_TTL_SECONDS:
+        return _RESTAURANTS_CACHE
+
     with get_session() as db:
         restaurants = db.query(DBRestaurant).all()
         result = []
         for r in restaurants:
             formatted = format_restaurant_full(r, db)
             result.append(formatted)
+        
+        _RESTAURANTS_CACHE = result
+        _CACHE_TIMESTAMP = now
         return result
 
 

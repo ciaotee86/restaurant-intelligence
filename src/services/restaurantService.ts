@@ -1,4 +1,3 @@
-import { MOCK_RESTAURANTS } from '../data/mockRestaurants';
 import type { Restaurant, SearchFilterState, CustomerReview, AspectCategory, SentimentType } from '../types/restaurant';
 
 /**
@@ -17,34 +16,27 @@ export function removeVietnameseAccents(str: string): string {
 
 /**
  * Xác định API Base URL linh hoạt cho cả môi trường Development và Production Deployment
+ * - Development: Mặc định '/api' được Vite Dev Server proxy tự động sang http://127.0.0.1:8000
+ * - Production (Unified Docker / Single Service): Phục vụ cùng origin với FastAPI '/api'
+ * - Production (Tách biệt Frontend Vercel + Backend Render): Cung cấp VITE_API_BASE_URL trong biến môi trường
  */
 const getApiBaseUrl = (): string => {
   if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '');
   }
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    const port = window.location.port;
-    if (port === '8000') {
-      return '/api';
-    }
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:8000/api';
-    }
-    return '/api';
-  }
   return '/api';
 };
 
 class RestaurantService {
-  private cachedRestaurants: Restaurant[] = [...MOCK_RESTAURANTS];
+  private cachedRestaurants: Restaurant[] = [];
   private isBackendConnected: boolean | null = null;
 
   private async fetchFromApi<T>(endpoint: string, options?: RequestInit): Promise<T | null> {
     try {
       const baseUrl = getApiBaseUrl();
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      // Timeout 30s hỗ trợ máy chủ Cloud (Render/Railway) trong giai đoạn Cold Boot
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
 
       const response = await fetch(`${baseUrl}${endpoint}`, {
         ...options,
@@ -57,13 +49,16 @@ class RestaurantService {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
+        console.warn(`[RestaurantService] API ${endpoint} phản hồi mã lỗi: ${response.status} ${response.statusText}`);
+        this.isBackendConnected = false;
         return null;
       }
 
       this.isBackendConnected = true;
       return await response.json();
-    } catch {
+    } catch (err: any) {
       this.isBackendConnected = false;
+      console.warn(`[RestaurantService] Không thể kết nối tới Backend API tại ${endpoint}:`, err?.message || err);
       return null;
     }
   }
@@ -76,23 +71,30 @@ class RestaurantService {
     return [...this.cachedRestaurants];
   }
 
-  public async getAllRestaurants(): Promise<Restaurant[]> {
+  public async getAllRestaurants(forceRefresh: boolean = false): Promise<Restaurant[]> {
+    if (!forceRefresh && this.isBackendConnected === true && this.cachedRestaurants.length > 0) {
+      return [...this.cachedRestaurants];
+    }
+
     const apiData = await this.fetchFromApi<Restaurant[]>('/restaurants');
     
     if (apiData && Array.isArray(apiData) && apiData.length > 0) {
-      // Hợp nhất dữ liệu từ SQLite thật và danh mục mẫu tiêu chuẩn
-      const existingIds = new Set(apiData.map(r => r.id));
-      const merged = [...apiData];
-      for (const m of MOCK_RESTAURANTS) {
-        if (!existingIds.has(m.id)) {
-          merged.push(m);
-        }
-      }
-      this.cachedRestaurants = merged;
-      return merged;
+      this.cachedRestaurants = apiData;
+      this.isBackendConnected = true;
+      return [...apiData];
     }
 
-    return [...this.cachedRestaurants];
+    if (apiData && Array.isArray(apiData) && apiData.length === 0) {
+      console.warn('[RestaurantService] Kết nối Backend thành công nhưng Database SQLite chưa có bản ghi quán ăn nào.');
+      this.cachedRestaurants = [];
+      this.isBackendConnected = true;
+      return [];
+    }
+
+    // Nếu fetch thất bại (mạng đứt, chưa bật port 8000), đánh dấu mất kết nối và trả về mảng rỗng []
+    this.cachedRestaurants = [];
+    this.isBackendConnected = false;
+    return [];
   }
 
   public async getRestaurantByIdOrSlug(identifier: string): Promise<Restaurant | undefined> {

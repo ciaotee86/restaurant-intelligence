@@ -13,14 +13,17 @@ type ViewType = 'home' | 'explore' | 'dashboard' | 'how-it-works';
 
 export function App() {
   const [currentView, setCurrentView] = useState<ViewType>('home');
-  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>('pizza-4ps-trang-tien');
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>('1');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>(() => restaurantService.getCachedRestaurants());
+  const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
   const [isAnalyzeModalOpen, setIsAnalyzeModalOpen] = useState(false);
 
   const loadRestaurants = async () => {
     const data = await restaurantService.getAllRestaurants();
     setAllRestaurants(data);
+    if (data.length > 0 && (!selectedRestaurantId || selectedRestaurantId === '1')) {
+      setSelectedRestaurantId(data[0].id);
+    }
   };
 
   useEffect(() => {
@@ -28,6 +31,9 @@ export function App() {
     restaurantService.getAllRestaurants().then((data) => {
       if (active) {
         setAllRestaurants(data);
+        if (data.length > 0) {
+          setSelectedRestaurantId((prev) => (prev === '1' || prev === 'pizza-4ps-trang-tien' || !prev ? data[0].id : prev));
+        }
       }
     });
     return () => {

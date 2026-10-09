@@ -90,6 +90,6 @@ else:
 # ==================== ENTRYPOINT CHO LOCAL DEV ====================
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", 8000))
     print(f"Khởi chạy Restaurant Intelligence Server trên cổng {port}...")
     uvicorn.run("api_server:app", host="0.0.0.0", port=port, reload=False)

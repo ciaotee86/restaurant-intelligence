@@ -19,6 +19,7 @@ from database.db import (
 from crawler.foody_crawler import crawl_restaurant, search_foody_places
 from services.bi_service import remove_accents, format_restaurant_full
 from services.pipeline_service import save_and_analyze_reviews
+from routers.restaurants import invalidate_restaurants_cache
 
 router = APIRouter(prefix="/api", tags=["crawler"])
 
@@ -81,6 +82,7 @@ def analyze_foody_url(req: AnalyzeRequest):
                 foody_url=url,
                 default_name="Quán mới"
             )
+            invalidate_restaurants_cache()
             formatted = format_restaurant_full(restaurant, db)
             return {
                 "success": True,
@@ -217,6 +219,7 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
             default_name=target_place["name"],
             default_address=target_place.get("address", "")
         )
+        invalidate_restaurants_cache()
         formatted = format_restaurant_full(restaurant, db)
         return {
             "success": True,

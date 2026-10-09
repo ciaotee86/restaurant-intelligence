@@ -301,8 +301,12 @@ export const HomePage: React.FC<HomePageProps> = ({
 
               </div>
             ) : (
-              <div className="bg-white border border-[#E5E3DE] rounded-2xl p-8 text-center">
-                <p className="text-sm font-semibold text-zinc-600">Đang chuẩn bị dữ liệu quán ăn...</p>
+              <div className="bg-white border border-[#E5E3DE] rounded-2xl p-8 text-center space-y-3 shadow-craft-sm">
+                <AlertTriangle className="w-8 h-8 text-amber-600 mx-auto" />
+                <p className="text-sm font-bold text-[#18181B]">Đang tải dữ liệu quán ăn từ máy chủ...</p>
+                <p className="text-xs text-zinc-500 max-w-xs mx-auto leading-relaxed">
+                  Nếu bạn đang chạy Local, vui lòng đảm bảo Backend API port 8000 đang được bật bằng lệnh <code className="bg-zinc-100 px-1 py-0.5 rounded font-mono text-[11px]">npm run dev</code>.
+                </p>
               </div>
             )}
           </div>

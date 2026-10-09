@@ -43,8 +43,9 @@ COPY restaurant-review-ai/ ./
 # Copy bản build frontend tĩnh từ STAGE 1 vào thư mục dist/
 COPY --from=frontend-builder /app/dist /app/dist
 
-# Tạo thư mục data để lưu SQLite DB
-RUN mkdir -p /app/data
+# Tạo thư mục data để lưu SQLite DB và seed_data bảo vệ dữ liệu khi mount Volume
+RUN mkdir -p /app/data /app/seed_data && \
+    (cp /app/data/restaurants.db /app/seed_data/restaurants.db 2>/dev/null || true)
 
 EXPOSE 10000
 

@@ -13,7 +13,8 @@ import {
   SendHorizontal,
   Zap,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  RotateCcw
 } from 'lucide-react';
 
 interface ExplorePageProps {
@@ -132,6 +133,14 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
     }
   };
 
+  const handleRetryBackend = async () => {
+    setLoading(true);
+    await restaurantService.getAllRestaurants(true);
+    const results = await restaurantService.searchRestaurants(filters);
+    setRestaurants(results);
+    setLoading(false);
+  };
+
   // Cào & phân tích trực tiếp tức thì (On-demand ~25s)
   const [directCrawlState, setDirectCrawlState] = useState<'idle' | 'crawling' | 'error'>('idle');
   const [directCrawlMessage, setDirectCrawlMessage] = useState<string>('');
@@ -248,9 +257,20 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
 
       {/* Kết quả số lượng & Trạng thái truy vấn */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#71717A] pt-1">
-        <span className="font-medium text-[#18181B]">
-          {loading ? 'Đang tìm kiếm quán ăn...' : `Tìm thấy ${restaurants.length} quán ăn phù hợp`}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-[#18181B]">
+            {loading ? 'Đang tìm kiếm quán ăn...' : `Tìm thấy ${restaurants.length} quán ăn phù hợp`}
+          </span>
+          {!loading && !restaurantService.isConnectedToBackend() && (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200"
+              title="Chưa kết nối được Backend FastAPI (Port 8000). Đang hiển thị 6 quán mẫu offline."
+            >
+              <AlertCircle className="w-3 h-3 text-amber-600" />
+              Chế độ ngoại tuyến (Backend chưa kết nối)
+            </span>
+          )}
+        </div>
         
         {isSearchActive && (
           <button
@@ -261,6 +281,28 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
           </button>
         )}
       </div>
+
+      {/* Banner cảnh báo khi chưa kết nối Backend và có nút thử kết nối lại */}
+      {!loading && !restaurantService.isConnectedToBackend() && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900 text-xs animate-in fade-in">
+          <div className="flex items-start sm:items-center gap-2.5">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+            <div>
+              <p className="font-bold text-sm text-amber-900">Chưa kết nối tới máy chủ dữ liệu Backend (Port 8000 / API Server)</p>
+              <p className="text-xs text-amber-800/90 mt-0.5">
+                Hệ thống đang tạm thời hiển thị {restaurants.length} nhà hàng mẫu ngoại tuyến. Nếu bạn đang chạy Local, hãy bật backend bằng lệnh <code className="bg-amber-100/80 px-1 py-0.5 rounded font-mono text-[11px]">npm run dev</code> (hoặc <code className="bg-amber-100/80 px-1 py-0.5 rounded font-mono text-[11px]">npm run dev:backend</code>).
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleRetryBackend}
+            className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs shrink-0 flex items-center justify-center gap-1.5 transition-colors shadow-sm self-start sm:self-center"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Thử kết nối lại
+          </button>
+        </div>
+      )}
 
       {/* Lưới danh sách nhà hàng */}
       {loading ? (
@@ -291,14 +333,18 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
               <>
                 <div>
                   <h3 className="text-base font-bold text-[#18181B] mb-1">
-                    {isSearchActive
+                    {!restaurantService.isConnectedToBackend()
+                      ? 'Mất kết nối tới máy chủ cơ sở dữ liệu'
+                      : isSearchActive
                       ? `Chưa có dữ liệu cho "${filters.query}"`
                       : filters.city !== 'Tất cả địa điểm'
                       ? `Chưa có dữ liệu cho khu vực "${filters.city}"`
                       : 'Không tìm thấy quán ăn nào'}
                   </h3>
                   <p className="text-xs text-[#71717A] max-w-md mx-auto leading-relaxed">
-                    {isSearchActive
+                    {!restaurantService.isConnectedToBackend()
+                      ? 'Không thể tải danh sách nhà hàng do Backend API (Port 8000) chưa kết nối. Vui lòng bấm "Thử kết nối lại" sau khi khởi chạy máy chủ.'
+                      : isSearchActive
                       ? `Quán ăn "${filters.query}" chưa có trong danh mục. Bạn có thể bấm nút bên dưới để hệ thống đọc đánh giá và lập báo cáo ngay sau 25 giây, hoặc gửi yêu cầu cập nhật sau.`
                       : filters.city !== 'Tất cả địa điểm'
                       ? `Khu vực "${filters.city}" chưa có quán ăn trong danh mục hiện tại. Bạn có thể bấm xem ngay các quán nổi bật tại ${filters.city} hoặc chọn "Tất cả địa điểm".`

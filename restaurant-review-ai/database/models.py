@@ -87,6 +87,45 @@ def init_db(db_path: str = None):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         file_path = os.path.join(base_dir, "data", "restaurants.db")
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        
+        # Tự động nạp dữ liệu gốc từ seed nếu file database chưa tồn tại, rỗng 0 bytes hoặc rỗng 0 bản ghi (ví dụ: mount persistent volume trên Cloud)
+        need_seed = False
+        if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
+            need_seed = True
+        else:
+            try:
+                import sqlite3
+                _test_conn = sqlite3.connect(file_path)
+                _cur = _test_conn.cursor()
+                _cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='restaurants'")
+                _has_tbl = _cur.fetchone()[0] > 0
+                if _has_tbl:
+                    _cur.execute("SELECT count(*) FROM restaurants")
+                    _row_cnt = _cur.fetchone()[0]
+                    if _row_cnt == 0:
+                        need_seed = True
+                else:
+                    need_seed = True
+                _test_conn.close()
+            except Exception:
+                pass
+
+        if need_seed:
+            seed_candidates = [
+                os.path.join(base_dir, "seed_data", "restaurants.db"),
+                os.path.join(base_dir, "data", "restaurants.db.bak_7"),
+                os.path.join(os.path.dirname(base_dir), "data", "restaurants.db")
+            ]
+            for sc in seed_candidates:
+                if os.path.exists(sc) and os.path.getsize(sc) > 0:
+                    import shutil
+                    try:
+                        shutil.copy2(sc, file_path)
+                        print(f"-> [Database Init] Đã tự động khôi phục dữ liệu từ bản seed: {sc}")
+                        break
+                    except Exception as e:
+                        print(f"-> [Database Init] Không thể sao chép seed database: {e}")
+        
         db_path = f"sqlite:///{file_path.replace(os.sep, '/')}"
     elif db_path.startswith("sqlite:///"):
         file_path = db_path.replace("sqlite:///", "")
