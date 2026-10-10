@@ -1,18 +1,7 @@
 import type { Restaurant, SearchFilterState, CustomerReview, AspectCategory, SentimentType } from '../types/restaurant';
+import { parseSearchQuery, isRestaurantInCity, matchesRestaurantKeyword, removeVietnameseAccents } from '../utils/cityUtils';
 
-/**
- * Loại bỏ dấu tiếng Việt để tìm kiếm không phân biệt dấu
- * Ví dụ: "Bánh xèo" -> "banh xeo", "Phở Thìn" -> "pho thin", "Cơm gà" -> "com ga"
- */
-export function removeVietnameseAccents(str: string): string {
-  if (!str) return '';
-  return str
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[đĐ]/g, (m) => (m === 'Đ' ? 'D' : 'd'))
-    .toLowerCase()
-    .trim();
-}
+export { removeVietnameseAccents };
 
 /**
  * Xác định API Base URL linh hoạt cho cả môi trường Development và Production Deployment
@@ -31,6 +20,29 @@ class RestaurantService {
   private cachedRestaurants: Restaurant[] = [];
   private isBackendConnected: boolean | null = null;
 
+  private async parseResponseSafe<T = any>(response: Response): Promise<{ ok: boolean; data?: T; errorMsg?: string }> {
+    let json: any = null;
+    let rawText = '';
+    try {
+      rawText = await response.text();
+      if (rawText) {
+        json = JSON.parse(rawText);
+      }
+    } catch {
+      // Body không phải định dạng JSON (VD: plain text Internal Server Error, HTML gateway error)
+    }
+
+    if (!response.ok) {
+      const errorMsg =
+        json?.detail ||
+        json?.message ||
+        (rawText && rawText.length < 200 ? rawText : `Máy chủ phản hồi mã lỗi ${response.status}`);
+      return { ok: false, errorMsg };
+    }
+
+    return { ok: true, data: json as T };
+  }
+
   private async fetchFromApi<T>(endpoint: string, options?: RequestInit): Promise<T | null> {
     try {
       const baseUrl = getApiBaseUrl();
@@ -48,14 +60,15 @@ class RestaurantService {
       });
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        console.warn(`[RestaurantService] API ${endpoint} phản hồi mã lỗi: ${response.status} ${response.statusText}`);
+      const parsed = await this.parseResponseSafe<T>(response);
+      if (!parsed.ok || !parsed.data) {
+        console.warn(`[RestaurantService] API ${endpoint} không thành công:`, parsed.errorMsg);
         this.isBackendConnected = false;
         return null;
       }
 
       this.isBackendConnected = true;
-      return await response.json();
+      return parsed.data;
     } catch (err: any) {
       this.isBackendConnected = false;
       console.warn(`[RestaurantService] Không thể kết nối tới Backend API tại ${endpoint}:`, err?.message || err);
@@ -117,11 +130,12 @@ class RestaurantService {
         body: JSON.stringify({ url, max_reviews: maxReviews })
       });
 
-      const data = await response.json();
-      if (!response.ok) {
-        return { success: false, message: data.detail || 'Không thể cào và phân tích URL này.' };
+      const parsed = await this.parseResponseSafe<any>(response);
+      if (!parsed.ok || !parsed.data) {
+        return { success: false, message: parsed.errorMsg || 'Không thể cào và phân tích URL này.' };
       }
 
+      const data = parsed.data;
       if (data.restaurant) {
         this.cachedRestaurants = [data.restaurant, ...this.cachedRestaurants.filter(r => r.id !== data.restaurant.id)];
       }
@@ -156,15 +170,16 @@ class RestaurantService {
         body: JSON.stringify({ query: query.trim(), city, max_reviews: maxReviews })
       });
 
-      const data = await response.json();
-      if (!response.ok) {
+      const parsed = await this.parseResponseSafe<any>(response);
+      if (!parsed.ok || !parsed.data) {
         return {
           success: false,
           source: 'foody',
-          message: data.detail || 'Không tìm thấy hoặc không thể xử lý từ khóa này.'
+          message: parsed.errorMsg || 'Không tìm thấy hoặc không thể xử lý từ khóa này.'
         };
       }
 
+      const data = parsed.data;
       if (data.restaurant) {
         this.cachedRestaurants = [data.restaurant, ...this.cachedRestaurants.filter(r => r.id !== data.restaurant.id)];
       }
@@ -200,14 +215,15 @@ class RestaurantService {
         body: JSON.stringify({ query: query.trim(), city })
       });
 
-      const data = await response.json();
-      if (!response.ok) {
+      const parsed = await this.parseResponseSafe<any>(response);
+      if (!parsed.ok || !parsed.data) {
         return {
           success: false,
-          message: data.detail || 'Không thể gửi yêu cầu thu thập dữ liệu.'
+          message: parsed.errorMsg || 'Không thể gửi yêu cầu thu thập dữ liệu.'
         };
       }
 
+      const data = parsed.data;
       return {
         success: true,
         status: data.status,
@@ -373,51 +389,40 @@ class RestaurantService {
   public async searchRestaurants(filter: Partial<SearchFilterState>): Promise<Restaurant[]> {
     const list = await this.getAllRestaurants();
     
+    // Phân tích từ khóa tìm kiếm: tách thành phố và món ăn
+    const parsedQuery = filter.query && filter.query.trim() !== '' 
+      ? parseSearchQuery(filter.query) 
+      : null;
+
+    // Xác định thành phố mục tiêu để lọc:
+    // 1. Nếu dropdown được chọn cụ thể (khác 'Tất cả địa điểm'), dùng thành phố từ dropdown
+    // 2. Nếu dropdown là 'Tất cả địa điểm' và trong từ khóa CÓ CHỨA THÀNH PHỐ (ví dụ "đà nẵng", "cơm hà nội")
+    //    -> Tự động lọc theo đúng thành phố đó!
+    let targetCity: string | null = null;
+    if (filter.city && filter.city !== 'Tất cả địa điểm' && filter.city !== 'All Cities' && filter.city !== '') {
+      targetCity = filter.city;
+    } else if (parsedQuery?.detectedCity) {
+      targetCity = parsedQuery.detectedCity;
+    }
+
     return list.filter((restaurant) => {
-      // 1. Lọc theo từ khóa tìm kiếm (Thông minh & Bỏ dấu)
-      if (filter.query && filter.query.trim() !== '') {
-        const rawQ = filter.query.trim().toLowerCase();
-        const normQ = removeVietnameseAccents(filter.query);
-
-        // Tạo chuỗi tìm kiếm tổng hợp có dấu và không dấu
-        const searchableRaw = [
-          restaurant.name,
-          restaurant.brand,
-          restaurant.cuisine,
-          restaurant.cuisineCategory,
-          restaurant.city,
-          restaurant.address,
-          ...(restaurant.aspects?.flatMap((a) => a.sampleKeywords) || []),
-          ...(restaurant.reviews?.map((r) => r.text) || [])
-        ].join(' ').toLowerCase();
-
-        const searchableNorm = removeVietnameseAccents(searchableRaw);
-
-        // Trường hợp 1: Khớp nguyên cụm từ (Exact phrase match)
-        if (searchableRaw.includes(rawQ) || searchableNorm.includes(normQ)) {
-          // Khớp hoàn toàn
-        } else {
-          // Trường hợp 2: Tách thành các từ khóa đơn (Token match)
-          // Đảm bảo TẤT CẢ các token từ khóa (>= 2 ký tự) đều phải xuất hiện trong dữ liệu quán
-          // Ví dụ: "bánh tráng" -> cần cả "banh" VÀ "trang", tránh nhầm lẫn với "Tràng Tiền" hay "Bánh Mì"
-          const tokens = normQ.split(/\s+/).filter((t) => t.length >= 2);
-          if (tokens.length > 0) {
-            const allTokensMatch = tokens.every((tok) => searchableNorm.includes(tok));
-            if (!allTokensMatch) {
-              return false;
-            }
-          } else {
-            return false;
-          }
+      // 1. Lọc theo thành phố
+      if (targetCity) {
+        if (!isRestaurantInCity(restaurant, targetCity)) {
+          return false;
         }
       }
 
-      // 2. Lọc theo thành phố
-      if (filter.city && filter.city !== 'Tất cả địa điểm' && filter.city !== 'All Cities' && filter.city !== '') {
-        const normFilterCity = removeVietnameseAccents(filter.city);
-        const normResCity = removeVietnameseAccents(restaurant.city);
-        if (!normResCity.includes(normFilterCity)) {
-          return false;
+      // 2. Lọc theo từ khóa món ăn / tên quán
+      if (parsedQuery) {
+        // Nếu người dùng CHỈ gõ tên thành phố (ví dụ: "đà nẵng")
+        if (parsedQuery.isOnlyCity && !parsedQuery.remainingKeyword) {
+          // Đã lọc đúng thành phố ở bước 1, giữ lại toàn bộ quán của thành phố đó
+        } else if (parsedQuery.remainingKeyword) {
+          // Có từ khóa món ăn (ví dụ "cơm" trong "cơm hà nội", hoặc "cơm gà", "bánh tráng")
+          if (!matchesRestaurantKeyword(restaurant, parsedQuery.remainingKeyword)) {
+            return false;
+          }
         }
       }
 
@@ -480,17 +485,17 @@ class RestaurantService {
 
   public getSearchSuggestions(query: string): { name: string; cuisine: string; city: string; id: string }[] {
     if (!query || query.trim().length < 1) return [];
-    const normQ = removeVietnameseAccents(query);
-    const tokens = normQ.split(/\s+/).filter(t => t.length >= 2);
+    const parsed = parseSearchQuery(query);
 
     return this.cachedRestaurants
       .filter((r) => {
-        const resNorm = removeVietnameseAccents(r.name + ' ' + (r.cuisine || '') + ' ' + (r.city || ''));
-        if (resNorm.includes(normQ)) return true;
-        if (tokens.length > 1) {
-          return tokens.every(t => resNorm.includes(t));
+        if (parsed.detectedCity && !isRestaurantInCity(r, parsed.detectedCity)) {
+          return false;
         }
-        return tokens.length === 1 && resNorm.includes(tokens[0]);
+        if (parsed.isOnlyCity && !parsed.remainingKeyword) {
+          return true;
+        }
+        return matchesRestaurantKeyword(r, parsed.remainingKeyword || query);
       })
       .slice(0, 6)
       .map((r) => ({

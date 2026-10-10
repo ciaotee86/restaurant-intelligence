@@ -61,6 +61,20 @@ app.add_middleware(
 app.include_router(restaurants_router)
 app.include_router(crawler_router)
 
+from fastapi.responses import JSONResponse
+from fastapi import Request
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    print(f"[Global Server Error] {request.method} {request.url}: {exc}")
+    import traceback
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Lỗi máy chủ nội bộ: {str(exc)}"}
+    )
+
+
 
 # ==================== PHỤC VỤ STATIC FILES REACT (SPA) ====================
 DIST_PATH = CURRENT_DIR.parent / "dist"

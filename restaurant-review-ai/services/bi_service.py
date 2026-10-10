@@ -61,64 +61,118 @@ def extract_keywords_from_texts(texts: List[str], max_keywords: int = 4) -> List
     return top if top else ["hương vị", "chất lượng", "phục vụ"]
 
 
-def detect_city(addr: str) -> str:
-    """Tự động nhận diện tỉnh/thành phố từ địa chỉ quán ăn trên toàn quốc"""
-    if not addr:
-        return "Toàn quốc"
-    norm = remove_accents(addr.lower())
+def detect_city(addr: str, foody_url: str = "", restaurant_name: str = "") -> str:
+    """Tự động nhận diện tỉnh/thành phố từ địa chỉ, Foody URL hoặc tên quán ăn trên toàn quốc"""
+    # 1. Nhận diện từ slug URL Foody nếu có (ví dụ: foody.vn/da-nang/..., foody.vn/ho-chi-minh/...)
+    if foody_url:
+        u_norm = foody_url.lower()
+        if "/da-nang/" in u_norm:
+            return "Đà Nẵng"
+        if "/ha-noi/" in u_norm:
+            return "Hà Nội"
+        if "/ho-chi-minh/" in u_norm:
+            return "TP. Hồ Chí Minh"
+        if "/hai-phong/" in u_norm:
+            return "Hải Phòng"
+        if "/can-tho/" in u_norm:
+            return "Cần Thơ"
+        if "/khanh-hoa/" in u_norm or "/nha-trang/" in u_norm:
+            return "Khánh Hòa"
+        if "/lam-dong/" in u_norm or "/da-lat/" in u_norm:
+            return "Lâm Đồng"
+        if "/quang-nam/" in u_norm or "/hoi-an/" in u_norm:
+            return "Quảng Nam"
+        if "/thua-thien-hue/" in u_norm or "/hue/" in u_norm:
+            return "Thừa Thiên Huế"
+        if "/vung-tau/" in u_norm or "/ba-ria-vung-tau/" in u_norm:
+            return "Bà Rịa - Vũng Tàu"
+        if "/binh-duong/" in u_norm:
+            return "Bình Dương"
+        if "/dong-nai/" in u_norm:
+            return "Đồng Nai"
+        if "/quang-ninh/" in u_norm:
+            return "Quảng Ninh"
+        if "/binh-dinh/" in u_norm or "/quy-nhon/" in u_norm:
+            return "Bình Định"
+        if "/kien-giang/" in u_norm or "/phu-quoc/" in u_norm:
+            return "Kiên Giang"
+
+    # 2. Nhận diện từ địa chỉ quán
+    norm = remove_accents((addr or "").lower())
+    norm_clean = re.sub(r'[^a-z0-9\s]', ' ', norm)
     
-    if any(k in norm for k in ["da nang", "hai chau", "son tra", "ngu hanh son", "thanh khe", "cam le", "lien chieu"]):
+    if any(k in norm_clean for k in ["da nang", "hai chau", "son tra", "ngu hanh son", "thanh khe", "cam le", "lien chieu", "hoa vang"]):
         return "Đà Nẵng"
-    if any(k in norm for k in ["ha noi", "hoan kiem", "ba dinh", "dong da", "cau giay", "hai ba trung", "tay ho", "thanh xuan"]):
+    if any(k in norm_clean for k in ["ha noi", "hoan kiem", "ba dinh", "dong da", "cau giay", "hai ba trung", "tay ho", "thanh xuan", "ha dong", "long bien", "nam tu liem", "bac tu liem", "hoang mai"]):
         return "Hà Nội"
-    if any(k in norm for k in ["ho chi minh", "tphcm", "tp hcm", "sai gon", "quan 1", "quan 3", "binh thanh", "tan binh", "thu duc"]):
+    if any(k in norm_clean for k in [
+        "ho chi minh", "tphcm", "tp hcm", "sai gon", "quan 1", "quan 2", "quan 3", "quan 4",
+        "quan 5", "quan 6", "quan 7", "quan 8", "quan 9", "quan 10", "quan 11", "quan 12",
+        "binh thanh", "tan binh", "thu duc", "go vap", "tan phu", "binh tan", "phu nhuan",
+        "nha be", "hoc mon", "cu chi", "binh chanh"
+    ]):
         return "TP. Hồ Chí Minh"
-    if any(k in norm for k in ["hai phong", "ngo quyen", "le chan", "hong bang"]):
+    if any(k in norm_clean for k in ["hai phong", "ngo quyen", "le chan", "hong bang"]):
         return "Hải Phòng"
-    if any(k in norm for k in ["quang ninh", "ha long", "cam pha", "uong bi"]):
+    if any(k in norm_clean for k in ["quang ninh", "ha long", "cam pha", "uong bi"]):
         return "Quảng Ninh"
-    if any(k in norm for k in ["ninh binh", "tam diep", "hoa lu"]):
+    if any(k in norm_clean for k in ["ninh binh", "tam diep", "hoa lu"]):
         return "Ninh Bình"
-    if any(k in norm for k in ["thua thien hue", "tp hue", "huong thuy"]):
+    if any(k in norm_clean for k in ["thua thien hue", "tp hue", "huong thuy"]):
         return "Thừa Thiên Huế"
-    if any(k in norm for k in ["quang nam", "hoi an", "tam ky"]):
+    if any(k in norm_clean for k in ["quang nam", "hoi an", "tam ky"]):
         return "Quảng Nam"
-    if any(k in norm for k in ["khanh hoa", "nha trang", "cam ranh"]):
+    if any(k in norm_clean for k in ["khanh hoa", "nha trang", "cam ranh"]):
         return "Khánh Hòa"
-    if any(k in norm for k in ["lam dong", "da lat", "bao loc"]):
+    if any(k in norm_clean for k in ["lam dong", "da lat", "bao loc"]):
         return "Lâm Đồng"
-    if any(k in norm for k in ["binh dinh", "quy nhon", "an nhon"]):
+    if any(k in norm_clean for k in ["binh dinh", "quy nhon", "an nhon"]):
         return "Bình Định"
-    if any(k in norm for k in ["nghe an", "tp vinh", "cua lo"]):
+    if any(k in norm_clean for k in ["nghe an", "tp vinh", "cua lo"]):
         return "Nghệ An"
-    if any(k in norm for k in ["can tho", "ninh kieu", "cai rang", "binh thuy"]):
+    if any(k in norm_clean for k in ["can tho", "ninh kieu", "cai rang", "binh thuy"]):
         return "Cần Thơ"
-    if any(k in norm for k in ["kien giang", "phu quoc", "rach gia", "ha tien"]):
+    if any(k in norm_clean for k in ["kien giang", "phu quoc", "rach gia", "ha tien"]):
         return "Kiên Giang"
-    if any(k in norm for k in ["vung tau", "ba ria", "ba ria - vung tau"]):
+    if any(k in norm_clean for k in ["vung tau", "ba ria", "ba ria   vung tau"]):
         return "Bà Rịa - Vũng Tàu"
-    if any(k in norm for k in ["binh duong", "thu dau mot", "di an", "thuan an"]):
+    if any(k in norm_clean for k in ["binh duong", "thu dau mot", "di an", "thuan an"]):
         return "Bình Dương"
-    if any(k in norm for k in ["dong nai", "bien hoa", "long khanh"]):
+    if any(k in norm_clean for k in ["dong nai", "bien hoa", "long khanh"]):
         return "Đồng Nai"
-    if any(k in norm for k in ["dak lak", "buon ma thuot"]):
+    if any(k in norm_clean for k in ["dak lak", "buon ma thuot"]):
         return "Đắk Lắk"
-    if any(k in norm for k in ["an giang", "long xuyen", "chau doc"]):
+    if any(k in norm_clean for k in ["an giang", "long xuyen", "chau doc"]):
         return "An Giang"
-    if any(k in norm for k in ["tay ninh", "trang bang"]):
+    if any(k in norm_clean for k in ["tay ninh", "trang bang"]):
         return "Tây Ninh"
-    if any(k in norm for k in ["ca mau", "nam can"]):
+    if any(k in norm_clean for k in ["ca mau", "nam can"]):
         return "Cà Mau"
-    if any(k in norm for k in ["soc trang"]):
+    if any(k in norm_clean for k in ["soc trang"]):
         return "Sóc Trăng"
-    if any(k in norm for k in ["binh thuan", "phan thiet"]):
+    if any(k in norm_clean for k in ["binh thuan", "phan thiet"]):
         return "Bình Thuận"
-    if any(k in norm for k in ["phu yen", "tuy hoa"]):
+    if any(k in norm_clean for k in ["phu yen", "tuy hoa"]):
         return "Phú Yên"
-    if any(k in norm for k in ["lao cai", "sa pa", "sapa"]):
+    if any(k in norm_clean for k in ["lao cai", "sa pa", "sapa"]):
         return "Lào Cai"
+
+    # 3. Nhận diện từ tên quán thương hiệu
+    if restaurant_name:
+        name_norm = remove_accents(restaurant_name.lower())
+        if any(k in name_norm for k in ["huong lien"]):
+            return "Hà Nội"
+        if any(k in name_norm for k in ["gia vinh", "thanh hung", "coffee hoang"]):
+            return "Đà Nẵng"
+        if any(k in name_norm for k in ["nha go", "tao ngo", "dalat", "da lat"]):
+            return "Lâm Đồng"
+        if any(k in name_norm for k in ["quy nhon"]):
+            return "Bình Định"
+        if any(k in name_norm for k in ["sai gon", "bao minh", "quan 448", "lao tru", "truong ky", "chop chep", "dimsum homemade"]):
+            return "TP. Hồ Chí Minh"
     
     return "Toàn quốc"
+
 
 
 def format_restaurant_full(restaurant: DBRestaurant, db) -> dict:
@@ -513,7 +567,7 @@ def format_restaurant_full(restaurant: DBRestaurant, db) -> dict:
     display_rating = round(raw_rating / 2, 1) if raw_rating > 5 else round(raw_rating, 1)
 
     addr = restaurant.address or ""
-    city = detect_city(addr)
+    city = detect_city(addr, foody_url=restaurant.foody_url, restaurant_name=restaurant.name)
 
     # Đoán ẩm thực từ tên
     name_lower = restaurant.name.lower()

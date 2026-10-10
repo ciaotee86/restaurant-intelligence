@@ -107,126 +107,135 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
     4. Trích xuất link quán ăn phù hợp nhất trên Foody.
     5. Cào review, lọc spam/bot, gọi Gemini ABSA phân tích khía cạnh và lưu SQLite.
     """
-    q = req.query.strip()
-    if not q:
-        raise HTTPException(status_code=400, detail="Vui lòng nhập từ khóa tìm kiếm.")
+    try:
+        q = req.query.strip()
+        if not q:
+            raise HTTPException(status_code=400, detail="Vui lòng nhập từ khóa tìm kiếm.")
 
-    norm_q = remove_accents(q)
-    tokens = [t for t in norm_q.split() if len(t) >= 2]
+        norm_q = remove_accents(q)
+        tokens = [t for t in norm_q.split() if len(t) >= 2]
 
-    # Bước 1: Kiểm tra trong cơ sở dữ liệu SQLite trước
-    with get_session() as db:
-        all_res = db.query(DBRestaurant).all()
-        matching_res = None
+        # Bước 1: Kiểm tra trong cơ sở dữ liệu SQLite trước
+        with get_session() as db:
+            all_res = db.query(DBRestaurant).all()
+            matching_res = None
 
-        # Ưu tiên 1: Khớp nguyên cụm từ trong tên quán hoặc slug
-        for r in all_res:
-            r_norm = remove_accents(r.name)
-            if norm_q in r_norm or (r.slug and norm_q in remove_accents(r.slug)):
-                matching_res = r
-                break
-
-        # Ưu tiên 2: Khớp tất cả các token từ khóa trong tên, địa chỉ hoặc món ăn
-        if not matching_res and len(tokens) >= 2:
+            # Ưu tiên 1: Khớp nguyên cụm từ trong tên quán hoặc URL Foody
             for r in all_res:
-                r_full = remove_accents(f"{r.name} {r.address or ''} {r.cuisine or ''}")
-                if all(t in r_full for t in tokens):
+                r_norm = remove_accents(r.name)
+                foody_slug = r.foody_url.split("/")[-1] if r.foody_url else ""
+                if norm_q in r_norm or (foody_slug and norm_q in remove_accents(foody_slug)):
                     matching_res = r
                     break
 
-        if matching_res:
-            print(f"-> [Search & Crawl] Đã tìm thấy quán '{matching_res.name}' trong cơ sở dữ liệu SQLite!")
-            formatted = format_restaurant_full(matching_res, db)
-            return {
-                "success": True,
-                "source": "database",
-                "message": f"Tìm thấy quán '{matching_res.name}' đã được phân tích sẵn trong cơ sở dữ liệu!",
-                "restaurant": formatted
-            }
+            # Ưu tiên 2: Khớp tất cả các token từ khóa trong tên hoặc địa chỉ
+            if not matching_res and len(tokens) >= 2:
+                for r in all_res:
+                    r_full = remove_accents(f"{r.name} {r.address or ''}")
+                    if all(t in r_full for t in tokens):
+                        matching_res = r
+                        break
 
-    # Bước 2: Chưa có trong DB -> Tự động tìm kiếm trên Foody.vn
-    city = req.city or "da-nang"
-    print(f"-> [Search & Crawl] Chưa có trong DB. Bắt đầu tìm kiếm từ khóa '{q}' trên Foody (thành phố: {city})...")
-    foody_results = search_foody_places(q, city_slug=city, max_results=3)
-
-    if not foody_results:
-        for fallback_city in ["da-nang", "ho-chi-minh", "ha-noi"]:
-            if fallback_city != city:
-                print(f"  Thử tìm kiếm mở rộng tại {fallback_city}...")
-                foody_results = search_foody_places(q, city_slug=fallback_city, max_results=3)
-                if foody_results:
-                    break
-
-    if not foody_results:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Không tìm thấy quán ăn nào trên Foody với từ khóa '{q}'. Vui lòng thử từ khóa khác hoặc dán link Foody trực tiếp."
-        )
-
-    # Kiểm tra xem có quán nào trong kết quả Foody đã có trong SQLite chưa
-    with get_session() as db:
-        for place in foody_results:
-            existing_by_url = db.query(DBRestaurant).filter_by(foody_url=place["url"]).first()
-            if existing_by_url:
-                print(f"-> [Search & Crawl] URL '{place['url']}' đã tồn tại trong DB!")
-                formatted = format_restaurant_full(existing_by_url, db)
+            if matching_res:
+                print(f"-> [Search & Crawl] Đã tìm thấy quán '{matching_res.name}' trong cơ sở dữ liệu SQLite!")
+                formatted = format_restaurant_full(matching_res, db)
                 return {
                     "success": True,
                     "source": "database",
-                    "message": f"Tìm thấy quán '{existing_by_url.name}' đã được phân tích trong hệ thống!",
+                    "message": f"Tìm thấy quán '{matching_res.name}' đã được phân tích sẵn trong cơ sở dữ liệu!",
                     "restaurant": formatted
                 }
 
-    # Bước 3: Cào đánh giá thực tế từ Foody bằng Selenium (ưu tiên quán có đánh giá)
-    crawl_data = None
-    target_place = None
+        # Bước 2: Chưa có trong DB -> Tự động tìm kiếm trên Foody.vn
+        city = req.city or "da-nang"
+        print(f"-> [Search & Crawl] Chưa có trong DB. Bắt đầu tìm kiếm từ khóa '{q}' trên Foody (thành phố: {city})...")
+        foody_results = search_foody_places(q, city_slug=city, max_results=3)
 
-    for place in foody_results:
-        target_url = place["url"]
-        print(f"-> [Search & Crawl] Bắt đầu cào thử đánh giá: '{place['name']}' ({target_url})")
-        known_fps = set()
+        if not foody_results:
+            for fallback_city in ["da-nang", "ho-chi-minh", "ha-noi"]:
+                if fallback_city != city:
+                    print(f"  Thử tìm kiếm mở rộng tại {fallback_city}...")
+                    foody_results = search_foody_places(q, city_slug=fallback_city, max_results=3)
+                    if foody_results:
+                        break
+
+        if not foody_results:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Không tìm thấy quán ăn nào trên Foody với từ khóa '{q}'. Vui lòng thử từ khóa khác hoặc dán link Foody trực tiếp."
+            )
+
+        # Kiểm tra xem có quán nào trong kết quả Foody đã có trong SQLite chưa
         with get_session() as db:
-            exist_p = db.query(DBRestaurant).filter_by(foody_url=target_url).first()
-            if exist_p:
-                known_fps = get_restaurant_existing_fingerprints(db, exist_p.id)
+            for place in foody_results:
+                existing_by_url = db.query(DBRestaurant).filter_by(foody_url=place["url"]).first()
+                if existing_by_url:
+                    print(f"-> [Search & Crawl] URL '{place['url']}' đã tồn tại trong DB!")
+                    formatted = format_restaurant_full(existing_by_url, db)
+                    return {
+                        "success": True,
+                        "source": "database",
+                        "message": f"Tìm thấy quán '{existing_by_url.name}' đã được phân tích trong hệ thống!",
+                        "restaurant": formatted
+                    }
 
-        data = crawl_restaurant(
-            target_url,
-            max_reviews=req.max_reviews or 25,
-            headless=True,
-            known_fingerprints=known_fps,
-            max_consecutive_existing=3
-        )
-        
-        if data and data.get("name"):
-            crawl_data = data
-            target_place = place
-            if data.get("reviews") and len(data["reviews"]) > 0:
-                break
+        # Bước 3: Cào đánh giá thực tế từ Foody bằng Selenium (ưu tiên quán có đánh giá)
+        crawl_data = None
+        target_place = None
 
-    if not crawl_data or not crawl_data.get("name"):
-        raise HTTPException(
-            status_code=500,
-            detail=f"Không thể cào dữ liệu từ quán trên Foody cho từ khóa '{q}'. Vui lòng thử lại sau."
-        )
+        for place in foody_results:
+            target_url = place["url"]
+            print(f"-> [Search & Crawl] Bắt đầu cào thử đánh giá: '{place['name']}' ({target_url})")
+            known_fps = set()
+            with get_session() as db:
+                exist_p = db.query(DBRestaurant).filter_by(foody_url=target_url).first()
+                if exist_p:
+                    known_fps = get_restaurant_existing_fingerprints(db, exist_p.id)
 
-    # Bước 4: Lưu vào SQLite và chạy Gemini AI phân tích ABSA
-    with get_session() as db:
-        restaurant = save_and_analyze_reviews(
-            db=db,
-            crawl_data=crawl_data,
-            foody_url=target_place["url"],
-            default_name=target_place["name"],
-            default_address=target_place.get("address", "")
-        )
-        invalidate_restaurants_cache()
-        formatted = format_restaurant_full(restaurant, db)
-        return {
-            "success": True,
-            "source": "crawled_and_analyzed",
-            "message": f"Đã tự động tìm kiếm trên Foody, cào và AI phân tích thành công quán '{restaurant.name}' ({len(crawl_data.get('reviews', []))} đánh giá thực tế)!",
-            "restaurant": formatted
-        }
+            data = crawl_restaurant(
+                target_url,
+                max_reviews=req.max_reviews or 25,
+                headless=True,
+                known_fingerprints=known_fps,
+                max_consecutive_existing=3
+            )
+            
+            if data and data.get("name"):
+                crawl_data = data
+                target_place = place
+                if data.get("reviews") and len(data["reviews"]) > 0:
+                    break
+
+        if not crawl_data or not crawl_data.get("name"):
+            raise HTTPException(
+                status_code=500,
+                detail=f"Không thể cào dữ liệu từ quán trên Foody cho từ khóa '{q}'. Vui lòng thử lại sau."
+            )
+
+        # Bước 4: Lưu vào SQLite và chạy Gemini AI phân tích ABSA
+        with get_session() as db:
+            restaurant = save_and_analyze_reviews(
+                db=db,
+                crawl_data=crawl_data,
+                foody_url=target_place["url"],
+                default_name=target_place["name"],
+                default_address=target_place.get("address", "")
+            )
+            invalidate_restaurants_cache()
+            formatted = format_restaurant_full(restaurant, db)
+            return {
+                "success": True,
+                "source": "crawled_and_analyzed",
+                "message": f"Đã tự động tìm kiếm trên Foody, cào và AI phân tích thành công quán '{restaurant.name}' ({len(crawl_data.get('reviews', []))} đánh giá thực tế)!",
+                "restaurant": formatted
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[API Error] Lỗi khi tìm kiếm & cào dữ liệu: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Lỗi khi cào hoặc phân tích dữ liệu: {str(e)}")
 
 
 @router.post("/request-crawl")

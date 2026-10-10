@@ -4,6 +4,7 @@ import { RestaurantCard } from '../components/restaurant-list/RestaurantCard';
 import { FilterBar } from '../components/restaurant-list/FilterBar';
 import { SearchBar } from '../components/common/SearchBar';
 import { restaurantService } from '../services/restaurantService';
+import { parseSearchQuery } from '../utils/cityUtils';
 import {
   Compass,
   PlusCircle,
@@ -53,7 +54,12 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
   const [prevInitialQuery, setPrevInitialQuery] = useState(initialQuery);
   if (initialQuery !== prevInitialQuery) {
     setPrevInitialQuery(initialQuery);
-    setFilters((prev) => ({ ...prev, query: initialQuery }));
+    const parsed = parseSearchQuery(initialQuery);
+    setFilters((prev) => ({
+      ...prev,
+      query: initialQuery,
+      city: parsed.detectedCity && prev.city === 'Tất cả địa điểm' ? parsed.detectedCity : prev.city
+    }));
   }
 
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
@@ -106,7 +112,12 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
       onOpenAnalyzeModal();
       return;
     }
-    setFilters({ ...filters, query: q });
+    const parsed = parseSearchQuery(q);
+    if (parsed.detectedCity && filters.city === 'Tất cả địa điểm') {
+      setFilters({ ...filters, query: q, city: parsed.detectedCity });
+    } else {
+      setFilters({ ...filters, query: q });
+    }
     setQueueStatus('idle');
     setQueueMessage('');
   };
@@ -146,11 +157,17 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
   const [directCrawlMessage, setDirectCrawlMessage] = useState<string>('');
 
   const handleDirectCrawl = async () => {
-    const targetQuery = filters.query.trim() || 'đặc sản món ngon';
-    const targetCity = filters.city !== 'Tất cả địa điểm' ? filters.city : 'da-nang';
+    const parsed = parseSearchQuery(filters.query);
+    const targetQuery = parsed.remainingKeyword.trim() || filters.query.trim() || 'đặc sản món ngon';
+    const effectiveCity = parsed.detectedCity || (filters.city !== 'Tất cả địa điểm' ? filters.city : 'Đà Nẵng');
+    const targetCity = effectiveCity.toLowerCase().includes('hà nội')
+      ? 'ha-noi'
+      : effectiveCity.toLowerCase().includes('hồ chí minh') || effectiveCity.toLowerCase().includes('sài gòn')
+      ? 'ho-chi-minh'
+      : 'da-nang';
     
     setDirectCrawlState('crawling');
-    setDirectCrawlMessage(`Đang tìm kiếm quán "${targetQuery}" tại ${targetCity} trên Foody, cào review & chạy Gemini AI phân tích...`);
+    setDirectCrawlMessage(`Đang tìm kiếm quán "${targetQuery}" tại ${effectiveCity} trên Foody, cào review & chạy Gemini AI phân tích...`);
 
     try {
       const res = await restaurantService.searchAndCrawlFoody(targetQuery, targetCity, 20);

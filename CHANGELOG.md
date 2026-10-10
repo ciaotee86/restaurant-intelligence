@@ -2,6 +2,40 @@
 
 All notable changes to the **Restaurant Intelligence** project will be documented in this file.
 
+## [1.6.4] - 2026-10-10
+
+### Nâng cấp Bộ Lọc Tìm Kiếm Thông Minh theo Tỉnh/Thành phố & Món Ăn
+- **Tự động nhận diện Địa danh trong Từ khóa (`src/utils/cityUtils.ts`)**:
+  - Xây dựng module nhận diện 25+ tỉnh thành trên toàn quốc với danh sách alias có dấu và không dấu.
+  - Phân tích từ khóa tìm kiếm (`parseSearchQuery`):
+    - Khi từ khóa chứa tên thành phố (ví dụ: `"đà nẵng"`, `"cơm hà nội"`, `"bánh xèo đà nẵng"`), hệ thống tự động bóc tách thành phố và từ khóa món ăn còn lại.
+    - Lọc nghiêm ngặt 100% quán thuộc đúng địa phương đó, loại bỏ triệt để tình trạng quán ở Bình Dương, Sài Gòn,... lọt vào khi tìm kiếm Đà Nẵng.
+    - Nhận diện các món ăn phức hợp truyền thống (ví dụ: `"bún bò huế"`, `"mì quảng"`) mà không bị nhầm lẫn ép lọc sai thành phố khi người dùng chỉ muốn tìm món ăn.
+- **Tìm kiếm Món ăn Toàn quốc khi chỉ gõ tên món**:
+  - Khi người dùng chỉ gõ món ăn (ví dụ: `"cơm gà"`, `"bánh tráng"`, `"pizza"`), hệ thống không giới hạn thành phố và hiển thị kết quả trên toàn bộ các địa phương.
+- **Loại bỏ False Positive từ Nội dung Review**:
+  - Thay thế việc so khớp chuỗi con tự do trong hàng nghìn ký tự review bằng cơ chế so khớp từ nguyên vẹn (word-boundary token match) và so khớp cụm từ (phrase match) trên tên, ẩm thực, địa chỉ và từ khóa khía cạnh.
+- **Đồng bộ hóa Backend API (`routers/restaurants.py` & `services/bi_service.py`)**:
+  - Nâng cấp endpoint `/restaurants/search` và `/search` trên FastAPI backend với cùng cơ chế tách thành phố và lọc chính xác.
+  - Cải tiến `detect_city()` tận dụng Foody URL slug, địa chỉ chi tiết (quận/huyện) và tên thương hiệu để chuẩn hóa 100% dữ liệu 234 quán ăn trong database.
+- **Kiểm thử**:
+  - Bổ sung 3 test case hồi quy trong `test_search_and_crawl.py` kiểm chứng kết quả lọc Đà Nẵng, Hà Nội và toàn quốc (100% pass).
+
+## [1.6.3] - 2026-10-10
+
+### Khắc phục Lỗi "Unexpected token 'I', Internal Server Error" khi Tìm kiếm & Tổng hợp Đánh giá Quán Mới
+- **Sửa lỗi `AttributeError` tại Backend (`routers/crawler.py`)**:
+  - Loại bỏ các truy cập thuộc tính không tồn tại trên SQLAlchemy model `Restaurant` (`r.slug`, `r.cuisine`) trong vòng lặp so khớp từ khóa SQLite.
+  - Sử dụng slug từ `r.foody_url` và kết hợp tên/địa chỉ chuẩn hóa, ngăn chặn triệt để lỗi crash HTTP 500 khi người dùng tìm kiếm từ khóa quán ăn chưa có trong danh mục.
+  - Bao bọc toàn bộ khối xử lý của `/search-and-crawl` trong `try ... except` có ghi log chi tiết để trả về mã lỗi và thông điệp JSON tường minh.
+- **Bảo vệ Toàn diện FastAPI Global Exception Handler (`api_server.py`)**:
+  - Đăng ký middleware `@app.exception_handler(Exception)` để mọi ngoại lệ không mong muốn đều được phản hồi dưới dạng JSON chuẩn `{ "detail": "..." }`, loại bỏ tình trạng phản hồi plain text `"Internal Server Error"` làm crash bộ phân tích JSON phía client.
+- **Phòng thủ Frontend An toàn (`src/services/restaurantService.ts`)**:
+  - Bổ sung helper `parseResponseSafe()` cho tất cả các cuộc gọi API (`searchAndCrawlFoody`, `analyzeFoodyUrl`, `requestCrawl`, `fetchFromApi`).
+  - Kiểm tra trạng thái HTTP và đọc raw text trước khi parse JSON, ngăn chặn hoàn toàn lỗi SyntaxError `Unexpected token 'I', "Internal S"... is not valid JSON` trên giao diện người dùng.
+- **Unit Testing**:
+  - Bổ sung bộ test hồi quy `restaurant-review-ai/test_search_and_crawl.py` kiểm chứng tìm kiếm từ khóa và validation đầu vào.
+
 ## [1.6.2] - 2026-10-09
 
 ### Khắc phục Triệt để Lỗi Hiển thị 6 Quán vs >200 Thực thể Database trên Localhost & Production
