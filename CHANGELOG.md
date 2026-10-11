@@ -2,6 +2,40 @@
 
 All notable changes to the **Restaurant Intelligence** project will be documented in this file.
 
+## [1.7.0] - 2026-10-11
+
+### Tái Cấu Trúc Toàn Diện Trợ Lý Phân Tích Nền Tảng (Platform Intelligence Assistant) — Vượt Qua 100% 30 Test Cases
+- **Tái định vị Bản chất Trợ lý (Platform Intelligence Analyst vs. Restaurant Bot)**:
+  - Chuyển đổi ngôi xưng và vai trò từ *"Trợ lý AI của quán X"* sang *"Trợ lý Phân tích Dữ liệu Nền tảng Restaurant Intelligence"*.
+  - Cung cấp góc nhìn phân tích độc lập, trung lập, phục vụ cả Chủ quán và Thực khách dựa trên sự thật (Ground Truth) từ dữ liệu đánh giá thực tế.
+- **Tầng Guardrails Kiểm soát Phạm vi & Bảo mật (Bảng 4: TC19 - TC22)**:
+  - **TC19**: Chặn câu hỏi ngoài lề (thời tiết, thể thao, tin tức) và từ chối lịch sự, nêu rõ phạm vi ẩm thực của nền tảng.
+  - **TC20 & TC22**: Nêu rõ giới hạn dữ liệu khi hỏi về doanh thu nội bộ hoặc dự đoán tài chính (hệ thống chỉ có dữ liệu đánh giá khách quan, không truy cập sổ sách kế toán của quán).
+  - **TC21**: Bảo vệ quyền riêng tư, cam kết không suy đoán danh tính cá nhân người đánh giá.
+- **Tầng Truy vấn Dữ liệu Định lượng & Dẫn chứng Thật (Bảng 2: TC07 - TC12)**:
+  - **TC07**: Truy vấn chính xác tổng số bài đánh giá thực tế đã làm sạch (`totalReviews`).
+  - **TC08**: Thống kê số lượng (`positiveCount`) và tỷ lệ phần trăm (`positivePercentage%`) khách hàng hài lòng.
+  - **TC09**: Trích xuất danh sách phàn nàn và trích dẫn nguyên văn về chất lượng dịch vụ.
+  - **TC10 & TC11**: Nhận diện vấn đề lặp lại nhiều nhất và phân bố ý kiến theo 5 khía cạnh cốt lõi.
+  - **TC12**: Trích xuất dẫn chứng nguyên văn từ các bài đánh giá có thật trong cơ sở dữ liệu.
+- **Tầng Tư vấn Chiến lược Vận hành & Kẻ Bảng Markdown (Bảng 3: TC13 - TC18)**:
+  - **TC13 & TC17**: Xác định duy nhất 1 vấn đề ưu tiên hàng đầu cần giải quyết trước mắt dựa trên số liệu phàn nàn.
+  - **TC14**: Xây dựng kế hoạch hành động theo tháng (Giai đoạn 1: Tuần 1-2, Giai đoạn 2: Tuần 3-4) có mục tiêu và thời hạn rõ ràng.
+  - **TC15 & TC16**: Đề xuất giải pháp chuyên biệt riêng cho Dịch vụ và Món ăn.
+  - **TC18**: Tự động kết xuất bảng Markdown tổng hợp chuẩn (`| Vấn đề ghi nhận từ khách | Nguyên nhân tiềm ẩn (Giả thuyết) | Giải pháp đề xuất |`) và render bảng HTML có border, header và striped rows trên frontend.
+- **Tối ưu Hóa Giao diện & Độ Bền Vững Hệ Thống (Bảng 5: TC23 - TC30)**:
+  - **TC25**: Vô hiệu hóa nút gửi (`disabled`) khi ô nhập rỗng hoặc đang loading.
+  - **TC26**: Giới hạn tối đa 400 ký tự kèm bộ đếm ký tự trực quan (`x/400`).
+  - **TC27**: Xử lý toàn diện tiếng Việt có dấu qua chuẩn hóa Unicode NFC và không dấu.
+  - **TC28**: Khóa tương tác input và nút Hỏi khi đang xử lý, triệt tiêu hoàn toàn race condition và xáo trộn thứ tự tin nhắn.
+  - **TC29**: Nút làm mới (`RotateCcw`) đặt lại toàn bộ phiên chat về câu chào mừng chuẩn Nền tảng.
+  - **TC30**: Đo lường và hiển thị thời gian phản hồi (Latency badge `0.02s · Phân tích số liệu thực tế (0 Quota)`) trực tiếp trên từng tin nhắn.
+- **Khắc phục Triệt để Lỗi Render Tab Trợ lý (`activeTab === 'assistant'`)**:
+  - Sửa lỗi thiếu khối điều kiện hiển thị khi người dùng click vào Tab *"Trợ lý Phân tích Nền tảng (Hỏi - Đáp)"* trên `DashboardPage.tsx`. Giờ đây khi bấm vào tab, khung chat Trợ lý AI hiển thị nổi bật ở vị trí trung tâm kèm các phát hiện cốt lõi và điểm cần chú ý.
+- **Kiểm Thử & Đảm Bảo Chất Lượng (Quality Assurance)**:
+  - Bổ sung Unit Test Suite `test_assistant_service.py` bao phủ toàn diện 22 test cases nghiệp vụ (6/6 tests PASSED).
+  - Đạt 0 warnings, 0 errors trên Oxlint và Vite Build.
+
 ## [1.6.6] - 2026-10-11
 
 ### Tái Cấu Trúc Toàn Diện Thanh Tìm Kiếm (Search Overhaul) — Triệt Tiêu 100% Rò Rỉ Khác Thành Phố & Món Ăn

@@ -129,7 +129,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             }`}
           >
             <Bot className="w-4 h-4 text-orange-400" />
-            <span>Trợ lý AI Nhà Hàng (Hỏi - Đáp)</span>
+            <span>Trợ lý Phân tích Nền tảng (Hỏi - Đáp)</span>
             <span className="px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 text-[10px] font-black uppercase tracking-wider">
               Mới
             </span>
@@ -233,7 +233,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </div>
         )}
 
-        {/* NỘI DUNG TAB 3: TẤT CẢ NHẬN XÉT GỐC */}
+        {/* NỘI DUNG TAB 3: TRỢ LÝ PHÂN TÍCH NỀN TẢNG */}
+        {activeTab === 'assistant' && (
+          <div className="space-y-8 animate-in fade-in duration-200">
+            <AiAssistantWidget restaurant={restaurant} />
+            <KeyFindings restaurant={restaurant} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+              <WhatCustomersLove restaurant={restaurant} />
+              <WhatNeedsAttention restaurant={restaurant} />
+            </div>
+          </div>
+        )}
+
+        {/* NỘI DUNG TAB 4: TẤT CẢ NHẬN XÉT GỐC */}
         {activeTab === 'reviews' && (
           <div className="animate-in fade-in duration-200">
             <ReviewExplorer

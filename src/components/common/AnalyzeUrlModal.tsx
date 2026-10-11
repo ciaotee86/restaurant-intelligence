@@ -17,7 +17,6 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
   const [maxReviews, setMaxReviews] = useState(15);
   const [status, setStatus] = useState<'idle' | 'crawling' | 'analyzing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
-  const [statusText, setStatusText] = useState('');
 
   // Autocomplete suggestions từ DB có sẵn (233 quán)
   const [suggestions, setSuggestions] = useState<{ name: string; cuisine: string; city: string; id: string }[]>([]);
@@ -30,8 +29,6 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
   useEffect(() => {
     let interval: any;
     if (status === 'crawling') {
-      setElapsedSeconds(0);
-      setCurrentStep(1);
       interval = setInterval(() => {
         setElapsedSeconds((prev) => {
           const next = prev + 1;
@@ -67,13 +64,14 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setShowSuggestions(false);
+    setCurrentStep(1);
+    setElapsedSeconds(0);
     setStatus('crawling');
     setErrorMessage('');
 
     try {
       if (tab === 'keyword') {
         if (!keyword.trim()) return;
-        setStatusText(`Đang tra cứu "${keyword.trim()}" trên hệ thống và Foody...`);
         const res = await restaurantService.searchAndCrawlFoody(keyword.trim(), city, maxReviews);
         
         if (res.success && res.restaurant) {
@@ -90,7 +88,6 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
         }
       } else {
         if (!url.trim()) return;
-        setStatusText('Đang nạp dữ liệu từ URL Foody và phân tích bằng Gemini AI...');
         const res = await restaurantService.analyzeFoodyUrl(url.trim(), maxReviews);
         
         if (res.success && res.restaurant) {
