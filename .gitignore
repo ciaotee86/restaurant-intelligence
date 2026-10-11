@@ -54,4 +54,9 @@ ENV/
 # Vite cache
 .vite_cache/
 
+# Temporary files & test dumps
+tmp_*
+*.tmp
+
+
 

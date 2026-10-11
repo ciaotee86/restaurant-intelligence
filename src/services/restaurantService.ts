@@ -395,14 +395,17 @@ class RestaurantService {
       : null;
 
     // Xác định thành phố mục tiêu để lọc:
-    // 1. Nếu dropdown được chọn cụ thể (khác 'Tất cả địa điểm'), dùng thành phố từ dropdown
-    // 2. Nếu dropdown là 'Tất cả địa điểm' và trong từ khóa CÓ CHỨA THÀNH PHỐ (ví dụ "đà nẵng", "cơm hà nội")
-    //    -> Tự động lọc theo đúng thành phố đó!
+    // 1. Nếu từ khóa tìm kiếm có CHỨA THÀNH PHỐ (ví dụ "đà nẵng", "phở hà nội", "phú yên", "gia lai", "lào cai"):
+    //    -> Ưu tiên tuyệt đối thành phố được nhận diện từ từ khóa!
+    // 2. Nếu từ khóa KHÔNG chứa thành phố, và dropdown có chọn cụ thể:
+    //    -> Dùng thành phố từ dropdown
+    // 3. Nếu chỉ gõ món ăn (ví dụ: "cơm gà", "bánh xèo") và không chọn thành phố cụ thể:
+    //    -> targetCity = null -> Tìm kiếm mở rộng trên toàn quốc mọi địa điểm!
     let targetCity: string | null = null;
-    if (filter.city && filter.city !== 'Tất cả địa điểm' && filter.city !== 'All Cities' && filter.city !== '') {
-      targetCity = filter.city;
-    } else if (parsedQuery?.detectedCity) {
+    if (parsedQuery?.detectedCity) {
       targetCity = parsedQuery.detectedCity;
+    } else if (filter.city && filter.city !== 'Tất cả địa điểm' && filter.city !== 'All Cities' && filter.city !== '') {
+      targetCity = filter.city;
     }
 
     return list.filter((restaurant) => {

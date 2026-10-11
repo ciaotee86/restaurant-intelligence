@@ -2,6 +2,8 @@ import React from 'react';
 import type { SearchFilterState } from '../../types/restaurant';
 import { Filter, RotateCcw } from 'lucide-react';
 
+import { VIETNAM_CITIES } from '../../utils/cityUtils';
+
 interface FilterBarProps {
   filters: SearchFilterState;
   onChange: (filters: SearchFilterState) => void;
@@ -10,29 +12,7 @@ interface FilterBarProps {
 export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, onReset }) => {
   const cities = [
     'Tất cả địa điểm',
-    'Đà Nẵng',
-    'Hà Nội',
-    'TP. Hồ Chí Minh',
-    'Thừa Thiên Huế',
-    'Quảng Nam',
-    'Khánh Hòa',
-    'Lâm Đồng',
-    'Hải Phòng',
-    'Quảng Ninh',
-    'Cần Thơ',
-    'Kiên Giang',
-    'Bà Rịa - Vũng Tàu',
-    'Bình Định',
-    'Nghệ An',
-    'Đắk Lắk',
-    'Ninh Bình',
-    'Lào Cai',
-    'Bình Dương',
-    'Đồng Nai',
-    'An Giang',
-    'Tây Ninh',
-    'Cà Mau',
-    'Sóc Trăng'
+    ...VIETNAM_CITIES.map((c) => c.name)
   ];
   const cuisines = [
     'Tất cả ẩm thực',

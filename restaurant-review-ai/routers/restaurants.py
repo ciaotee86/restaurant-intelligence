@@ -18,7 +18,8 @@ from database.db import get_session
 from services.bi_service import (
     remove_accents,
     detect_city,
-    format_restaurant_full
+    format_restaurant_full,
+    VIETNAM_CITIES
 )
 from services.assistant_service import get_quick_questions, ask_assistant
 
@@ -81,51 +82,29 @@ def get_restaurants():
 
 
 def extract_city_from_query(q: str):
-    """Trích xuất thành phố và từ khóa món ăn từ chuỗi tìm kiếm"""
+    """Trích xuất thành phố và từ khóa món ăn từ chuỗi tìm kiếm trên toàn bộ 63 tỉnh thành"""
     if not q:
         return None, ""
     norm_q = remove_accents(q.strip().lower())
 
     # Danh sách món ăn phức hợp không tách thành phố nếu đứng riêng
-    if norm_q in ["bun bo hue", "mi quang", "che hue", "banh bot loc hue", "che thai"]:
+    if norm_q in ["bun bo hue", "mi quang", "che hue", "banh bot loc hue", "che thai", "banh trang tay ninh"]:
         return None, q.strip()
 
-    city_aliases = [
-        ("TP. Hồ Chí Minh", ["thanh pho ho chi minh", "tp ho chi minh", "tp. ho chi minh", "ho chi minh", "tp hcm", "tphcm", "sai gon"]),
-        ("Hà Nội", ["ha noi", "thu do ha noi"]),
-        ("Đà Nẵng", ["da nang", "da nang"]),
-        ("Hải Phòng", ["hai phong"]),
-        ("Cần Thơ", ["can tho"]),
-        ("Bình Dương", ["binh duong", "thu dau mot", "thuan an", "di an"]),
-        ("Đồng Nai", ["dong nai", "bien hoa"]),
-        ("Khánh Hòa", ["khanh hoa", "nha trang", "cam ranh"]),
-        ("Lâm Đồng", ["lam dong", "da lat", "bao loc"]),
-        ("Quảng Nam", ["quang nam", "hoi an"]),
-        ("Thừa Thiên Huế", ["thua thien hue", "tp hue", "xứ hue", "hue"]),
-        ("Bà Rịa - Vũng Tàu", ["ba ria vung tau", "vung tau", "ba ria"]),
-        ("Kiên Giang", ["kien giang", "phu quoc", "rach gia"]),
-        ("Quảng Ninh", ["quang ninh", "ha long"]),
-        ("Ninh Bình", ["ninh binh"]),
-        ("Nghệ An", ["nghe an", "tp vinh", "vinh"]),
-        ("Bình Định", ["binh dinh", "quy nhon"]),
-        ("Đắk Lắk", ["dak lak", "dac lac", "buon ma thuot"]),
-        ("An Giang", ["an giang", "long xuyen", "chau doc"]),
-        ("Tây Ninh", ["tay ninh"]),
-        ("Cà Mau", ["ca mau"]),
-        ("Sóc Trăng", ["soc trang"]),
-        ("Bình Thuận", ["binh thuan", "phan thiet"]),
-        ("Phú Yên", ["phu yen", "tuy hoa"]),
-        ("Lào Cai", ["lao cai", "sa pa", "sapa"]),
-    ]
-
-    for city_name, aliases in city_aliases:
+    # Flatten và sắp xếp alias dài nhất trước
+    flattened = []
+    for city_name, aliases in VIETNAM_CITIES:
         for alias in aliases:
-            escaped = re.escape(alias)
-            match = re.search(r'(?:^|\s)(?:o|tai|khu vuc)?\s*(' + escaped + r')(?:$|\s)', norm_q)
-            if match:
-                clean_q = re.sub(r'(?:\b(?:o|tai|khu vuc)\s+)?' + escaped + r'\b', ' ', norm_q)
-                clean_q = re.sub(r'\s+', ' ', clean_q).strip()
-                return city_name, clean_q
+            flattened.append((city_name, alias, len(alias)))
+    flattened.sort(key=lambda x: x[2], reverse=True)
+
+    for city_name, alias, _ in flattened:
+        escaped = re.escape(alias)
+        match = re.search(r'(?:^|\s)(?:o|tai|khu vuc)?\s*(' + escaped + r')(?:$|\s)', norm_q)
+        if match:
+            clean_q = re.sub(r'(?:\b(?:o|tai|khu vuc)\s+)?' + escaped + r'\b', ' ', norm_q)
+            clean_q = re.sub(r'\s+', ' ', clean_q).strip()
+            return city_name, clean_q
 
     return None, q.strip()
 
@@ -141,11 +120,15 @@ def search_restaurants_db(
 ):
     """
     Tra cứu nhà hàng thông minh từ Database SQLite:
-    - Nếu từ khóa chứa thành phố (ví dụ: 'đà nẵng', 'cơm hà nội') -> tự động lọc đúng thành phố đó.
-    - Nếu từ khóa chỉ chứa món ăn (ví dụ: 'cơm gà', 'bánh tráng') -> tìm kiếm toàn bộ trên mọi địa điểm.
+    - Nếu từ khóa chứa thành phố (ví dụ: 'đà nẵng', 'cơm hà nội', 'phú yên', 'lào cai') -> ưu tiên tuyệt đối thành phố từ từ khóa.
+    - Nếu từ khóa chỉ chứa món ăn (ví dụ: 'cơm gà', 'bánh tráng') -> tìm kiếm toàn bộ trên mọi địa điểm toàn quốc.
     """
     detected_city, remaining_q = extract_city_from_query(q)
-    target_city = city if (city and city not in ["Tất cả địa điểm", "All Cities"]) else detected_city
+    if detected_city:
+        target_city = detected_city
+    else:
+        target_city = city if (city and city not in ["Tất cả địa điểm", "All Cities"]) else None
+    
     norm_city = remove_accents(target_city) if target_city else ""
 
     norm_rem_q = remove_accents(remaining_q) if remaining_q else ""
@@ -160,20 +143,28 @@ def search_restaurants_db(
             if min_rating > 0 and (r.overall_rating or 0) < min_rating:
                 continue
 
-            # 2. Lọc thành phố
+            # 2. Lọc thành phố: So khớp chính xác
             if norm_city:
                 r_city = detect_city(r.address or "", foody_url=r.foody_url, restaurant_name=r.name)
                 norm_r_city = remove_accents(r_city)
-                if norm_city not in norm_r_city and norm_r_city not in norm_city:
+                if norm_city != norm_r_city:
                     continue
 
-            # 3. Lọc từ khóa món ăn (nếu có từ khóa còn lại ngoài tên thành phố)
+            # 3. Lọc từ khóa món ăn: Khớp trên tên nhà hàng, KHÔNG khớp trên địa chỉ
             if norm_rem_q:
-                r_addr_norm = remove_accents(r.address or "")
+                r_name_raw = r.name.lower()
                 r_name_norm = remove_accents(r.name)
-                combined_norm = f"{r_name_norm} {r_addr_norm}"
-                if norm_rem_q not in combined_norm:
-                    if not (tokens and all(t in combined_norm for t in tokens)):
+
+                # Phân biệt chặt chẽ phở vs phố
+                if norm_rem_q == "pho" or "phở" in remaining_q.lower():
+                    if "phở" not in r_name_raw and "pho" not in r_name_norm:
+                        continue
+                    # Loại trừ "phố" nếu không có "phở"
+                    if "phở" not in r_name_raw and any(k in r_name_raw for k in ["hải sản phố", "cà phê phố", "phố cổ"]):
+                        continue
+
+                if norm_rem_q not in r_name_norm:
+                    if not (tokens and all(t in r_name_norm for t in tokens)):
                         continue
 
             matched.append(r)

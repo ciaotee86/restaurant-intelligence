@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, ArrowRight, MapPin, Utensils } from 'lucide-react';
+import { Search, ArrowRight, MapPin, Utensils, X } from 'lucide-react';
 import { restaurantService } from '../../services/restaurantService';
 
 interface SearchBarProps {
@@ -9,6 +9,7 @@ interface SearchBarProps {
   autoFocus?: boolean;
   size?: 'large' | 'medium';
   initialValue?: string;
+  debounceLiveSearch?: boolean;
 }
 
 export const SearchBar: React.FC<SearchBarProps> = ({
@@ -17,7 +18,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   placeholder = "Tìm kiếm nhà hàng...",
   autoFocus = false,
   size = 'large',
-  initialValue = ''
+  initialValue = '',
+  debounceLiveSearch = false
 }) => {
   const [query, setQuery] = useState(initialValue);
   const [prevInitialValue, setPrevInitialValue] = useState(initialValue);
@@ -28,6 +30,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const suggestions = query.trim().length > 0
     ? restaurantService.getSearchSuggestions(query)
@@ -40,18 +43,45 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsOpen(false);
-    if (query.trim()) {
-      onSearch(query.trim());
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setQuery(val);
+    setIsOpen(true);
+
+    if (debounceLiveSearch) {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      if (val.trim() === '') {
+        onSearch('');
+      } else {
+        debounceTimerRef.current = setTimeout(() => {
+          onSearch(val.trim());
+        }, 300);
+      }
     }
   };
 
+  const handleClear = () => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    setQuery('');
+    setIsOpen(false);
+    onSearch('');
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    setIsOpen(false);
+    onSearch(query.trim());
+  };
+
   const handleSuggestionClick = (id: string, name: string) => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     setQuery(name);
     setIsOpen(false);
     if (onSelectRestaurant) {
@@ -71,10 +101,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           <input
             type="text"
             value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setIsOpen(true);
-            }}
+            onChange={handleInputChange}
             onFocus={() => {
               if (suggestions.length > 0) setIsOpen(true);
             }}
@@ -82,10 +109,21 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             autoFocus={autoFocus}
             className={`w-full bg-white border border-[#D4D4D8] text-[#18181B] placeholder-zinc-400 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#C2410C]/20 focus:border-[#C2410C] transition-all ${
               size === 'large'
-                ? 'py-4 pl-12 pr-32 text-base md:text-lg font-normal'
-                : 'py-2.5 pl-10 pr-24 text-sm'
+                ? 'py-4 pl-12 pr-36 text-base md:text-lg font-normal'
+                : 'py-2.5 pl-10 pr-28 text-sm'
             }`}
           />
+          {query.trim().length > 0 && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className={`absolute inset-y-0 right-28 flex items-center pr-2 text-zinc-400 hover:text-zinc-600 transition-colors ${
+                size === 'large' ? 'right-36' : 'right-28'
+              }`}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Nút Phân tích (Analyze) */}

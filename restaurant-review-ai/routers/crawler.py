@@ -113,7 +113,15 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
             raise HTTPException(status_code=400, detail="Vui lòng nhập từ khóa tìm kiếm.")
 
         norm_q = remove_accents(q)
-        tokens = [t for t in norm_q.split() if len(t) >= 2]
+        from routers.restaurants import extract_city_from_query
+        from services.bi_service import detect_city
+        detected_city, rem_q = extract_city_from_query(q)
+        effective_city = detected_city or (req.city if req.city and req.city not in ["Tất cả địa điểm", "All Cities"] else "")
+        norm_eff_city = remove_accents(effective_city) if effective_city else ""
+
+        search_keyword = rem_q.strip() if rem_q.strip() else q
+        norm_kw = remove_accents(search_keyword)
+        tokens = [t for t in norm_kw.split() if len(t) >= 2]
 
         # Bước 1: Kiểm tra trong cơ sở dữ liệu SQLite trước
         with get_session() as db:
@@ -122,15 +130,23 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
 
             # Ưu tiên 1: Khớp nguyên cụm từ trong tên quán hoặc URL Foody
             for r in all_res:
+                if norm_eff_city:
+                    r_city = detect_city(r.address or "", foody_url=r.foody_url, restaurant_name=r.name)
+                    if norm_eff_city != remove_accents(r_city) and norm_eff_city not in remove_accents(r_city):
+                        continue
                 r_norm = remove_accents(r.name)
                 foody_slug = r.foody_url.split("/")[-1] if r.foody_url else ""
-                if norm_q in r_norm or (foody_slug and norm_q in remove_accents(foody_slug)):
+                if norm_kw in r_norm or (foody_slug and norm_kw in remove_accents(foody_slug)):
                     matching_res = r
                     break
 
             # Ưu tiên 2: Khớp tất cả các token từ khóa trong tên hoặc địa chỉ
             if not matching_res and len(tokens) >= 2:
                 for r in all_res:
+                    if norm_eff_city:
+                        r_city = detect_city(r.address or "", foody_url=r.foody_url, restaurant_name=r.name)
+                        if norm_eff_city != remove_accents(r_city) and norm_eff_city not in remove_accents(r_city):
+                            continue
                     r_full = remove_accents(f"{r.name} {r.address or ''}")
                     if all(t in r_full for t in tokens):
                         matching_res = r
@@ -147,9 +163,19 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                 }
 
         # Bước 2: Chưa có trong DB -> Tự động tìm kiếm trên Foody.vn
-        city = req.city or "da-nang"
-        print(f"-> [Search & Crawl] Chưa có trong DB. Bắt đầu tìm kiếm từ khóa '{q}' trên Foody (thành phố: {city})...")
-        foody_results = search_foody_places(q, city_slug=city, max_results=3)
+        city_slug = "da-nang"
+        if effective_city:
+            if "ho chi minh" in norm_eff_city or "sai gon" in norm_eff_city:
+                city_slug = "ho-chi-minh"
+            elif "ha noi" in norm_eff_city:
+                city_slug = "ha-noi"
+            else:
+                city_slug = norm_eff_city.replace(" ", "-")
+        elif req.city:
+            city_slug = req.city
+        city = city_slug
+        print(f"-> [Search & Crawl] Chưa có trong DB. Bắt đầu tìm kiếm từ khóa '{search_keyword}' trên Foody (thành phố: {city})...")
+        foody_results = search_foody_places(search_keyword, city_slug=city, max_results=3)
 
         if not foody_results:
             for fallback_city in ["da-nang", "ho-chi-minh", "ha-noi"]:

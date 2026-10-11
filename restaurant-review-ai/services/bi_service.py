@@ -61,105 +61,109 @@ def extract_keywords_from_texts(texts: List[str], max_keywords: int = 4) -> List
     return top if top else ["hương vị", "chất lượng", "phục vụ"]
 
 
+VIETNAM_CITIES = [
+    ("TP. Hồ Chí Minh", ["thanh pho ho chi minh", "tp ho chi minh", "tp. ho chi minh", "ho chi minh", "tp hcm", "tphcm", "sai gon", "hcm", "quan 1", "quan 2", "quan 3", "quan 4", "quan 5", "quan 6", "quan 7", "quan 8", "quan 9", "quan 10", "quan 11", "quan 12", "binh thanh", "tan binh", "thu duc", "go vap", "tan phu", "binh tan", "phu nhuan", "nha be", "hoc mon", "cu chi", "binh chanh"]),
+    ("Hà Nội", ["ha noi", "thu do ha noi", "hn", "hoan kiem", "ba dinh", "dong da", "cau giay", "hai ba trung", "tay ho", "thanh xuan", "ha dong", "long bien", "nam tu liem", "bac tu liem", "hoang mai"]),
+    ("Đà Nẵng", ["da nang", "da nang", "hai chau", "son tra", "ngu hanh son", "thanh khe", "cam le", "lien chieu", "hoa vang"]),
+    ("Hải Phòng", ["hai phong", "ngo quyen", "le chan", "hong bang"]),
+    ("Cần Thơ", ["can tho", "ninh kieu", "cai rang", "binh thuy"]),
+    
+    ("Bắc Ninh", ["bac ninh", "tu son"]),
+    ("Hà Nam", ["ha nam", "phu ly", "duy tien"]),
+    ("Hải Dương", ["hai duong", "chi linh", "kinh mon"]),
+    ("Hưng Yên", ["hung yen", "my hao"]),
+    ("Nam Định", ["nam dinh"]),
+    ("Ninh Bình", ["ninh binh", "tam diep", "hoa lu", "trang an"]),
+    ("Thái Bình", ["thai binh"]),
+    ("Vĩnh Phúc", ["vinh phuc", "vinh yen", "phuc yen", "tam dao"]),
+
+    ("Hà Giang", ["ha giang", "dong van", "meo vac"]),
+    ("Cao Bằng", ["cao bang", "trung khanh"]),
+    ("Bắc Kạn", ["bac kan", "bac can"]),
+    ("Tuyên Quang", ["tuyen quang"]),
+    ("Lào Cai", ["lao cai", "sa pa", "sapa", "bac ha", "bat xat"]),
+    ("Yên Bái", ["yen bai", "nghia lo", "mu cang chai"]),
+    ("Thái Nguyên", ["thai nguyen", "song cong", "pho yen"]),
+    ("Lạng Sơn", ["lang son", "dong dang"]),
+    ("Quảng Ninh", ["quang ninh", "ha long", "cam pha", "uong bi", "mong cai"]),
+    ("Phú Thọ", ["phu tho", "viet tri"]),
+    ("Bắc Giang", ["bac giang", "viet yen"]),
+
+    ("Điện Biên", ["dien bien", "dien bien phu"]),
+    ("Lai Châu", ["lai chau"]),
+    ("Sơn La", ["son la", "moc chau"]),
+    ("Hòa Bình", ["hoa binh", "mai chau", "luong son"]),
+
+    ("Thanh Hóa", ["thanh hoa", "sam son", "bim son", "nghi son"]),
+    ("Nghệ An", ["nghe an", "tp vinh", "cua lo"]),
+    ("Hà Tĩnh", ["ha tinh", "hong linh", "ky anh"]),
+    ("Quảng Bình", ["quang binh", "dong hoi", "ba don", "phong nha"]),
+    ("Quảng Trị", ["quang tri", "dong ha"]),
+    ("Thừa Thiên Huế", ["thua thien hue", "tp hue", "xứ hue", "hue", "huong thuy"]),
+
+    ("Quảng Nam", ["quang nam", "hoi an", "tam ky"]),
+    ("Quảng Ngãi", ["quang ngai"]),
+    ("Bình Định", ["binh dinh", "quy nhon", "an nhon"]),
+    ("Phú Yên", ["phu yen", "tuy hoa", "song cau", "dong hoa"]),
+    ("Khánh Hòa", ["khanh hoa", "nha trang", "cam ranh", "ninh hoa"]),
+    ("Ninh Thuận", ["ninh thuan", "phan rang", "thap cham"]),
+    ("Bình Thuận", ["binh thuan", "phan thiet", "la gi", "mui ne"]),
+
+    ("Kon Tum", ["kon tum", "kontum", "mang den"]),
+    ("Gia Lai", ["gia lai", "pleiku", "an khe", "ayun pa", "chu prong"]),
+    ("Đắk Lắk", ["dak lak", "dac lac", "buon ma thuot", "bmt"]),
+    ("Đắk Nông", ["dak nong", "dac nong", "gia nghia"]),
+    ("Lâm Đồng", ["lam dong", "da lat", "bao loc"]),
+
+    ("Bình Phước", ["binh phuoc", "dong xoai", "binh long", "phuoc long"]),
+    ("Bình Dương", ["binh duong", "thu dau mot", "thuan an", "di an"]),
+    ("Đồng Nai", ["dong nai", "bien hoa", "long khanh"]),
+    ("Tây Ninh", ["tay ninh", "trang bang", "hoa thanh"]),
+    ("Bà Rịa - Vũng Tàu", ["ba ria vung tau", "vung tau", "ba ria"]),
+
+    ("Long An", ["long an", "tan an", "kien tuong", "ben luc"]),
+    ("Tiền Giang", ["tien giang", "my tho", "go cong", "cai lay"]),
+    ("Bến Tre", ["ben tre", "ba tri", "mo cay"]),
+    ("Trà Vinh", ["tra vinh", "duyen hai"]),
+    ("Vĩnh Long", ["vinh long", "binh minh"]),
+    ("Đồng Tháp", ["dong thap", "cao lanh", "sa dec", "hong ngu"]),
+    ("An Giang", ["an giang", "long xuyen", "chau doc", "tri ton"]),
+    ("Kiên Giang", ["kien giang", "phu quoc", "rach gia", "ha tien"]),
+    ("Hậu Giang", ["hau giang", "vi thanh", "nga bay"]),
+    ("Sóc Trăng", ["soc trang", "nga nam", "vinh chau"]),
+    ("Bạc Liêu", ["bac lieu", "gia rai"]),
+    ("Cà Mau", ["ca mau", "nam can"])
+]
+
+
 def detect_city(addr: str, foody_url: str = "", restaurant_name: str = "") -> str:
     """Tự động nhận diện tỉnh/thành phố từ địa chỉ, Foody URL hoặc tên quán ăn trên toàn quốc"""
-    # 1. Nhận diện từ slug URL Foody nếu có (ví dụ: foody.vn/da-nang/..., foody.vn/ho-chi-minh/...)
+    # 1. Nhận diện từ slug URL Foody nếu có
     if foody_url:
         u_norm = foody_url.lower()
-        if "/da-nang/" in u_norm:
-            return "Đà Nẵng"
-        if "/ha-noi/" in u_norm:
-            return "Hà Nội"
-        if "/ho-chi-minh/" in u_norm:
-            return "TP. Hồ Chí Minh"
-        if "/hai-phong/" in u_norm:
-            return "Hải Phòng"
-        if "/can-tho/" in u_norm:
-            return "Cần Thơ"
-        if "/khanh-hoa/" in u_norm or "/nha-trang/" in u_norm:
-            return "Khánh Hòa"
-        if "/lam-dong/" in u_norm or "/da-lat/" in u_norm:
-            return "Lâm Đồng"
-        if "/quang-nam/" in u_norm or "/hoi-an/" in u_norm:
-            return "Quảng Nam"
-        if "/thua-thien-hue/" in u_norm or "/hue/" in u_norm:
-            return "Thừa Thiên Huế"
-        if "/vung-tau/" in u_norm or "/ba-ria-vung-tau/" in u_norm:
-            return "Bà Rịa - Vũng Tàu"
-        if "/binh-duong/" in u_norm:
-            return "Bình Dương"
-        if "/dong-nai/" in u_norm:
-            return "Đồng Nai"
-        if "/quang-ninh/" in u_norm:
-            return "Quảng Ninh"
-        if "/binh-dinh/" in u_norm or "/quy-nhon/" in u_norm:
-            return "Bình Định"
-        if "/kien-giang/" in u_norm or "/phu-quoc/" in u_norm:
-            return "Kiên Giang"
+        for city_name, aliases in VIETNAM_CITIES:
+            for a in aliases:
+                a_slug = "/" + a.replace(" ", "-") + "/"
+                if a_slug in u_norm:
+                    return city_name
 
     # 2. Nhận diện từ địa chỉ quán
     norm = remove_accents((addr or "").lower())
     norm_clean = re.sub(r'[^a-z0-9\s]', ' ', norm)
     
-    if any(k in norm_clean for k in ["da nang", "hai chau", "son tra", "ngu hanh son", "thanh khe", "cam le", "lien chieu", "hoa vang"]):
-        return "Đà Nẵng"
-    if any(k in norm_clean for k in ["ha noi", "hoan kiem", "ba dinh", "dong da", "cau giay", "hai ba trung", "tay ho", "thanh xuan", "ha dong", "long bien", "nam tu liem", "bac tu liem", "hoang mai"]):
-        return "Hà Nội"
-    if any(k in norm_clean for k in [
-        "ho chi minh", "tphcm", "tp hcm", "sai gon", "quan 1", "quan 2", "quan 3", "quan 4",
-        "quan 5", "quan 6", "quan 7", "quan 8", "quan 9", "quan 10", "quan 11", "quan 12",
-        "binh thanh", "tan binh", "thu duc", "go vap", "tan phu", "binh tan", "phu nhuan",
-        "nha be", "hoc mon", "cu chi", "binh chanh"
-    ]):
-        return "TP. Hồ Chí Minh"
-    if any(k in norm_clean for k in ["hai phong", "ngo quyen", "le chan", "hong bang"]):
-        return "Hải Phòng"
-    if any(k in norm_clean for k in ["quang ninh", "ha long", "cam pha", "uong bi"]):
-        return "Quảng Ninh"
-    if any(k in norm_clean for k in ["ninh binh", "tam diep", "hoa lu"]):
-        return "Ninh Bình"
-    if any(k in norm_clean for k in ["thua thien hue", "tp hue", "huong thuy"]):
-        return "Thừa Thiên Huế"
-    if any(k in norm_clean for k in ["quang nam", "hoi an", "tam ky"]):
-        return "Quảng Nam"
-    if any(k in norm_clean for k in ["khanh hoa", "nha trang", "cam ranh"]):
-        return "Khánh Hòa"
-    if any(k in norm_clean for k in ["lam dong", "da lat", "bao loc"]):
-        return "Lâm Đồng"
-    if any(k in norm_clean for k in ["binh dinh", "quy nhon", "an nhon"]):
-        return "Bình Định"
-    if any(k in norm_clean for k in ["nghe an", "tp vinh", "cua lo"]):
-        return "Nghệ An"
-    if any(k in norm_clean for k in ["can tho", "ninh kieu", "cai rang", "binh thuy"]):
-        return "Cần Thơ"
-    if any(k in norm_clean for k in ["kien giang", "phu quoc", "rach gia", "ha tien"]):
-        return "Kiên Giang"
-    if any(k in norm_clean for k in ["vung tau", "ba ria", "ba ria   vung tau"]):
-        return "Bà Rịa - Vũng Tàu"
-    if any(k in norm_clean for k in ["binh duong", "thu dau mot", "di an", "thuan an"]):
-        return "Bình Dương"
-    if any(k in norm_clean for k in ["dong nai", "bien hoa", "long khanh"]):
-        return "Đồng Nai"
-    if any(k in norm_clean for k in ["dak lak", "buon ma thuot"]):
-        return "Đắk Lắk"
-    if any(k in norm_clean for k in ["an giang", "long xuyen", "chau doc"]):
-        return "An Giang"
-    if any(k in norm_clean for k in ["tay ninh", "trang bang"]):
-        return "Tây Ninh"
-    if any(k in norm_clean for k in ["ca mau", "nam can"]):
-        return "Cà Mau"
-    if any(k in norm_clean for k in ["soc trang"]):
-        return "Sóc Trăng"
-    if any(k in norm_clean for k in ["binh thuan", "phan thiet"]):
-        return "Bình Thuận"
-    if any(k in norm_clean for k in ["phu yen", "tuy hoa"]):
-        return "Phú Yên"
-    if any(k in norm_clean for k in ["lao cai", "sa pa", "sapa"]):
-        return "Lào Cai"
+    for city_name, aliases in VIETNAM_CITIES:
+        for a in aliases:
+            escaped = re.escape(a)
+            if re.search(r'(?:^|\s)' + escaped + r'(?:$|\s)', norm_clean):
+                return city_name
 
     # 3. Nhận diện từ tên quán thương hiệu
     if restaurant_name:
         name_norm = remove_accents(restaurant_name.lower())
+        for city_name, aliases in VIETNAM_CITIES:
+            for a in aliases:
+                if len(a) >= 4 and a in name_norm:
+                    return city_name
         if any(k in name_norm for k in ["huong lien"]):
             return "Hà Nội"
         if any(k in name_norm for k in ["gia vinh", "thanh hung", "coffee hoang"]):

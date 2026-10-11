@@ -2,6 +2,42 @@
 
 All notable changes to the **Restaurant Intelligence** project will be documented in this file.
 
+## [1.6.6] - 2026-10-11
+
+### Tái Cấu Trúc Toàn Diện Thanh Tìm Kiếm (Search Overhaul) — Triệt Tiêu 100% Rò Rỉ Khác Thành Phố & Món Ăn
+- **Triệt tiêu Rò rỉ Thẻ Gợi ý khi Kết quả Bằng 0 (Empty State Leakage)**:
+  - Khắc phục lỗi hiển thị 6 thẻ quán Đà Nẵng khi tìm kiếm ở thành phố khác hoặc món ăn có 0 kết quả trên `ExplorePage.tsx`.
+  - Giờ đây gợi ý chỉ hiển thị khi người dùng đang ở chế độ duyệt mặc định toàn quốc, không còn gây hiểu nhầm sang kết quả tìm kiếm.
+  - Bổ sung nút bấm trực tiếp "Xem toàn bộ quán tại [Thành phố]" và nút kích hoạt cào dữ liệu nhanh từ Foody.
+- **Loại bỏ Stopwords & Từ đệm Nhà hàng (`cleanRestaurantStopwords`)**:
+  - Tự động bóc tách các từ tiền tố thông dụng như `"quán ăn"`, `"quán ngon"`, `"nhà hàng"`, `"tiệm"`, `"ở"`, `"tại"` trong `cityUtils.ts`.
+  - Giúp các truy vấn như `"quán phở hà nội"` lọc đúng món `"phở"` tại `"Hà Nội"`, thay vì bị lọc rỗng vì quán không có chữ "quán".
+- **So Khớp Thành phố Tuyệt Đối (`isRestaurantInCity`)**:
+  - Chuẩn hóa canonical mapping đối chiếu định danh 63 tỉnh thành (`VIETNAM_CITIES`).
+  - Khi quán đã có trường `city` xác định, ngăn chặn hoàn toàn việc tên đường (ví dụ "Đường Hải Phòng", "Đường Hà Nội") ở Đà Nẵng làm sai lệch địa phương.
+- **Lọc Món ăn Chính Xác & Chống Rò rỉ Review (`matchesRestaurantKeyword`)**:
+  - Loại bỏ hoàn toàn việc tìm kiếm món ăn trong địa chỉ quán và trong nội dung review tự do (chấm dứt việc quán Bánh Đập hay Thắng Cố hiện ra khi tìm "phở" chỉ vì khách hàng từng khen hoặc so sánh trong review).
+  - Phân biệt triệt để món `"phở"` (noodle) với chữ `"phố"` trong tên thương hiệu (Hải Sản Phố, Phố Cổ).
+- **Trải nghiệm Tìm kiếm Thời gian thực (Debounced Live Search & Clear Button)**:
+  - Bổ sung tính năng `debounceLiveSearch` (300ms) và nút Xóa nhanh (`X`) trên `SearchBar.tsx`, tự động làm mới danh sách ngay khi gõ mà không bắt buộc phải nhấn Enter.
+
+## [1.6.5] - 2026-10-10
+
+### Hoàn thiện Bộ Lọc Đa Tỉnh Thành (63 Tỉnh Thành) & Khắc phục Triệt để Lỗi Ghim Thành phố
+- **Khắc phục Triệt để Lỗi Ghim Thành phố (State Sticking) trong `ExplorePage.tsx`**:
+  - Sửa lỗi điều kiện `filters.city === 'Tất cả địa điểm'` khiến thành phố trước đó (ví dụ "Đà Nẵng") bị kẹt vĩnh viễn trong state, làm các tìm kiếm tiếp theo ("phở hà nội", "phú yên", "lào cai", "gia lai") luôn bị lọc nhầm sang Đà Nẵng.
+  - Tự động đồng bộ dropdown "Địa điểm" ngay khi người dùng gõ từ khóa chứa bất kỳ tỉnh thành nào; tự động trả về "Tất cả địa điểm" khi người dùng chỉ gõ món ăn ("cơm gà", "bánh xèo") để tìm kiếm toàn quốc.
+- **Ưu tiên Thành phố Nhận diện từ Từ khóa trong `restaurantService.ts`**:
+  - Đảo chiều độ ưu tiên: `parsedQuery.detectedCity` luôn chiếm ưu thế tuyệt đối so với dropdown cũ, ngăn chặn triệt để tình trạng dropdown cũ áp đặt lên từ khóa mới.
+- **Hỗ trợ Toàn diện 63 Tỉnh/Thành phố Toàn quốc (`cityUtils.ts` & `bi_service.py`)**:
+  - Mở rộng từ điển nhận diện từ 24 tỉnh lên toàn bộ 63 tỉnh thành Việt Nam với đầy đủ tên thành phố trực thuộc, quận/huyện đặc trưng (Gia Lai, Phú Yên, Lào Cai, Kon Tum, Thái Nguyên, Bình Phước,...).
+  - Cập nhật dropdown `FilterBar.tsx` nạp động đầy đủ 63 tỉnh thành.
+- **Phân biệt Dấu Tiếng Việt (Diacritic-Aware Matching)**:
+  - Khắc phục lỗi false-positive nghiêm trọng khi tìm "phở" nhưng trả về "Hải Sản Phố" do loại bỏ dấu tiếng Việt làm "phố" biến thành "pho".
+  - Khi người dùng gõ có dấu, bắt buộc phải khớp đúng có dấu trên tên quán, ẩm thực và từ khóa.
+- **Bổ sung Dữ liệu Quán ăn Tiêu biểu cho Hà Nội, Phú Yên, Gia Lai**:
+  - Bổ sung 9 quán ăn đặc sản nổi tiếng (Phở Thìn Lò Đúc, Phở Bát Đàn, Cơm Gà Tuy Hòa Tuyết Nhung, Mắt Cá Ngừ Bà Tám, Phở Khô Hai Tô Phở Hồng, Cơm Lam Gà Nướng Bazan,...) kèm đầy đủ review và chỉ số ABSA.
+
 ## [1.6.4] - 2026-10-10
 
 ### Nâng cấp Bộ Lọc Tìm Kiếm Thông Minh theo Tỉnh/Thành phố & Món Ăn

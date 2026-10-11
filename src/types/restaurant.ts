@@ -85,8 +85,8 @@ export interface Restaurant {
   name: string;
   brand?: string;
   cuisine: string; // e.g. "Ý · Pizza", "Ẩm thực Việt truyền thống", "Cà phê đặc sản"
-  cuisineCategory: 'Ý' | 'Việt Nam' | 'Nhật Bản' | 'Nướng BBQ' | 'Cafe' | 'Dim Sum' | 'Fine Dining' | 'Đường phố';
-  city: 'Hà Nội' | 'TP. Hồ Chí Minh' | 'Đà Nẵng';
+  cuisineCategory: string;
+  city: string;
   address: string;
   priceRange: string; // e.g. "200.000₫ - 500.000₫"
   priceLevel: '$' | '$$' | '$$$' | '$$$$';

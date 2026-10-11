@@ -4,7 +4,7 @@ import { RestaurantCard } from '../components/restaurant-list/RestaurantCard';
 import { FilterBar } from '../components/restaurant-list/FilterBar';
 import { SearchBar } from '../components/common/SearchBar';
 import { restaurantService } from '../services/restaurantService';
-import { parseSearchQuery } from '../utils/cityUtils';
+import { parseSearchQuery, removeVietnameseAccents } from '../utils/cityUtils';
 import {
   Compass,
   PlusCircle,
@@ -42,13 +42,16 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
   onSelectRestaurant,
   onOpenAnalyzeModal
 }) => {
-  const [filters, setFilters] = useState<SearchFilterState>({
-    query: initialQuery,
-    city: 'Tất cả địa điểm',
-    cuisineCategory: 'Tất cả ẩm thực',
-    minRating: 0,
-    sentimentHealth: 'all',
-    sortBy: 'reviews'
+  const [filters, setFilters] = useState<SearchFilterState>(() => {
+    const parsed = parseSearchQuery(initialQuery);
+    return {
+      query: initialQuery,
+      city: parsed.detectedCity ? parsed.detectedCity : 'Tất cả địa điểm',
+      cuisineCategory: 'Tất cả ẩm thực',
+      minRating: 0,
+      sentimentHealth: 'all',
+      sortBy: 'reviews'
+    };
   });
 
   const [prevInitialQuery, setPrevInitialQuery] = useState(initialQuery);
@@ -58,7 +61,7 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
     setFilters((prev) => ({
       ...prev,
       query: initialQuery,
-      city: parsed.detectedCity && prev.city === 'Tất cả địa điểm' ? parsed.detectedCity : prev.city
+      city: parsed.detectedCity ? parsed.detectedCity : 'Tất cả địa điểm'
     }));
   }
 
@@ -113,17 +116,24 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
       return;
     }
     const parsed = parseSearchQuery(q);
-    if (parsed.detectedCity && filters.city === 'Tất cả địa điểm') {
-      setFilters({ ...filters, query: q, city: parsed.detectedCity });
+    if (parsed.detectedCity) {
+      // Nếu từ khóa có chứa thành phố -> Tự động chuyển dropdown và bộ lọc sang đúng thành phố đó!
+      setFilters((prev) => ({ ...prev, query: q, city: parsed.detectedCity! }));
     } else {
-      setFilters({ ...filters, query: q });
+      // Nếu từ khóa KHÔNG chứa thành phố (chỉ tìm món ăn như "cơm gà", "bánh tráng")
+      // -> Đưa thành phố về 'Tất cả địa điểm' để tìm kiếm toàn quốc trên mọi tỉnh thành!
+      setFilters((prev) => ({ ...prev, query: q, city: 'Tất cả địa điểm' }));
     }
     setQueueStatus('idle');
     setQueueMessage('');
   };
 
   const handleQuickCategoryClick = (categoryQuery: string) => {
-    setFilters((prev) => ({ ...prev, query: categoryQuery }));
+    setFilters((prev) => ({
+      ...prev,
+      query: categoryQuery,
+      city: 'Tất cả địa điểm'
+    }));
     setQueueStatus('idle');
     setQueueMessage('');
   };
@@ -159,12 +169,18 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
   const handleDirectCrawl = async () => {
     const parsed = parseSearchQuery(filters.query);
     const targetQuery = parsed.remainingKeyword.trim() || filters.query.trim() || 'đặc sản món ngon';
-    const effectiveCity = parsed.detectedCity || (filters.city !== 'Tất cả địa điểm' ? filters.city : 'Đà Nẵng');
-    const targetCity = effectiveCity.toLowerCase().includes('hà nội')
-      ? 'ha-noi'
-      : effectiveCity.toLowerCase().includes('hồ chí minh') || effectiveCity.toLowerCase().includes('sài gòn')
-      ? 'ho-chi-minh'
-      : 'da-nang';
+    const effectiveCity = parsed.detectedCity || (filters.city !== 'Tất cả địa điểm' ? filters.city : '');
+    let targetCity = 'da-nang';
+    if (effectiveCity) {
+      const normEff = removeVietnameseAccents(effectiveCity).toLowerCase();
+      if (normEff.includes('ho chi minh') || normEff.includes('sai gon')) {
+        targetCity = 'ho-chi-minh';
+      } else if (normEff.includes('ha noi')) {
+        targetCity = 'ha-noi';
+      } else {
+        targetCity = normEff.replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      }
+    }
     
     setDirectCrawlState('crawling');
     setDirectCrawlMessage(`Đang tìm kiếm quán "${targetQuery}" tại ${effectiveCity} trên Foody, cào review & chạy Gemini AI phân tích...`);
@@ -212,6 +228,7 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
             <SearchBar
               size="medium"
               initialValue={filters.query}
+              debounceLiveSearch={true}
               onSearch={handleSearchSubmit}
               onSelectRestaurant={onSelectRestaurant}
               placeholder="Tìm theo tên, món ăn, địa chỉ..."
@@ -424,6 +441,15 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
                     </button>
                   )}
 
+                  {filters.city !== 'Tất cả địa điểm' && (
+                    <button
+                      onClick={() => setFilters((prev) => ({ ...prev, query: '' }))}
+                      className="px-4 py-2 bg-orange-50 hover:bg-orange-100 text-[#C2410C] text-xs font-semibold rounded-lg border border-[#C2410C]/20 transition-colors"
+                    >
+                      Xem toàn bộ quán tại {filters.city}
+                    </button>
+                  )}
+
                   <button
                     onClick={handleResetFilters}
                     className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-medium rounded-lg transition-colors"
@@ -435,8 +461,8 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
             )}
           </div>
 
-          {/* Gợi ý các quán đang có sẵn */}
-          {allAvailableRestaurants.length > 0 && (
+          {/* Gợi ý các quán đang có sẵn: CHỈ hiển thị khi người dùng ở chế độ xem tất cả địa điểm và KHÔNG có từ khóa tìm kiếm */}
+          {!isSearchActive && filters.city === 'Tất cả địa điểm' && allAvailableRestaurants.length > 0 && (
             <div className="space-y-4 pt-4 border-t border-zinc-200">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-[#18181B] flex items-center gap-1.5">
