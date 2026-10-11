@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Link2, ArrowRight, Loader2, CheckCircle2, AlertCircle, Sparkles, Search, Zap } from 'lucide-react';
 import { restaurantService } from '../../services/restaurantService';
+import { VIETNAM_CITIES, getCitySlug } from '../../utils/cityUtils';
 
 interface AnalyzeUrlModalProps {
   isOpen: boolean;
@@ -245,9 +246,27 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                   disabled={status === 'crawling'}
                   className="w-full text-xs px-3 py-2 bg-zinc-50 border border-[#D4D4D8] rounded-md focus:outline-none focus:ring-1 focus:ring-zinc-800 text-[#18181B]"
                 >
-                  <option value="da-nang">Đà Nẵng</option>
-                  <option value="ho-chi-minh">Hồ Chí Minh</option>
-                  <option value="ha-noi">Hà Nội</option>
+                  <optgroup label="🌟 Thành phố trọng điểm ẩm thực">
+                    <option value="da-nang">Đà Nẵng</option>
+                    <option value="ho-chi-minh">TP. Hồ Chí Minh</option>
+                    <option value="ha-noi">Hà Nội</option>
+                    <option value="hai-phong">Hải Phòng</option>
+                    <option value="can-tho">Cần Thơ</option>
+                    <option value="hue">Thừa Thiên Huế</option>
+                    <option value="khanh-hoa">Khánh Hòa (Nha Trang)</option>
+                    <option value="lam-dong">Lâm Đồng (Đà Lạt)</option>
+                    <option value="vung-tau">Bà Rịa - Vũng Tàu</option>
+                    <option value="quang-nam">Quảng Nam (Hội An)</option>
+                    <option value="kien-giang">Kiên Giang (Phú Quốc)</option>
+                    <option value="quang-ninh">Quảng Ninh (Hạ Long)</option>
+                  </optgroup>
+                  <optgroup label="🏛️ Tất cả 63 Tỉnh / Thành phố Việt Nam">
+                    {VIETNAM_CITIES.map((c) => (
+                      <option key={c.name} value={getCitySlug(c.name)}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
               </div>
             </>

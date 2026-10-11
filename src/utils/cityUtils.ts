@@ -597,3 +597,25 @@ export function matchesRestaurantKeyword(restaurant: Restaurant, keyword: string
   return false;
 }
 
+/**
+ * Chuyển đổi tên tỉnh/thành phố sang slug chuẩn (dùng cho Foody URL / crawler)
+ */
+export function getCitySlug(cityName: string): string {
+  const norm = removeVietnameseAccents(cityName).toLowerCase().trim();
+  if (norm.includes('ho chi minh') || norm.includes('sai gon') || norm === 'hcm') return 'ho-chi-minh';
+  if (norm.includes('ha noi') || norm === 'hn') return 'ha-noi';
+  if (norm.includes('da nang')) return 'da-nang';
+  if (norm.includes('hai phong')) return 'hai-phong';
+  if (norm.includes('can tho')) return 'can-tho';
+  if (norm.includes('nha trang') || norm.includes('khanh hoa')) return 'khanh-hoa';
+  if (norm.includes('hue') || norm.includes('thua thien')) return 'hue';
+  if (norm.includes('da lat') || norm.includes('lam dong')) return 'lam-dong';
+  if (norm.includes('vung tau') || norm.includes('ba ria')) return 'vung-tau';
+  if (norm.includes('quang nam') || norm.includes('hoi an')) return 'quang-nam';
+  if (norm.includes('phu quoc') || norm.includes('kien giang')) return 'kien-giang';
+  if (norm.includes('quang ninh') || norm.includes('ha long')) return 'quang-ninh';
+  if (norm.includes('binh duong')) return 'binh-duong';
+  if (norm.includes('dong nai')) return 'dong-nai';
+  return norm.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
