@@ -183,7 +183,7 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
     }
     
     setDirectCrawlState('crawling');
-    setDirectCrawlMessage(`Đang tìm kiếm quán "${targetQuery}" tại ${effectiveCity} trên Foody, cào review & chạy Gemini AI phân tích...`);
+    setDirectCrawlMessage(`Đang tìm kiếm thông tin quán "${targetQuery}" tại ${effectiveCity} và tổng hợp đánh giá thực tế từ thực khách...`);
 
     try {
       const res = await restaurantService.searchAndCrawlFoody(targetQuery, targetCity, 20);
@@ -195,7 +195,7 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
         onSelectRestaurant(res.restaurant.id);
       } else {
         setDirectCrawlState('error');
-        setDirectCrawlMessage(res.message || 'Không tìm thấy quán phù hợp trên Foody.');
+        setDirectCrawlMessage(res.message || 'Không tìm thấy quán phù hợp trên hệ thống.');
       }
     } catch (e: any) {
       setDirectCrawlState('error');
@@ -298,10 +298,10 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
           {!loading && !restaurantService.isConnectedToBackend() && (
             <span
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200"
-              title="Chưa kết nối được Backend FastAPI (Port 8000). Đang hiển thị 6 quán mẫu offline."
+              title="Đang hiển thị 6 quán mẫu ngoại tuyến do chưa kết nối máy chủ dữ liệu."
             >
               <AlertCircle className="w-3 h-3 text-amber-600" />
-              Chế độ ngoại tuyến (Backend chưa kết nối)
+              Chế độ ngoại tuyến
             </span>
           )}
         </div>
@@ -316,15 +316,15 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
         )}
       </div>
 
-      {/* Banner cảnh báo khi chưa kết nối Backend và có nút thử kết nối lại */}
+      {/* Banner cảnh báo khi chưa kết nối máy chủ dữ liệu và có nút thử kết nối lại */}
       {!loading && !restaurantService.isConnectedToBackend() && (
         <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900 text-xs animate-in fade-in">
           <div className="flex items-start sm:items-center gap-2.5">
             <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
             <div>
-              <p className="font-bold text-sm text-amber-900">Chưa kết nối tới máy chủ dữ liệu Backend (Port 8000 / API Server)</p>
+              <p className="font-bold text-sm text-amber-900">Đang hiển thị dữ liệu mẫu ngoại tuyến</p>
               <p className="text-xs text-amber-800/90 mt-0.5">
-                Hệ thống đang tạm thời hiển thị {restaurants.length} nhà hàng mẫu ngoại tuyến. Nếu bạn đang chạy Local, hãy bật backend bằng lệnh <code className="bg-amber-100/80 px-1 py-0.5 rounded font-mono text-[11px]">npm run dev</code> (hoặc <code className="bg-amber-100/80 px-1 py-0.5 rounded font-mono text-[11px]">npm run dev:backend</code>).
+                Hệ thống đang tạm thời hiển thị {restaurants.length} nhà hàng mẫu ngoại tuyến do chưa kết nối được máy chủ dữ liệu trực tuyến. Bạn có thể bấm "Thử kết nối lại" để cập nhật dữ liệu mới nhất.
               </p>
             </div>
           </div>
@@ -360,7 +360,7 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
                   Đang tổng hợp đánh giá thực tế từ thực khách...
                 </h4>
                 <p className="text-xs text-zinc-500 max-w-md mx-auto leading-relaxed">
-                  {directCrawlMessage || 'Hệ thống đang đọc các nhận xét công khai từ thực khách trên Foody và lập báo cáo tóm tắt. Vui lòng đợi trong giây lát (~20 - 30 giây)...'}
+                  {directCrawlMessage || 'Hệ thống đang tổng hợp các nhận xét thực tế từ thực khách và lập báo cáo chất lượng. Vui lòng đợi trong giây lát (~20 - 30 giây)...'}
                 </p>
               </div>
             ) : (
@@ -368,7 +368,7 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
                 <div>
                   <h3 className="text-base font-bold text-[#18181B] mb-1">
                     {!restaurantService.isConnectedToBackend()
-                      ? 'Mất kết nối tới máy chủ cơ sở dữ liệu'
+                      ? 'Mất kết nối tới máy chủ dữ liệu'
                       : isSearchActive
                       ? `Chưa có dữ liệu cho "${filters.query}"`
                       : filters.city !== 'Tất cả địa điểm'
@@ -377,9 +377,9 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
                   </h3>
                   <p className="text-xs text-[#71717A] max-w-md mx-auto leading-relaxed">
                     {!restaurantService.isConnectedToBackend()
-                      ? 'Không thể tải danh sách nhà hàng do Backend API (Port 8000) chưa kết nối. Vui lòng bấm "Thử kết nối lại" sau khi khởi chạy máy chủ.'
+                      ? 'Không thể tải danh sách nhà hàng do chưa kết nối được máy chủ dữ liệu. Vui lòng bấm "Thử kết nối lại".'
                       : isSearchActive
-                      ? `Quán ăn "${filters.query}" chưa có trong danh mục. Bạn có thể bấm nút bên dưới để hệ thống đọc đánh giá và lập báo cáo ngay sau 25 giây, hoặc gửi yêu cầu cập nhật sau.`
+                      ? `Quán ăn "${filters.query}" chưa có trong danh mục. Bạn có thể bấm nút bên dưới để hệ thống tổng hợp đánh giá và lập báo cáo ngay sau 25 giây, hoặc gửi yêu cầu cập nhật sau.`
                       : filters.city !== 'Tất cả địa điểm'
                       ? `Khu vực "${filters.city}" chưa có quán ăn trong danh mục hiện tại. Bạn có thể bấm xem ngay các quán nổi bật tại ${filters.city} hoặc chọn "Tất cả địa điểm".`
                       : 'Không có quán ăn nào khớp với các thiết lập bộ lọc hiện tại của bạn.'}

@@ -18,12 +18,12 @@ export const HowItWorksPage: React.FC<HowItWorksPageProps> = ({ onNavigateExplor
       number: "02",
       title: "Lọc bỏ bình luận rác",
       subtitle: "Giữ lại thông tin thực chất",
-      description: "Tự động loại bỏ các câu từ vô nghĩa, bình luận spam hoặc tin quảng cáo để chỉ giữ lại những trải nghiệm thực tế.",
+      description: "Tự động loại bỏ các câu từ vô nghĩa, bình luận quảng cáo hoặc nhận xét giả để chỉ giữ lại những trải nghiệm ẩm thực thực tế.",
       highlight: "Thông tin cô đọng, loại bỏ nội dung rác."
     },
     {
       number: "03",
-      title: "Bóc tách 5 khía cạnh",
+      title: "Đánh giá theo 5 tiêu chí",
       subtitle: "Phân loại khen - chê chi tiết",
       description: "Phân tách rõ ràng: Khách khen món nào? Phàn nàn giá cả ra sao? Phục vụ nhanh hay chậm? Không gian có thoải mái không?",
       highlight: "Đánh giá đa chiều, không bị lẫn lộn."

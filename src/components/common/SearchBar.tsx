@@ -180,7 +180,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             </>
           )}
 
-          {/* Tùy chọn tìm & cào mới trên Foody */}
+          {/* Tùy chọn tìm & tổng hợp quán mới */}
           <button
             type="button"
             onClick={() => {

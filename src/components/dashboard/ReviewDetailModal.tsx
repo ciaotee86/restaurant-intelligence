@@ -22,7 +22,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, on
         <div className="sticky top-0 bg-white border-b border-[#E4E4E7] px-6 py-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-bold text-[#18181B] tracking-tight">
-              Phân tích đánh giá & Trích xuất NLP
+              Chi tiết cảm nhận thực khách
             </h3>
             <span className="text-xs font-mono text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded">
               Mã: {review.id}
@@ -80,7 +80,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, on
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold text-[#18181B] uppercase tracking-wider">
-                Đánh giá gốc (Làm nổi bật cụm từ cảm xúc theo khía cạnh)
+                Đánh giá gốc (Làm nổi bật ý kiến theo tiêu chí)
               </h4>
               <span className="text-[11px] text-zinc-500">
                 Màu sắc phản ánh mức độ cảm xúc
@@ -96,10 +96,10 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, on
             </div>
           </div>
 
-          {/* Phần 2: Bảng các khía cạnh trích xuất */}
+          {/* Phần 2: Bảng các tiêu chí trích xuất */}
           <div className="space-y-2.5">
             <h4 className="text-xs font-bold text-[#18181B] uppercase tracking-wider">
-              Các thực thể khía cạnh phát hiện ({review.aspects.length})
+              Các tiêu chí được nhận xét ({review.aspects.length})
             </h4>
 
             <div className="border border-zinc-200 rounded-lg overflow-hidden divide-y divide-zinc-100">
@@ -148,7 +148,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, on
           <div className="p-3 bg-zinc-100/70 rounded-lg text-xs text-[#71717A] flex items-start gap-2">
             <span className="font-semibold text-zinc-800 shrink-0">Ý nghĩa:</span>
             <span>
-              Phân tích đa khía cạnh giúp làm rõ việc một bài đánh giá có thể vừa khen ngợi hương vị món ăn nhưng đồng thời chỉ ra vấn đề về thời gian chờ hoặc tốc độ phục vụ.
+              Đánh giá đa tiêu chí giúp làm rõ việc một bài nhận xét có thể vừa khen ngợi hương vị món ăn nhưng đồng thời chỉ ra điểm chưa hài lòng về thời gian chờ hoặc phong cách phục vụ.
             </span>
           </div>
 

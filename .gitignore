@@ -57,6 +57,8 @@ ENV/
 # Temporary files & test dumps
 tmp_*
 *.tmp
+scratch/
+
 
 
 

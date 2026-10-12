@@ -137,7 +137,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
       }
     } catch (err: any) {
       setStatus('error');
-      setErrorMessage(err?.message || 'Lỗi kết nối tới máy chủ backend.');
+      setErrorMessage(err?.message || 'Không thể kết nối tới máy chủ dữ liệu. Vui lòng thử lại sau.');
     }
   };
 
@@ -156,7 +156,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                 Tổng hợp đánh giá quán ăn mới
               </h3>
               <p className="text-[11px] text-[#71717A]">
-                Tra cứu nhanh dữ liệu hoặc tổng hợp quán mới từ Foody qua Gemini AI
+                Tra cứu thông tin hoặc tổng hợp nhận xét quán ăn mới từ thực khách
               </p>
             </div>
           </div>
@@ -195,7 +195,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
             }`}
           >
             <Link2 className="w-3.5 h-3.5" />
-            <span>Dán link Foody trực tiếp</span>
+            <span>Dán liên kết trang quán ăn</span>
           </button>
         </div>
 
@@ -296,7 +296,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                 </div>
 
                 <p className="text-[11px] text-[#71717A] mt-1">
-                  Nếu quán chưa có trong hệ thống, hệ thống sẽ tự động tìm trên Foody và phân tích bằng Gemini AI.
+                  Nếu quán chưa có trong hệ thống, hệ thống sẽ tự động tìm kiếm và tổng hợp đánh giá từ thực khách.
                 </p>
               </div>
 
@@ -338,7 +338,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
           ) : (
             <div>
               <label className="block text-xs font-semibold text-[#18181B] mb-1.5 flex items-center gap-1">
-                <span>Đường dẫn quán ăn trên Foody.vn</span>
+                <span>Đường dẫn trang quán ăn</span>
                 <span className="text-red-500 font-bold" title="Trường bắt buộc">*</span>
               </label>
               <div className="relative">
@@ -366,7 +366,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                 )}
               </div>
               <p className="text-[11px] text-[#71717A] mt-1">
-                Dán URL trang chi tiết nhà hàng trên Foody (chứa phần bình luận của khách hàng).
+                Dán liên kết trang quán ăn để xem đánh giá tổng hợp từ thực khách.
               </p>
             </div>
           )}
@@ -388,7 +388,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
             </select>
           </div>
 
-          {/* Stepper Progress State khi đang cào & phân tích */}
+          {/* Tiến trình đang tổng hợp dữ liệu */}
           {status === 'crawling' && (
             <div className="p-3.5 bg-orange-50/80 border border-orange-200/80 rounded-xl space-y-2.5 animate-in fade-in">
               <div className="flex items-center justify-between text-xs font-bold text-[#18181B]">
@@ -417,7 +417,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                   ) : (
                     <span className="w-3.5 h-3.5 rounded-full border border-zinc-300 flex items-center justify-center text-[9px] shrink-0">1</span>
                   )}
-                  <span>1. Tra cứu thông tin quán trên Foody (Fast HTTP)</span>
+                  <span>1. Tra cứu thông tin địa điểm quán ăn</span>
                 </div>
 
                 <div className={`flex items-center gap-2 p-1.5 rounded-md transition-colors ${
@@ -434,7 +434,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                   ) : (
                     <span className="w-3.5 h-3.5 rounded-full border border-zinc-300 flex items-center justify-center text-[9px] shrink-0">2</span>
                   )}
-                  <span>2. Thu thập {maxReviews} đánh giá thực tế mới nhất</span>
+                  <span>2. Tổng hợp {maxReviews} đánh giá thực tế gần nhất</span>
                 </div>
 
                 <div className={`flex items-center gap-2 p-1.5 rounded-md transition-colors ${
@@ -447,7 +447,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                   ) : (
                     <span className="w-3.5 h-3.5 rounded-full border border-zinc-300 flex items-center justify-center text-[9px] shrink-0">3</span>
                   )}
-                  <span>3. Gemini AI phân tích khía cạnh &amp; trích xuất cảm xúc</span>
+                  <span>3. Tổng hợp cảm nhận thực khách theo từng tiêu chí</span>
                 </div>
               </div>
             </div>
@@ -478,7 +478,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
             {!isFormValid && status !== 'crawling' ? (
               <span className="text-[11px] text-zinc-500 flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 animate-pulse" />
-                <span>{tab === 'keyword' ? 'Nhập tên quán (≥ 2 ký tự) để mở khóa' : 'Dán đường dẫn Foody hợp lệ để mở khóa'}</span>
+                <span>{tab === 'keyword' ? 'Nhập tên quán (≥ 2 ký tự) để mở khóa' : 'Dán liên kết hợp lệ để mở khóa'}</span>
               </span>
             ) : <div />}
             <div className="flex items-center gap-2">
@@ -498,7 +498,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                     ? 'bg-[#C2410C] hover:bg-[#9A3412] text-white shadow-md shadow-orange-900/20 cursor-pointer active:scale-[0.98]'
                     : 'bg-zinc-200 text-zinc-400 cursor-not-allowed border border-zinc-300/60 shadow-none'
                 }`}
-                title={!isFormValid ? (tab === 'keyword' ? 'Vui lòng nhập tên quán/món ăn (tối thiểu 2 ký tự) để kích hoạt' : 'Vui lòng nhập đường dẫn Foody hợp lệ để kích hoạt') : undefined}
+                title={!isFormValid ? (tab === 'keyword' ? 'Vui lòng nhập tên quán/món ăn (tối thiểu 2 ký tự) để kích hoạt' : 'Vui lòng nhập liên kết quán ăn hợp lệ để kích hoạt') : undefined}
               >
                 <Sparkles className={`w-3.5 h-3.5 ${isFormValid ? 'text-amber-200' : 'text-zinc-400'}`} />
                 <span>{tab === 'keyword' ? 'Xem báo cáo đánh giá' : 'Tổng hợp từ liên kết'}</span>

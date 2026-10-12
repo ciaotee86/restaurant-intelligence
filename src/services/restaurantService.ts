@@ -132,7 +132,7 @@ class RestaurantService {
 
       const parsed = await this.parseResponseSafe<any>(response);
       if (!parsed.ok || !parsed.data) {
-        return { success: false, message: parsed.errorMsg || 'Không thể cào và phân tích URL này.' };
+        return { success: false, message: parsed.errorMsg || 'Không thể tổng hợp nhận xét từ liên kết này.' };
       }
 
       const data = parsed.data;
@@ -142,13 +142,13 @@ class RestaurantService {
 
       return {
         success: true,
-        message: data.message || 'Phân tích thành công!',
+        message: data.message || 'Tổng hợp nhận xét thành công!',
         restaurant: data.restaurant
       };
     } catch (e: any) {
       return {
         success: false,
-        message: e?.message || 'Không thể kết nối đến máy chủ phân tích AI. Vui lòng kiểm tra backend server.'
+        message: e?.message || 'Không thể kết nối đến máy chủ dữ liệu. Vui lòng kiểm tra lại kết nối.'
       };
     }
   }
@@ -194,7 +194,7 @@ class RestaurantService {
       return {
         success: false,
         source: 'foody',
-        message: e?.message || 'Không thể kết nối đến máy chủ backend để tìm kiếm & phân tích.'
+        message: e?.message || 'Không thể kết nối đến máy chủ dữ liệu để tìm kiếm & tổng hợp.'
       };
     }
   }
@@ -233,7 +233,7 @@ class RestaurantService {
       return {
         success: true,
         status: 'queued',
-        message: `Đã ghi nhận yêu cầu thu thập quán '${query}'. Hệ thống sẽ tự động cào và phân tích trong đợt cập nhật tiếp theo!`
+        message: `Đã ghi nhận yêu cầu thu thập quán '${query}'. Hệ thống sẽ tự động tổng hợp đánh giá trong đợt cập nhật tiếp theo!`
       };
     }
   }
@@ -318,7 +318,7 @@ class RestaurantService {
     }
     // Truy vấn định lượng (TC07 - TC12)
     else if (normQ.includes('bao nhieu bai danh gia') || normQ.includes('bao nhieu review') || normQ.includes('tong so danh gia') || normQ.includes('so luong danh gia') || normQ.includes('co bao nhieu bai danh gia')) {
-      answer = `📊 **Số lượng Dữ liệu Thu thập tại ${r.name}:**\n\nCơ sở dữ liệu của nền tảng Restaurant Intelligence hiện ghi nhận chính xác **${totalRev} bài đánh giá** từ thực khách thực tế, đã được làm sạch và xử lý qua 11 thuật toán phát hiện spam/bot.`;
+      answer = `📊 **Số lượng Dữ liệu Thu thập tại ${r.name}:**\n\nHệ thống Restaurant Intelligence hiện ghi nhận chính xác **${totalRev} bài đánh giá** từ thực khách thực tế, đã được sàng lọc và loại bỏ hoàn toàn các nhận xét giả mạo hoặc bình luận quảng cáo rác.`;
     } else if (normQ.includes('bao nhieu khach hang danh gia tich cuc') || normQ.includes('bao nhieu danh gia tich cuc') || normQ.includes('bao nhieu nguoi khen') || normQ.includes('so luong tich cuc')) {
       const posCount = Math.round((totalRev * posPct) / 100);
       answer = `📈 **Thống kê Đánh giá Tích cực (${r.name}):**\n\n- **Số lượng khách hàng hài lòng:** Khoảng **${posCount}/${totalRev} lượt đánh giá**.\n- **Tỷ lệ tích cực:** Đạt **${posPct}%** trên toàn bộ dữ liệu phản hồi thu thập được.\n- **Tỷ lệ còn lại:** ${neutPct}% trung lập và ${negPct}% chưa ưng ý.`;
@@ -335,7 +335,7 @@ class RestaurantService {
       answer = `📌 **Các Vấn đề Được Thực khách Nhắc đến Nhiều Lần Nhất (${r.name}):**\n\n${topIssues}\n\n💡 *Khuyến nghị:* Các vấn đề lặp lại cần được quán ưu tiên xử lý trước trong quy trình vận hành.`;
     } else if (normQ.includes('tap trung vao nhung khia canh nao') || normQ.includes('chu yeu tap trung vao')) {
       const aspectList = (r.aspects || []).map(a => `  • **${a.category}:** ${a.positivePercentage}% hài lòng | ${a.negativePercentage}% phàn nàn (${a.mentionCount} lượt đề cập)`).join('\n');
-      answer = `📑 **Phân bố Ý kiến Khách hàng Theo Khía cạnh (${r.name}):**\n\nCác đánh giá của khách hàng tập trung vào các khía cạnh cốt lõi sau:\n${aspectList}\n\nKhía cạnh được khen ngợi nhiều nhất là **${r.strengths?.[0]?.aspect || 'Món ăn'}**.`;
+      answer = `📑 **Phân bố Ý kiến Khách hàng Theo Tiêu chí (${r.name}):**\n\nCác đánh giá của khách hàng tập trung vào các tiêu chí cốt lõi sau:\n${aspectList}\n\nTiêu chí được khen ngợi nhiều nhất là **${r.strengths?.[0]?.aspect || 'Món ăn'}**.`;
     }
     // Đề xuất kinh doanh (TC13 - TC18)
     else if (normQ.includes('lap bang') || normQ.includes('bang tong hop')) {

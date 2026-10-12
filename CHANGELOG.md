@@ -2,7 +2,32 @@
 
 All notable changes to the **Restaurant Intelligence** project will be documented in this file.
 
-## [1.7.0] - 2026-10-11
+## [1.8.0] - 2026-10-13
+
+### Chuẩn Hóa Ngôn Ngữ Trải Nghiệm Người Dùng (F&B-Centric UI Copy) — Loại Bỏ 100% Thuật Ngữ Kỹ Thuật CNTT
+- **Tái cấu trúc Ngôn từ Giao diện (Elimination of Technical & Developer Jargon)**:
+  - Loại bỏ hoàn toàn các thuật ngữ kỹ thuật CNTT (`Gemini AI`, `ABSA`, `NLP`, `Crawler/cào review`, `Fast HTTP`, `Port 8000/Backend API`, `SQLite/Database`, `0 Quota/0 Token`, `Bot cày xu`, `Seeding`, `Review rác`, `Thực thể`, `Khía cạnh`, v.v.) khỏi toàn bộ giao diện người dùng và thông báo phản hồi.
+  - Chuẩn hóa sang từ vựng ẩm thực, thực khách và vận hành nhà hàng gần gũi, chuyên nghiệp:
+    - `Lọc sạch seeding & spam` $\rightarrow$ `Đánh giá thực tế & Khách quan` / `Loại bỏ nhận xét giả & quảng cáo rác`.
+    - `+ Phân tích link Foody` $\rightarrow$ `+ Khảo sát quán mới` / `+ Thêm quán`.
+    - `Tra cứu nhanh dữ liệu hoặc tổng hợp quán mới từ Foody qua Gemini AI` $\rightarrow$ `Tra cứu thông tin hoặc tổng hợp nhận xét quán ăn mới từ thực khách`.
+    - `1. Tra cứu thông tin quán trên Foody (Fast HTTP)` $\rightarrow$ `1. Tra cứu thông tin địa điểm quán ăn`.
+    - `3. Gemini AI phân tích khía cạnh & trích xuất cảm xúc` $\rightarrow$ `3. Tổng hợp cảm nhận thực khách theo từng tiêu chí`.
+    - `Dữ liệu đã lọc sạch review rác` $\rightarrow$ `Nhận xét đã xác thực minh bạch`.
+    - `Khía cạnh cần lưu ý` $\rightarrow$ `Tiêu chí cần cải thiện`.
+    - `Phân tích đánh giá & Trích xuất NLP` $\rightarrow$ `Chi tiết cảm nhận thực khách`.
+    - `Các thực thể khía cạnh phát hiện` $\rightarrow$ `Các tiêu chí được nhận xét`.
+    - `Phân tích số liệu thực tế (0 Quota)` $\rightarrow$ `Dữ liệu thực tế đã xác thực`.
+    - `Bộ nhớ đệm thông minh (0 Token)` $\rightarrow$ `Phản hồi tức thì`.
+    - `Gemini AI Engine` $\rightarrow$ `Tổng hợp chuyên sâu`.
+    - `Chưa kết nối Backend FastAPI (Port 8000)` $\rightarrow$ `Đang hiển thị dữ liệu mẫu ngoại tuyến do chưa kết nối máy chủ dữ liệu`.
+    - `5 Khía cạnh đánh giá` $\rightarrow$ `5 Tiêu chí đánh giá`.
+- **Đồng bộ Hóa Thông báo Phản hồi Backend (`assistant_service.py`, `crawler.py`, `restaurantService.ts`)**:
+  - Chuẩn hóa toàn bộ câu trả lời trợ lý và thông báo lỗi API sang văn phong tôn trọng thực khách, không để lộ chi tiết kỹ thuật hệ thống.
+- **Kiểm Thử & Đảm Bảo Chất Lượng**:
+  - `npm run build` hoàn tất không có lỗi (0 type errors, 0 lint errors).
+  - 11/11 tests backend (`pytest`) passed 100%.
+
 
 ### Tái Cấu Trúc Toàn Diện Trợ Lý Phân Tích Nền Tảng (Platform Intelligence Assistant) — Vượt Qua 100% 30 Test Cases
 - **Tái định vị Bản chất Trợ lý (Platform Intelligence Analyst vs. Restaurant Bot)**:

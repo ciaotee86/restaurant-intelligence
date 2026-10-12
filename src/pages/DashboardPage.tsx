@@ -12,7 +12,7 @@ import { OperationalAdvice } from '../components/dashboard/OperationalAdvice';
 import { ReviewExplorer } from '../components/dashboard/ReviewExplorer';
 import { AiAssistantWidget } from '../components/dashboard/AiAssistantWidget';
 import { restaurantService } from '../services/restaurantService';
-import { Utensils, Store, MessageSquare, ArrowRight, Bot } from 'lucide-react';
+import { Utensils, Store, MessageSquare, ArrowRight, Sparkles } from 'lucide-react';
 
 interface DashboardPageProps {
   restaurantId: string;
@@ -128,8 +128,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/5'
             }`}
           >
-            <Bot className="w-4 h-4 text-orange-400" />
-            <span>Trợ lý Phân tích Nền tảng (Hỏi - Đáp)</span>
+            <Sparkles className="w-4 h-4 text-orange-400" />
+            <span>Trợ lý Thông tin Nền tảng (Hỏi - Đáp)</span>
             <span className="px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 text-[10px] font-black uppercase tracking-wider">
               Mới
             </span>

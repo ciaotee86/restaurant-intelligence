@@ -43,7 +43,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
             Đánh giá từ thực khách
           </h2>
           <p className="text-xs text-[#71717A] mt-0.5">
-            Đọc từng nhận xét chân thực, được gắn nhãn cảm xúc và bóc tách các khía cạnh liên quan
+            Đọc từng nhận xét chân thực của thực khách theo từng tiêu chí cụ thể
           </p>
         </div>
 
@@ -108,11 +108,11 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
           </div>
         </div>
 
-        {/* Nút lọc khía cạnh */}
+        {/* Nút lọc tiêu chí */}
         <div className="flex flex-wrap items-center gap-1.5 pt-1">
           <span className="text-xs font-bold text-zinc-500 mr-1 flex items-center gap-1">
             <Filter className="w-3.5 h-3.5 text-zinc-400" />
-            Khía cạnh:
+            Tiêu chí:
           </span>
 
           <button
@@ -123,7 +123,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
                 : 'bg-white text-zinc-700 border border-[#E5E3DE] hover:border-zinc-500'
             }`}
           >
-            Tất cả khía cạnh
+            Tất cả tiêu chí
           </button>
 
           {aspectsList.map((aspect) => {

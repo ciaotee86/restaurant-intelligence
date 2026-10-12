@@ -20,7 +20,7 @@ export const AspectAnalysis: React.FC<AspectAnalysisProps> = ({
         <div>
           <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#C2410C] mb-1">
             <BarChart2 className="w-3.5 h-3.5" />
-            <span>Phân tích khía cạnh chuyên sâu</span>
+            <span>Đánh giá theo 5 tiêu chí cốt lõi</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-[#18181B] tracking-tight">
             Khách hàng nói gì nhiều nhất?
@@ -30,7 +30,7 @@ export const AspectAnalysis: React.FC<AspectAnalysisProps> = ({
           </p>
         </div>
         <span className="text-xs font-bold text-zinc-700 self-start sm:self-auto bg-[#FAF9F5] px-3 py-1.5 rounded-lg border border-[#E5E3DE]">
-          5 Khía cạnh đánh giá
+          5 Tiêu chí đánh giá
         </span>
       </div>
 
@@ -103,7 +103,7 @@ export const AspectAnalysis: React.FC<AspectAnalysisProps> = ({
       </div>
 
       <div className="mt-5 pt-4 border-t border-[#E5E3DE] flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500">
-        <span className="font-medium">Nhấp vào từng khía cạnh để xem ngay các đánh giá liên quan</span>
+        <span className="font-medium">Nhấp vào từng tiêu chí để xem ngay các đánh giá liên quan</span>
         <div className="flex items-center gap-4 text-xs font-semibold">
           <span className="flex items-center gap-1.5 text-emerald-800"><span className="w-2.5 h-2.5 rounded-full bg-emerald-600" /> Tích cực</span>
           <span className="flex items-center gap-1.5 text-amber-800"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Trung lập</span>

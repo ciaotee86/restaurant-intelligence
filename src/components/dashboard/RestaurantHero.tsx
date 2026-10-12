@@ -60,7 +60,7 @@ export const RestaurantHero: React.FC<RestaurantHeroProps> = ({ restaurant, onBa
 
               <div className="flex items-center gap-1 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Dữ liệu đã lọc sạch review rác</span>
+                <span>Nhận xét đã xác thực minh bạch</span>
               </div>
             </div>
           </div>
@@ -89,7 +89,7 @@ export const RestaurantHero: React.FC<RestaurantHeroProps> = ({ restaurant, onBa
               </span>
             </div>
             <span className="text-[11px] font-mono text-amber-700 font-semibold shrink-0 hidden sm:inline">
-              Khía cạnh cần lưu ý
+              Tiêu chí cần cải thiện
             </span>
           </div>
         )}

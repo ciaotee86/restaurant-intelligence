@@ -234,8 +234,8 @@ def synthesize_local_answer(restaurant_data: Dict[str, Any], intent: str) -> str
     if intent == "query_review_count":
         return (
             f"📊 **Số lượng Dữ liệu Thu thập tại {name}:**\n\n"
-            f"Cơ sở dữ liệu của nền tảng Restaurant Intelligence hiện ghi nhận chính xác **{total_rev} bài đánh giá** từ thực khách thực tế, "
-            f"đã được làm sạch và xử lý qua 11 thuật toán phát hiện spam/bot."
+            f"Hệ thống Restaurant Intelligence hiện ghi nhận chính xác **{total_rev} bài đánh giá** từ thực khách thực tế, "
+            f"đã được sàng lọc và loại bỏ hoàn toàn các nhận xét giả mạo hoặc bình luận quảng cáo rác."
         )
 
     if intent == "query_positive_count":
@@ -290,10 +290,10 @@ def synthesize_local_answer(restaurant_data: Dict[str, Any], intent: str) -> str
         aspects_str = "\n".join(aspect_lines)
 
         return (
-            f"📑 **Phân bố Ý kiến Khách hàng Theo Khía cạnh ({name}):**\n\n"
-            f"Các đánh giá của khách hàng tập trung vào 5 khía cạnh cốt lõi sau:\n"
+            f"📑 **Phân bố Ý kiến Khách hàng Theo Tiêu chí ({name}):**\n\n"
+            f"Các đánh giá của khách hàng tập trung vào 5 tiêu chí cốt lõi sau:\n"
             f"{aspects_str}\n\n"
-            f"Khía cạnh nhận được nhiều phản hồi tích cực nhất là **{strengths[0].get('aspect', 'Món ăn') if strengths else 'Ẩm thực'}**."
+            f"Tiêu chí nhận được nhiều phản hồi tích cực nhất là **{strengths[0].get('aspect', 'Món ăn') if strengths else 'Ẩm thực'}**."
         )
 
     if intent == "query_quotes_evidence":

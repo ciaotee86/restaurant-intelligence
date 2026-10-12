@@ -279,10 +279,10 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
             city_display = effective_city if effective_city else city
             raise HTTPException(
                 status_code=404,
-                detail=f"Các quán tìm thấy cho từ khóa '{search_keyword}' tại khu vực '{city_display}' chưa có bài đánh giá thực tế nào trên Foody để phân tích. Vui lòng chọn quán khác hoặc dán link quán có đánh giá."
+                detail=f"Các quán tìm thấy cho từ khóa '{search_keyword}' tại khu vực '{city_display}' chưa có bài nhận xét thực tế nào để tổng hợp. Vui lòng chọn quán khác hoặc dán liên kết quán có nhận xét."
             )
 
-        # Bước 4: Lưu vào SQLite và chạy Gemini AI phân tích ABSA
+        # Bước 4: Lưu vào SQLite và tổng hợp đánh giá
         with get_session() as db:
             restaurant = save_and_analyze_reviews(
                 db=db,
@@ -296,7 +296,7 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
             return {
                 "success": True,
                 "source": "crawled_and_analyzed",
-                "message": f"Đã tự động tìm kiếm trên Foody, cào và AI phân tích thành công quán '{restaurant.name}' ({len(crawl_data.get('reviews', []))} đánh giá thực tế)!",
+                "message": f"Đã tổng hợp thành công nhận xét thực tế của quán '{restaurant.name}' ({len(crawl_data.get('reviews', []))} nhận xét thực tế)!",
                 "restaurant": formatted
             }
     except HTTPException:
@@ -305,7 +305,7 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
         print(f"[API Error] Lỗi khi tìm kiếm & cào dữ liệu: {e}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Lỗi khi cào hoặc phân tích dữ liệu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Không thể tổng hợp nhận xét của quán: {str(e)}")
 
 
 @router.post("/request-crawl")
@@ -344,7 +344,7 @@ def submit_crawl_request(req: QueueCrawlRequest):
         return {
             "success": True,
             "status": "queued",
-            "message": f"Đã tiếp nhận yêu cầu thu thập quán '{q}'. Hệ thống sẽ tự động cào và phân tích trong đợt cập nhật tiếp theo!"
+            "message": f"Đã tiếp nhận yêu cầu thu thập quán '{q}'. Hệ thống sẽ tự động tổng hợp đánh giá trong đợt cập nhật tiếp theo!"
         }
 
 

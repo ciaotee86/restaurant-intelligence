@@ -75,7 +75,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Badge minh bạch */}
           <div className="hidden xl:flex items-center gap-1.5 text-[11px] font-medium text-[#71717A] bg-white px-2.5 py-1.5 rounded-md border border-[#E5E3DE]">
             <Sparkles className="w-3.5 h-3.5 text-[#C2410C]" />
-            <span>Lọc sạch seeding & spam</span>
+            <span>Đánh giá thực tế & Khách quan</span>
           </div>
 
           {currentView !== 'home' && (
@@ -100,7 +100,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#C2410C] hover:bg-[#9a3412] text-white rounded-md text-xs font-bold shadow-craft-sm transition-all transform active:scale-95"
             >
               <PlusCircle className="w-3.5 h-3.5" />
-              <span>+ Phân tích link Foody</span>
+              <span>+ Khảo sát quán mới</span>
             </button>
           )}
         </div>
@@ -141,7 +141,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={onOpenAnalyzeModal}
             className="px-2.5 py-1 bg-[#C2410C] text-white rounded font-bold text-[11px]"
           >
-            + Link Foody
+            + Thêm quán
           </button>
         )}
       </div>

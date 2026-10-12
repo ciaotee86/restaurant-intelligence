@@ -1,5 +1,5 @@
 import React from 'react';
-import { Database, ShieldCheck } from 'lucide-react';
+import { Store, ShieldCheck } from 'lucide-react';
 
 interface FooterProps {
   onNavigate: (view: 'home' | 'explore' | 'dashboard' | 'how-it-works', restaurantId?: string) => void;
@@ -26,12 +26,12 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             </p>
             <div className="flex flex-wrap items-center gap-4 text-xs text-[#71717A] pt-1">
               <span className="flex items-center gap-1.5 font-medium">
-                <Database className="w-3.5 h-3.5 text-zinc-500" />
-                Dữ liệu công khai từ Foody
+                <Store className="w-3.5 h-3.5 text-zinc-500" />
+                Khảo sát ý kiến thực khách công khai
               </span>
               <span className="flex items-center gap-1.5 font-medium">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                Lọc sạch spam & seeding
+                Loại bỏ nhận xét giả & quảng cáo rác
               </span>
             </div>
           </div>
@@ -111,7 +111,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
         <div className="border-t border-[#E5E3DE] mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#71717A]">
           <span>© 2026 Restaurant Intelligence. Phục vụ nghiên cứu và phân tích dữ liệu vận hành ẩm thực.</span>
           <span className="font-mono text-[11px] text-zinc-500">
-            Thu thập Foody → Tiền xử lý lọc bot → ABSA 5 khía cạnh → Báo cáo
+            Thu thập ý kiến thực khách → Sàng lọc bình luận ảo → Đánh giá theo 5 tiêu chí → Báo cáo trực quan
           </span>
         </div>
       </div>

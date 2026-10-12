@@ -164,11 +164,11 @@ export const HomePage: React.FC<HomePageProps> = ({
               </span>
               <span className="flex items-center gap-1.5 font-semibold text-zinc-800">
                 <CheckCircle2 className="w-4 h-4 text-[#C2410C] shrink-0" />
-                Lọc sạch spam & seeding
+                Loại bỏ nhận xét giả & quảng cáo rác
               </span>
               <span className="flex items-center gap-1.5 font-semibold text-zinc-800">
                 <BarChart3 className="w-4 h-4 text-blue-600 shrink-0" />
-                Bóc tách 5 khía cạnh cốt lõi
+                Đánh giá theo 5 tiêu chí cốt lõi
               </span>
             </div>
 
@@ -247,7 +247,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 {activeSample.aspects && activeSample.aspects.length > 0 && (
                   <div className="space-y-2 py-3 border-y border-[#E5E3DE] my-3">
                     <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-zinc-600">
-                      <span>Thước đo 5 khía cạnh cốt lõi:</span>
+                      <span>Thước đo 5 tiêu chí cốt lõi:</span>
                       <span className="text-[10px] text-zinc-400 font-mono">Tỷ lệ khen</span>
                     </div>
                     <div className="space-y-1.5">
@@ -305,7 +305,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 <AlertTriangle className="w-8 h-8 text-amber-600 mx-auto" />
                 <p className="text-sm font-bold text-[#18181B]">Đang tải dữ liệu quán ăn từ máy chủ...</p>
                 <p className="text-xs text-zinc-500 max-w-xs mx-auto leading-relaxed">
-                  Nếu bạn đang chạy Local, vui lòng đảm bảo Backend API port 8000 đang được bật bằng lệnh <code className="bg-zinc-100 px-1 py-0.5 rounded font-mono text-[11px]">npm run dev</code>.
+                  Đang hiển thị dữ liệu mẫu ngoại tuyến do chưa kết nối máy chủ dữ liệu.
                 </p>
               </div>
             )}
@@ -434,13 +434,13 @@ export const HomePage: React.FC<HomePageProps> = ({
                 </div>
               )}
 
-              {/* Card Vệ Tinh 2: Minh Bạch Dữ Liệu & Lọc Spam */}
+              {/* Card Vệ Tinh 2: Minh Bạch Dữ Liệu */}
               <div className="bg-[#FAF9F5] border border-[#E5E3DE] rounded-2xl p-6 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <ShieldCheck className="w-5 h-5 text-emerald-600" />
                     <span className="text-xs font-bold uppercase tracking-wider text-zinc-700">
-                      Cơ chế lọc review rác độc lập
+                      Cơ chế xác thực nhận xét minh bạch
                     </span>
                   </div>
 
@@ -449,7 +449,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                   </h4>
 
                   <p className="text-xs text-zinc-600 leading-relaxed mb-4">
-                    Hệ thống tự động loại bỏ các tài khoản bot cày xu, nội dung lặp lại tên quán vô nghĩa hoặc seeding nhận thưởng ảo trước khi phân tích cảm xúc.
+                    Hệ thống tự động loại bỏ các tài khoản ảo, nhận xét sao chép vô nghĩa hoặc bình luận quảng cáo không phản ánh trải nghiệm thực tế.
                   </p>
 
                   <div className="grid grid-cols-2 gap-2 text-center text-xs">
@@ -789,7 +789,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               Restaurant Intelligence đọc vị đánh giá như thế nào?
             </h3>
             <p className="text-xs sm:text-sm text-zinc-300 max-w-2xl leading-relaxed">
-              Từ hàng ngàn bài nhận xét rời rạc của thực khách trên Foody, hệ thống tự động làm sạch bình luận rác và bot cày xu, bóc tách tỷ lệ khen - chê theo 5 khía cạnh và đưa ra bản tóm tắt trung thực chỉ trong vài giây.
+              Từ hàng ngàn bài nhận xét của thực khách, hệ thống tự động loại bỏ bình luận rác và tài khoản ảo, phân loại tỷ lệ khen - chê theo 5 tiêu chí chất lượng và đưa ra bản tóm tắt trung thực chỉ trong vài giây.
             </p>
           </div>
 
