@@ -97,14 +97,68 @@ def analyze_foody_url(req: AnalyzeRequest):
         raise HTTPException(status_code=500, detail=f"Lỗi khi cào hoặc phân tích dữ liệu: {str(e)}")
 
 
+import re
+
+FOODY_CITY_SLUG_MAP = {
+    "thua thien hue": "hue",
+    "thua-thien-hue": "hue",
+    "hue": "hue",
+    "tp. ho chi minh": "ho-chi-minh",
+    "ho chi minh": "ho-chi-minh",
+    "sai gon": "ho-chi-minh",
+    "hcm": "ho-chi-minh",
+    "ha noi": "ha-noi",
+    "hn": "ha-noi",
+    "da nang": "da-nang",
+    "hai phong": "hai-phong",
+    "can tho": "can-tho",
+    "khanh hoa": "khanh-hoa",
+    "nha trang": "khanh-hoa",
+    "lam dong": "lam-dong",
+    "da lat": "lam-dong",
+    "ba ria - vung tau": "vung-tau",
+    "ba ria vung tau": "vung-tau",
+    "vung tau": "vung-tau",
+    "quang nam": "quang-nam",
+    "hoi an": "quang-nam",
+    "kien giang": "kien-giang",
+    "phu quoc": "kien-giang",
+    "quang ninh": "quang-ninh",
+    "ha long": "quang-ninh",
+    "binh duong": "binh-duong",
+    "dong nai": "dong-nai",
+    "gia lai": "gia-lai",
+    "pleiku": "gia-lai",
+    "dak lak": "dak-lak",
+    "buon ma thuot": "dak-lak",
+    "phu yen": "phu-yen",
+    "tuy hoa": "phu-yen",
+    "binh dinh": "binh-dinh",
+    "quy nhon": "binh-dinh",
+}
+
+
+def get_foody_city_slug(city_input: str) -> str:
+    """Ánh xạ chuẩn xác tên thành phố sang slug URL hợp lệ trên Foody.vn"""
+    if not city_input:
+        return "da-nang"
+    norm = remove_accents(city_input.lower().strip())
+    if norm in FOODY_CITY_SLUG_MAP:
+        return FOODY_CITY_SLUG_MAP[norm]
+    for k, v in FOODY_CITY_SLUG_MAP.items():
+        if k in norm or norm in k:
+            return v
+    return re.sub(r'[^a-z0-9]+', '-', norm).strip('-')
+
+
 @router.post("/search-and-crawl")
 def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
     """
     Quy trình tìm kiếm và cào dữ liệu thông minh theo từ khóa:
-    1. Nhận từ khóa tìm kiếm (ví dụ: 'bánh tráng', 'cơm gà gia vĩnh').
+    1. Nhận từ khóa tìm kiếm (ví dụ: 'bánh tráng', 'bún huế').
     2. Kiểm tra SQLite DB trước: nếu quán đã có trong DB, trả về ngay tức thì (< 20ms).
-    3. Nếu chưa có: Tự động dùng Selenium tìm kiếm từ khóa trên Foody.vn.
-    4. Trích xuất link quán ăn phù hợp nhất trên Foody.
+    3. Nếu chưa có: Tự động dùng Fast HTTP / Selenium tìm kiếm từ khóa trên Foody.vn đúng theo thành phố chỉ định.
+    4. Trích xuất link quán ăn phù hợp nhất trên Foody, ưu tiên quán có lượt đánh giá thực tế > 0.
     5. Cào review, lọc spam/bot, gọi Gemini ABSA phân tích khía cạnh và lưu SQLite.
     """
     try:
@@ -115,8 +169,14 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
         norm_q = remove_accents(q)
         from routers.restaurants import extract_city_from_query
         from services.bi_service import detect_city
+
+        # 1. Xác định thành phố mục tiêu và từ khóa món ăn:
+        # Nếu người dùng đã chủ động chọn thành phố trong Modal (req.city), ưu tiên tuyệt đối lựa chọn đó.
+        user_selected_city = req.city.strip() if req.city and req.city not in ["Tất cả địa điểm", "All Cities", "all", ""] else None
         detected_city, rem_q = extract_city_from_query(q)
-        effective_city = detected_city or (req.city if req.city and req.city not in ["Tất cả địa điểm", "All Cities"] else "")
+
+        effective_city = user_selected_city or detected_city or ""
+        city_slug = get_foody_city_slug(effective_city) if effective_city else "da-nang"
         norm_eff_city = remove_accents(effective_city) if effective_city else ""
 
         search_keyword = rem_q.strip() if rem_q.strip() else q
@@ -162,33 +222,16 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                     "restaurant": formatted
                 }
 
-        # Bước 2: Chưa có trong DB -> Tự động tìm kiếm trên Foody.vn
-        city_slug = "da-nang"
-        if effective_city:
-            if "ho chi minh" in norm_eff_city or "sai gon" in norm_eff_city:
-                city_slug = "ho-chi-minh"
-            elif "ha noi" in norm_eff_city:
-                city_slug = "ha-noi"
-            else:
-                city_slug = norm_eff_city.replace(" ", "-")
-        elif req.city:
-            city_slug = req.city
+        # Bước 2: Chưa có trong DB -> Tự động tìm kiếm trên Foody.vn đúng theo city_slug
         city = city_slug
         print(f"-> [Search & Crawl] Chưa có trong DB. Bắt đầu tìm kiếm từ khóa '{search_keyword}' trên Foody (thành phố: {city})...")
-        foody_results = search_foody_places(search_keyword, city_slug=city, max_results=3)
+        foody_results = search_foody_places(search_keyword, city_slug=city, max_results=5)
 
         if not foody_results:
-            for fallback_city in ["da-nang", "ho-chi-minh", "ha-noi"]:
-                if fallback_city != city:
-                    print(f"  Thử tìm kiếm mở rộng tại {fallback_city}...")
-                    foody_results = search_foody_places(q, city_slug=fallback_city, max_results=3)
-                    if foody_results:
-                        break
-
-        if not foody_results:
+            city_display = effective_city if effective_city else city
             raise HTTPException(
                 status_code=404,
-                detail=f"Không tìm thấy quán ăn nào trên Foody với từ khóa '{q}'. Vui lòng thử từ khóa khác hoặc dán link Foody trực tiếp."
+                detail=f"Không tìm thấy quán ăn nào trên Foody với từ khóa '{search_keyword}' tại khu vực '{city_display}'. Vui lòng thử từ khóa khác hoặc dán link Foody trực tiếp."
             )
 
         # Kiểm tra xem có quán nào trong kết quả Foody đã có trong SQLite chưa
@@ -205,7 +248,7 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                         "restaurant": formatted
                     }
 
-        # Bước 3: Cào đánh giá thực tế từ Foody bằng Selenium (ưu tiên quán có đánh giá)
+        # Bước 3: Cào đánh giá thực tế từ Foody bằng Selenium (ưu tiên quán có đánh giá thật > 0)
         crawl_data = None
         target_place = None
 
@@ -226,16 +269,17 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                 max_consecutive_existing=3
             )
             
-            if data and data.get("name"):
+            # Chỉ chấp nhận quán nếu cào thành công và có ít nhất 1 bài đánh giá thực tế
+            if data and data.get("name") and data.get("reviews") and len(data["reviews"]) > 0:
                 crawl_data = data
                 target_place = place
-                if data.get("reviews") and len(data["reviews"]) > 0:
-                    break
+                break
 
-        if not crawl_data or not crawl_data.get("name"):
+        if not crawl_data or not crawl_data.get("name") or not crawl_data.get("reviews") or len(crawl_data["reviews"]) == 0:
+            city_display = effective_city if effective_city else city
             raise HTTPException(
-                status_code=500,
-                detail=f"Không thể cào dữ liệu từ quán trên Foody cho từ khóa '{q}'. Vui lòng thử lại sau."
+                status_code=404,
+                detail=f"Các quán tìm thấy cho từ khóa '{search_keyword}' tại khu vực '{city_display}' chưa có bài đánh giá thực tế nào trên Foody để phân tích. Vui lòng chọn quán khác hoặc dán link quán có đánh giá."
             )
 
         # Bước 4: Lưu vào SQLite và chạy Gemini AI phân tích ABSA
@@ -290,7 +334,7 @@ def submit_crawl_request(req: QueueCrawlRequest):
 
         new_req = DBCrawlRequest(
             query=q,
-            city=req.city or "da-nang",
+            city=get_foody_city_slug(req.city) if req.city else "da-nang",
             status="pending",
             requested_at=datetime.utcnow()
         )

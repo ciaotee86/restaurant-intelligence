@@ -81,32 +81,71 @@ def get_restaurants():
         return result
 
 
+# Danh mục các món đặc sản có gắn tên địa danh - không bao giờ tách tên địa phương ra khỏi món nếu không có giới từ chỉ địa điểm
+SPECIALTY_DISHES = {
+    "bun bo hue", "bun hue", "che hue", "banh bot loc hue", "banh beo hue", "banh nam hue", "com hen hue", "nem hue",
+    "mi quang", "mi quang da nang", "cao lau hoi an", "com ga hoi an", "banh trang da nang",
+    "bun dau ha noi", "pho ha noi", "cha ca la vong ha noi", "bun cha ha noi",
+    "nem nuong nha trang", "bun ca nha trang", "banh can nha trang",
+    "com tam sai gon", "banh mi sai gon", "pha lau sai gon",
+    "banh xeo mien tay", "lau mam can tho", "banh cong can tho",
+    "banh trang tay ninh", "muoi tay ninh",
+    "banh cuon phu ly", "banh da cua hai phong", "cha muc quang ninh",
+    "che thai", "lau thai", "com lam pleiku", "pho hai to gia lai"
+}
+
+
 def extract_city_from_query(q: str):
-    """Trích xuất thành phố và từ khóa món ăn từ chuỗi tìm kiếm trên toàn bộ 63 tỉnh thành"""
+    """
+    Trích xuất thành phố và từ khóa món ăn từ chuỗi tìm kiếm trên toàn bộ 63 tỉnh thành:
+    - Nếu câu tìm kiếm là món đặc sản (ví dụ: 'bún huế', 'mì quảng', 'nem nướng nha trang') -> giữ nguyên từ khóa món, không tách tỉnh thành.
+    - Nếu câu chứa giới từ địa điểm (ví dụ: 'bún huế ở đà nẵng', 'quán ngon tại huế') -> tách đúng thành phố và giữ lại từ khóa món.
+    - Nếu câu chứa tên thành phố độc lập (ví dụ: 'cơm gà đà nẵng') -> tách thành phố và từ khóa món.
+    """
     if not q:
         return None, ""
-    norm_q = remove_accents(q.strip().lower())
+    raw_q = q.strip()
+    norm_q = remove_accents(raw_q)
 
-    # Danh sách món ăn phức hợp không tách thành phố nếu đứng riêng
-    if norm_q in ["bun bo hue", "mi quang", "che hue", "banh bot loc hue", "che thai", "banh trang tay ninh"]:
-        return None, q.strip()
+    # 1. Nếu toàn bộ câu tìm kiếm trùng khớp với tên món đặc sản nổi tiếng -> giữ nguyên từ khóa món ăn
+    if norm_q in SPECIALTY_DISHES:
+        return None, raw_q
 
-    # Flatten và sắp xếp alias dài nhất trước
+    # Chuẩn bị danh sách alias sắp xếp theo độ dài giảm dần
     flattened = []
     for city_name, aliases in VIETNAM_CITIES:
         for alias in aliases:
             flattened.append((city_name, alias, len(alias)))
     flattened.sort(key=lambda x: x[2], reverse=True)
 
+    # 2. Ưu tiên cao nhất: Có giới từ chỉ địa điểm rõ ràng ("ở", "tại", "khu vực")
     for city_name, alias, _ in flattened:
         escaped = re.escape(alias)
-        match = re.search(r'(?:^|\s)(?:o|tai|khu vuc)?\s*(' + escaped + r')(?:$|\s)', norm_q)
+        prep_pattern = r'(?:\b(?:o|tai|khu vuc)\s+)(' + escaped + r')(?:\b|$)'
+        match = re.search(prep_pattern, norm_q)
         if match:
-            clean_q = re.sub(r'(?:\b(?:o|tai|khu vuc)\s+)?' + escaped + r'\b', ' ', norm_q)
+            start, end = match.span()
+            clean_q = (raw_q[:start] + " " + raw_q[end:]).strip()
             clean_q = re.sub(r'\s+', ' ', clean_q).strip()
             return city_name, clean_q
 
-    return None, q.strip()
+    # 3. Nếu món ăn chứa tên địa phương nhưng nằm trong cụm đặc sản ở đầu câu (ví dụ: 'bún huế ngon rẻ')
+    for spec in SPECIALTY_DISHES:
+        if norm_q == spec or norm_q.startswith(spec + " "):
+            return None, raw_q
+
+    # 4. Tìm kiếm alias địa phương đứng riêng biệt ở cuối câu hoặc đầu câu
+    for city_name, alias, _ in flattened:
+        escaped = re.escape(alias)
+        pattern = r'(?:^|\s)(' + escaped + r')(?:$|\s)'
+        match = re.search(pattern, norm_q)
+        if match:
+            start, end = match.span(1)
+            clean_q = (raw_q[:start] + " " + raw_q[end:]).strip()
+            clean_q = re.sub(r'\s+', ' ', clean_q).strip()
+            return city_name, clean_q
+
+    return None, raw_q
 
 
 @router.get("/restaurants/search")

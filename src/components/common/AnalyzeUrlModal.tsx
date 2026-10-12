@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Link2, ArrowRight, Loader2, CheckCircle2, AlertCircle, Sparkles, Search, Zap } from 'lucide-react';
 import { restaurantService } from '../../services/restaurantService';
 import { VIETNAM_CITIES, getCitySlug } from '../../utils/cityUtils';
@@ -21,10 +21,42 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
   // Autocomplete suggestions từ DB có sẵn (233 quán)
   const [suggestions, setSuggestions] = useState<{ name: string; cuisine: string; city: string; id: string }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Stepper tiến trình xử lý
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // Đóng dropdown khi click bên ngoài hoặc bấm phím Escape
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  // Xác thực các trường dữ liệu bắt buộc để kích hoạt nút hành động
+  const isKeywordValid = keyword.trim().length >= 2;
+  const isCityValid = Boolean(city && city.trim());
+  const isMaxReviewsValid = Boolean(maxReviews && maxReviews > 0);
+  const isKeywordFormValid = isKeywordValid && isCityValid && isMaxReviewsValid;
+
+  const isUrlValid = Boolean(url.trim() && (url.includes('foody.vn') || url.startsWith('http')));
+  const isUrlFormValid = isUrlValid && isMaxReviewsValid;
+
+  const isFormValid = tab === 'keyword' ? isKeywordFormValid : isUrlFormValid;
 
   useEffect(() => {
     let interval: any;
@@ -173,8 +205,9 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
             <>
               <div className="relative">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-[#18181B]">
-                    Tên quán ăn hoặc từ khóa món ăn
+                  <label className="text-xs font-semibold text-[#18181B] flex items-center gap-1">
+                    <span>Tên quán ăn hoặc từ khóa món ăn</span>
+                    <span className="text-red-500 font-bold" title="Trường bắt buộc">*</span>
                   </label>
                   <span className="text-[10px] text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/60">
                     ⚡ Có sẵn 230+ quán mở tức thì
@@ -194,15 +227,49 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                     }}
                     placeholder="Ví dụ: Bánh tráng Tiên Tiên, Pizza 4P's, Cơm gà Gia Vĩnh..."
                     disabled={status === 'crawling'}
-                    className="w-full text-xs sm:text-sm px-3.5 py-2.5 bg-white border border-[#D4D4D8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C2410C]/20 focus:border-[#C2410C] transition-all text-[#18181B]"
+                    className={`w-full text-xs sm:text-sm pl-3.5 pr-9 py-2.5 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C2410C]/20 focus:border-[#C2410C] transition-all text-[#18181B] ${
+                      keyword.length > 0 && !isKeywordValid ? 'border-amber-400' : 'border-[#D4D4D8]'
+                    }`}
                   />
+                  {keyword && status !== 'crawling' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setKeyword('');
+                        setSuggestions([]);
+                        setShowSuggestions(false);
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors"
+                      title="Xóa nội dung nhập"
+                      aria-label="Xóa nội dung nhập"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
 
-                  {/* Autocomplete Dropdown */}
+                  {/* Autocomplete Dropdown với nút X để đóng */}
                   {showSuggestions && suggestions.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-zinc-200 rounded-lg shadow-xl z-30 overflow-hidden divide-y divide-zinc-100 max-h-56 overflow-y-auto">
-                      <div className="px-3 py-1.5 bg-zinc-50 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
-                        <Zap className="w-3 h-3 text-amber-500" />
-                        <span>Quán đã có sẵn trong hệ thống (Bấm để mở ngay &lt; 0.1s):</span>
+                    <div
+                      ref={dropdownRef}
+                      className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-zinc-200 rounded-lg shadow-2xl z-30 overflow-hidden divide-y divide-zinc-100 max-h-56 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150"
+                    >
+                      <div className="px-3 py-1.5 bg-zinc-50 border-b border-zinc-200/80 flex items-center justify-between sticky top-0 z-10 backdrop-blur-xs">
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-zinc-600 uppercase tracking-wider">
+                          <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span>Quán có sẵn trong hệ thống ({suggestions.length}):</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowSuggestions(false);
+                          }}
+                          className="p-1 rounded text-zinc-400 hover:text-zinc-800 hover:bg-zinc-200/70 transition-colors"
+                          title="Tắt danh sách gợi ý (hoặc nhấn ESC)"
+                          aria-label="Đóng danh sách gợi ý"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                       {suggestions.map((item) => (
                         <button
@@ -219,7 +286,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                               {item.cuisine} • {item.city}
                             </p>
                           </div>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-semibold rounded-md">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-semibold rounded-md shrink-0">
                             <Zap className="w-2.5 h-2.5" /> Mở ngay
                           </span>
                         </button>
@@ -234,8 +301,9 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#18181B] mb-1.5">
-                  Khu vực / Thành phố
+                <label className="block text-xs font-semibold text-[#18181B] mb-1.5 flex items-center gap-1">
+                  <span>Khu vực / Thành phố</span>
+                  <span className="text-red-500 font-bold" title="Trường bắt buộc">*</span>
                 </label>
                 <select
                   value={city}
@@ -269,8 +337,9 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
             </>
           ) : (
             <div>
-              <label className="block text-xs font-semibold text-[#18181B] mb-1.5">
-                Đường dẫn quán ăn trên Foody.vn
+              <label className="block text-xs font-semibold text-[#18181B] mb-1.5 flex items-center gap-1">
+                <span>Đường dẫn quán ăn trên Foody.vn</span>
+                <span className="text-red-500 font-bold" title="Trường bắt buộc">*</span>
               </label>
               <div className="relative">
                 <input
@@ -280,8 +349,21 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="https://www.foody.vn/da-nang/banh-trang-tien-tien"
                   disabled={status === 'crawling'}
-                  className="w-full text-xs sm:text-sm px-3.5 py-2.5 bg-white border border-[#D4D4D8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C2410C]/20 focus:border-[#C2410C] transition-all text-[#18181B]"
+                  className={`w-full text-xs sm:text-sm pl-3.5 pr-9 py-2.5 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C2410C]/20 focus:border-[#C2410C] transition-all text-[#18181B] ${
+                    url.length > 0 && !isUrlValid ? 'border-amber-400' : 'border-[#D4D4D8]'
+                  }`}
                 />
+                {url && status !== 'crawling' && (
+                  <button
+                    type="button"
+                    onClick={() => setUrl('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors"
+                    title="Xóa đường dẫn"
+                    aria-label="Xóa đường dẫn"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
               <p className="text-[11px] text-[#71717A] mt-1">
                 Dán URL trang chi tiết nhà hàng trên Foody (chứa phần bình luận của khách hàng).
@@ -290,8 +372,9 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-[#18181B] mb-1.5">
-              Số lượng đánh giá thu thập
+            <label className="block text-xs font-semibold text-[#18181B] mb-1.5 flex items-center gap-1">
+              <span>Số lượng đánh giá thu thập</span>
+              <span className="text-red-500 font-bold" title="Trường bắt buộc">*</span>
             </label>
             <select
               value={maxReviews}
@@ -391,24 +474,37 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
           )}
 
           {/* Footer buttons */}
-          <div className="pt-3 border-t border-zinc-100 flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={status === 'crawling'}
-              className="px-4 py-2 text-xs font-medium text-[#71717A] hover:text-[#18181B] transition-colors"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={status === 'crawling' || (tab === 'keyword' ? !keyword.trim() : !url.trim())}
-              className="inline-flex items-center gap-1.5 px-4.5 py-2 bg-[#18181B] hover:bg-[#C2410C] text-white rounded-md text-xs font-semibold transition-colors disabled:opacity-50"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{tab === 'keyword' ? 'Xem báo cáo đánh giá' : 'Tổng hợp từ liên kết'}</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+          <div className="pt-3 border-t border-zinc-100 flex items-center justify-between gap-2">
+            {!isFormValid && status !== 'crawling' ? (
+              <span className="text-[11px] text-zinc-500 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 animate-pulse" />
+                <span>{tab === 'keyword' ? 'Nhập tên quán (≥ 2 ký tự) để mở khóa' : 'Dán đường dẫn Foody hợp lệ để mở khóa'}</span>
+              </span>
+            ) : <div />}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={status === 'crawling'}
+                className="px-4 py-2 text-xs font-medium text-[#71717A] hover:text-[#18181B] transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={status === 'crawling' || !isFormValid}
+                className={`inline-flex items-center gap-1.5 px-4.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                  isFormValid && status !== 'crawling'
+                    ? 'bg-[#C2410C] hover:bg-[#9A3412] text-white shadow-md shadow-orange-900/20 cursor-pointer active:scale-[0.98]'
+                    : 'bg-zinc-200 text-zinc-400 cursor-not-allowed border border-zinc-300/60 shadow-none'
+                }`}
+                title={!isFormValid ? (tab === 'keyword' ? 'Vui lòng nhập tên quán/món ăn (tối thiểu 2 ký tự) để kích hoạt' : 'Vui lòng nhập đường dẫn Foody hợp lệ để kích hoạt') : undefined}
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${isFormValid ? 'text-amber-200' : 'text-zinc-400'}`} />
+                <span>{tab === 'keyword' ? 'Xem báo cáo đánh giá' : 'Tổng hợp từ liên kết'}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </form>
 

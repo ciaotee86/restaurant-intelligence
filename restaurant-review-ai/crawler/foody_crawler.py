@@ -464,8 +464,6 @@ def _search_foody_via_http(query: str, city_slug: str = "da-nang", max_results: 
     seen_urls = set()
 
     for item in items:
-        if len(results) >= max_results:
-            break
         link_el = item.select_one("h2 a, .result-name a, a.res-name")
         if not link_el:
             continue
@@ -477,6 +475,17 @@ def _search_foody_via_http(query: str, city_slug: str = "da-nang", max_results: 
         addr_el = item.select_one(".address, .res-common-add")
         addr = addr_el.get_text(strip=True) if addr_el else ""
 
+        # Trích xuất số lượng đánh giá thực tế từ DOM Foody
+        review_count = 0
+        comment_icon = item.select_one(".fa-comment")
+        if comment_icon:
+            sib = comment_icon.find_next_sibling("span")
+            if sib:
+                try:
+                    review_count = int(sib.get_text(strip=True))
+                except Exception:
+                    pass
+
         if name and url and "foody.vn" in url and "/dia-diem" not in url and "/khu-vuc" not in url:
             clean_url = url.split("?")[0]
             if clean_url not in seen_urls:
@@ -484,10 +493,13 @@ def _search_foody_via_http(query: str, city_slug: str = "da-nang", max_results: 
                 results.append({
                     "name": name,
                     "url": clean_url,
-                    "address": addr
+                    "address": addr,
+                    "review_count": review_count
                 })
 
-    return results
+    # Ưu tiên các quán có review > 0 lên trước, nhiều review xếp trên
+    results.sort(key=lambda x: x.get("review_count", 0), reverse=True)
+    return results[:max_results]
 
 
 def search_foody_places(query: str, city_slug: str = "da-nang", max_results: int = 5):
@@ -522,8 +534,6 @@ def search_foody_places(query: str, city_slug: str = "da-nang", max_results: int
         print(f"  [Selenium Search] Phát hiện {len(items)} kết quả trên Foody.")
 
         for item in items:
-            if len(results) >= max_results:
-                break
             try:
                 link_el = item.find_element(By.CSS_SELECTOR, "h2 a, .result-name a, a.res-name")
                 name = link_el.text.strip()
@@ -536,6 +546,15 @@ def search_foody_places(query: str, city_slug: str = "da-nang", max_results: int
                 except Exception:
                     pass
 
+                review_count = 0
+                try:
+                    comment_el = item.find_element(By.CSS_SELECTOR, ".fa-comment + span")
+                    txt = comment_el.text.strip()
+                    if txt.isdigit():
+                        review_count = int(txt)
+                except Exception:
+                    pass
+
                 if name and url and "foody.vn" in url and "/dia-diem" not in url and "/khu-vuc" not in url:
                     clean_url = url.split("?")[0]
                     if clean_url not in seen_urls:
@@ -543,10 +562,14 @@ def search_foody_places(query: str, city_slug: str = "da-nang", max_results: int
                         results.append({
                             "name": name,
                             "url": clean_url,
-                            "address": addr
+                            "address": addr,
+                            "review_count": review_count
                         })
             except Exception:
                 continue
+
+        results.sort(key=lambda x: x.get("review_count", 0), reverse=True)
+        results = results[:max_results]
 
     except Exception as e:
         print(f"[Foody Search Error] {e}")
