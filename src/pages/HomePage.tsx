@@ -11,12 +11,9 @@ import {
   Quote, 
   ThumbsUp, 
   AlertTriangle, 
-  Trophy, 
   CheckCircle2, 
   MapPin, 
-  ChevronRight, 
-  Scale, 
-  Flame 
+  Scale 
 } from 'lucide-react';
 import { formatNumber } from '../utils/sentimentUtils';
 
@@ -56,25 +53,6 @@ export const HomePage: React.FC<HomePageProps> = ({
   // Lấy danh sách quán mẫu hiển thị ở Hero
   const sampleRestaurants = (restaurants && restaurants.length > 0) ? restaurants.slice(0, 3) : [];
   const activeSample = sampleRestaurants[selectedSampleIndex] || sampleRestaurants[0] || null;
-
-  // Bảng xếp hạng: Lọc top 3 quán có tỷ lệ khách hài lòng cao nhất
-  const leaderboard = (restaurants && restaurants.length > 0)
-    ? [...restaurants]
-        .sort((a, b) => (b.sentimentDistribution?.positive ?? 0) - (a.sentimentDistribution?.positive ?? 0))
-        .slice(0, 3)
-    : [];
-
-  // Quán tiêu biểu của tuần (Top 1)
-  const heroFeatured = leaderboard[0] || (restaurants && restaurants[0]) || null;
-
-  // Top quán có điểm ẩm thực cao nhất
-  const topFoodRestaurant = (restaurants && restaurants.length > 0)
-    ? [...restaurants].sort((a, b) => {
-        const foodA = a.aspects?.find(asp => asp.category === 'Món ăn')?.positivePercentage || 0;
-        const foodB = b.aspects?.find(asp => asp.category === 'Món ăn')?.positivePercentage || 0;
-        return foodB - foodA;
-      })[0] || null
-    : null;
 
   // Mẫu trích dẫn của quán đang chọn
   const activeQuote = activeSample?.reviews?.[0]?.text || activeSample?.sentimentSummarySentence || 'Nhận xét chân thực từ khách hàng.';
@@ -314,170 +292,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </section>
 
-      {/* 2. ASYMMETRIC BENTO GRID: BẢNG XẾP HẠNG & TIÊU ĐIỂM ẨM THỰC */}
-      {restaurants && restaurants.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
-            <div>
-              <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#C2410C] mb-1">
-                <Trophy className="w-4 h-4 text-[#C2410C]" />
-                <span>Tiêu điểm tuần</span>
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-black text-[#18181B] tracking-tight">
-                Bảng xếp hạng & Dấu ấn nổi bật
-              </h2>
-            </div>
-            <button
-              onClick={onNavigateExplore}
-              className="text-xs font-bold text-[#18181B] hover:text-[#C2410C] flex items-center gap-1 self-start sm:self-auto group"
-            >
-              <span>Xem toàn bộ xếp hạng</span>
-              <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </button>
-          </div>
 
-          {/* Bento Grid Bất Đối Xứng */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
-            {/* Card Lớn (Hero Bento): Quán Xuất Sắc Nhất Tuần (7 Cột) */}
-            {heroFeatured && (
-              <div 
-                onClick={() => onSelectRestaurant(heroFeatured.id)}
-                className="lg:col-span-7 bg-white border border-[#E5E3DE] hover:border-[#18181B] rounded-2xl p-6 sm:p-8 flex flex-col justify-between hover:shadow-craft transition-all cursor-pointer group"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-4">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold">
-                      <Flame className="w-3.5 h-3.5 text-amber-600" />
-                      Quán được đánh giá cao nhất tuần
-                    </span>
-                    <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
-                      {heroFeatured.sentimentDistribution?.positive ?? 0}% Hài lòng
-                    </span>
-                  </div>
-
-                  <h3 className="text-2xl sm:text-3xl font-black text-[#18181B] group-hover:text-[#C2410C] transition-colors tracking-tight mb-2">
-                    {heroFeatured.name}
-                  </h3>
-
-                  <p className="text-xs sm:text-sm text-zinc-500 flex items-center gap-2 mb-4">
-                    <MapPin className="w-4 h-4 text-zinc-400" />
-                    {heroFeatured.address} · {heroFeatured.cuisine}
-                  </p>
-
-                  <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed mb-6 bg-[#FAF9F5] p-4 rounded-xl border border-[#E5E3DE] italic">
-                    "{heroFeatured.sentimentSummarySentence || heroFeatured.reviews?.[0]?.text || 'Đánh giá chân thực từ khách hàng.'}"
-                  </p>
-
-                  {/* 4 Chỉ số khía cạnh hàng đầu */}
-                  {heroFeatured.aspects && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                      {heroFeatured.aspects.slice(0, 4).map(asp => (
-                        <div key={asp.category} className="bg-[#FAF9F5] border border-[#E5E3DE] p-3 rounded-lg text-center">
-                          <span className="block text-[11px] font-semibold text-zinc-500 uppercase">{asp.category}</span>
-                          <span className="text-base font-black text-[#18181B]">{asp.positivePercentage}%</span>
-                          <span className="block text-[10px] text-emerald-700 font-medium">tích cực</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between pt-4 border-t border-[#E5E3DE]">
-                  <span className="text-xs text-zinc-500 font-medium">
-                    Tổng hợp từ {formatNumber(heroFeatured.totalReviews || 0)} đánh giá thực tế
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#18181B] group-hover:text-[#C2410C]">
-                    Khám phá toàn bộ báo cáo →
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Cột Vệ Tinh (5 Cột): Gồm 2 card xếp tầng */}
-            <div className="lg:col-span-5 flex flex-col gap-6">
-              
-              {/* Card Vệ Tinh 1: Top Vị Ngon Đậm Đà */}
-              {topFoodRestaurant && (
-                <div
-                  onClick={() => onSelectRestaurant(topFoodRestaurant.id)}
-                  className="bg-white border border-[#E5E3DE] hover:border-[#18181B] rounded-2xl p-6 flex flex-col justify-between hover:shadow-craft transition-all cursor-pointer group"
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        🏆 Đỉnh cao vị giác
-                      </span>
-                      <span className="text-xs font-mono font-bold text-zinc-600">
-                        {topFoodRestaurant.aspects?.find(a => a.category === 'Món ăn')?.positivePercentage ?? 0}% Khen món
-                      </span>
-                    </div>
-
-                    <h4 className="text-lg font-bold text-[#18181B] group-hover:text-[#C2410C] transition-colors line-clamp-1 mb-1">
-                      {topFoodRestaurant.name}
-                    </h4>
-
-                    <p className="text-xs text-zinc-500 mb-3">
-                      {topFoodRestaurant.cuisine} · {topFoodRestaurant.city}
-                    </p>
-
-                    {topFoodRestaurant.strengths?.[0] && (
-                      <div className="text-xs text-emerald-900 bg-emerald-50/70 p-2.5 rounded-lg border border-emerald-100 mb-2">
-                        <strong>Món khách khen nhiều nhất:</strong> {topFoodRestaurant.strengths[0].title}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="text-xs font-bold text-zinc-800 group-hover:text-[#C2410C] flex items-center gap-1 pt-2">
-                    <span>Xem phân tích món ăn →</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Card Vệ Tinh 2: Minh Bạch Dữ Liệu */}
-              <div className="bg-[#FAF9F5] border border-[#E5E3DE] rounded-2xl p-6 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-zinc-700">
-                      Cơ chế xác thực nhận xét minh bạch
-                    </span>
-                  </div>
-
-                  <h4 className="text-base font-bold text-[#18181B] mb-2">
-                    Dữ liệu sạch, không thiên vị
-                  </h4>
-
-                  <p className="text-xs text-zinc-600 leading-relaxed mb-4">
-                    Hệ thống tự động loại bỏ các tài khoản ảo, nhận xét sao chép vô nghĩa hoặc bình luận quảng cáo không phản ánh trải nghiệm thực tế.
-                  </p>
-
-                  <div className="grid grid-cols-2 gap-2 text-center text-xs">
-                    <div className="bg-white p-2.5 rounded-lg border border-[#E5E3DE]">
-                      <span className="block font-black text-sm text-[#18181B]">100%</span>
-                      <span className="text-[10px] text-zinc-500">Khách thật</span>
-                    </div>
-                    <div className="bg-white p-2.5 rounded-lg border border-[#E5E3DE]">
-                      <span className="block font-black text-sm text-emerald-700">0%</span>
-                      <span className="text-[10px] text-zinc-500">Quảng cáo tài trợ</span>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={onNavigateHowItWorks}
-                  className="mt-4 text-xs font-bold text-[#C2410C] hover:underline flex items-center gap-1"
-                >
-                  <span>Tìm hiểu quy trình làm sạch dữ liệu →</span>
-                </button>
-              </div>
-
-            </div>
-
-          </div>
-        </section>
-      )}
 
       {/* 3. HEAD-TO-HEAD COMPARISON: SO SÁNH ĐỐI ĐẦU 2 QUÁN ĂN */}
       {restaurantA && restaurantB && (
