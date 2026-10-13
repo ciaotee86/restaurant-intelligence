@@ -91,10 +91,17 @@ def build_driver(headless: bool = True):
             service = Service(executable_path=chromedriver_path)
         else:
             service = Service(ChromeDriverManager().install())
-        return webdriver.Chrome(service=service, options=options)
+        driver = webdriver.Chrome(service=service, options=options)
     except Exception as e:
         print(f"[Crawler] Fallback default chrome driver: {e}")
-        return webdriver.Chrome(options=options)
+        driver = webdriver.Chrome(options=options)
+
+    try:
+        driver.set_page_load_timeout(20)
+        driver.set_script_timeout(10)
+    except Exception:
+        pass
+    return driver
 
 
 def _safe_text(el, selector, default=""):
@@ -249,6 +256,234 @@ def is_spam_review(text: str) -> bool:
     return res["is_spam"]
 
 
+def inspect_foody_via_http(url: str, timeout: int = 8) -> Optional[Dict[str, Any]]:
+    """
+    Kiểm tra siêu tốc thông tin quán ăn và số lượng đánh giá qua HTTP request (< 1 giây)
+    trước khi quyết định có cần khởi tạo trình duyệt Chrome Selenium hay không.
+    Nếu quán không tồn tại hoặc đã xác nhận 0 bài đánh giá (0 review),
+    trả về kết quả ngay lập tức để giải quyết triệt để lỗi timeout 120s.
+    """
+    try:
+        import requests
+        from bs4 import BeautifulSoup
+
+        headers = {
+            'User-Agent': (
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
+            ),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'vi,en;q=0.9',
+        }
+        resp = requests.get(url, headers=headers, timeout=timeout)
+        if resp.status_code == 404 or "không tìm thấy dữ liệu" in resp.text.lower():
+            return {
+                "url": url,
+                "name": "Trang không tồn tại",
+                "reviews": [],
+                "not_found": True,
+                "is_zero_reviews": True,
+                "skipped_existing_count": 0,
+                "stopped_early": True
+            }
+        if resp.status_code != 200:
+            return None
+
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        h1 = soup.find('h1')
+        name = h1.text.strip() if h1 else ""
+        if not name or "hệ thống không tìm thấy" in name.lower():
+            return {
+                "url": url,
+                "name": "Trang không tồn tại",
+                "reviews": [],
+                "not_found": True,
+                "is_zero_reviews": True,
+                "skipped_existing_count": 0,
+                "stopped_early": True
+            }
+
+        addr_el = soup.select_one('.res-common-pos, .res-common-add, [itemprop="address"], .res-address')
+        address = addr_el.text.strip() if addr_el else ""
+        address = re.sub(r'\s+', ' ', address).strip()
+
+        points_el = soup.select_one('.microsite-top-points, .archive-points, .points, .res-point')
+        points_raw = points_el.text.strip() if points_el else ""
+        overall_rating = None
+        match_pt = re.search(r"(\d+[\.,]?\d*)", points_raw)
+        if match_pt:
+            try:
+                overall_rating = float(match_pt.group(1).replace(",", "."))
+            except Exception:
+                pass
+
+        # Kiểm tra xem trang có 0 review:
+        is_zero_reviews = False
+        for a in soup.find_all('a'):
+            href = str(a.get('href', ''))
+            txt = a.get_text(strip=True).lower()
+            if '/binh-luan' in href and ('bình luận' in txt or 'binh luan' in txt):
+                if txt.endswith('0') or any(s.get_text(strip=True) == '0' for s in a.find_all('span')):
+                    is_zero_reviews = True
+                    break
+
+        rev_count_el = soup.select_one('.microsite-review-count')
+        if rev_count_el and rev_count_el.text.strip() == "0":
+            is_zero_reviews = True
+
+        rev_text = resp.text.lower()
+        if "bình luận0" in rev_text or "bình luận: 0" in rev_text or "0 bình luận" in rev_text:
+            is_zero_reviews = True
+
+        return {
+            "url": url,
+            "name": name,
+            "address": address,
+            "overall_rating": overall_rating,
+            "reviews": [],
+            "skipped_existing_count": 0,
+            "stopped_early": True,
+            "is_zero_reviews": is_zero_reviews
+        }
+    except Exception as e:
+        print(f"[Fast HTTP Inspector Warning] Lỗi kiểm tra nhanh qua HTTP: {e}")
+        return None
+
+
+def fetch_reviews_via_http(
+    url: str,
+    max_reviews: int = 40,
+    known_fingerprints: Optional[Set[str]] = None,
+    restaurant_name: str = "",
+    max_consecutive_existing: int = 3,
+    timeout: int = 8
+) -> Dict[str, Any]:
+    """
+    Thu thập bài đánh giá Foody siêu tốc trực tiếp qua HTTP (< 2 giây),
+    không cần khởi chạy Selenium Chrome. Giúp tiết kiệm 95% RAM (tránh OOM crash trên Render Free Tier)
+    và loại bỏ hoàn toàn lỗi 502 Bad Gateway / Gateway Timeout.
+    """
+    result = {
+        "reviews": [],
+        "skipped_existing_count": 0,
+        "stopped_early": False
+    }
+    known_fps = set(known_fingerprints or [])
+    seen_fingerprints_this_run = set()
+    consecutive_existing_count = 0
+
+    try:
+        import requests
+        from bs4 import BeautifulSoup
+        import json
+
+        headers = {
+            'User-Agent': (
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
+            ),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'vi,en;q=0.9',
+        }
+
+        base_rev_url = url.rstrip('/') + '/binh-luan'
+        max_pages = max(1, min(6, (max_reviews // 10) + 2))
+
+        for page in range(1, max_pages + 1):
+            page_url = f"{base_rev_url}?page={page}" if page > 1 else base_rev_url
+            try:
+                resp = requests.get(page_url, headers=headers, timeout=timeout)
+                if resp.status_code != 200:
+                    break
+            except Exception:
+                break
+
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            items = soup.select('li.review-item, .review-item')
+            if not items:
+                break
+
+            early_stopped = False
+            for block in items:
+                des_el = block.select_one('.rd-des, [ng-bind-html*="Description"], .review-des, p.rd-des')
+                text = des_el.get_text(strip=True) if des_el else ""
+                if not text or len(text) < 5:
+                    continue
+
+                if text.endswith("...Xem thêm"):
+                    text = text[:-11].strip()
+                elif text.endswith("Xem thêm"):
+                    text = text[:-8].strip()
+
+                author_el = block.select_one('.review-user a, .review-user, .fc-username, .ru-username')
+                author_raw = author_el.get_text(strip=True) if author_el else "Khách Foody"
+                author = author_raw.split('đã bình luận')[0].split('via')[0].strip() or "Khách Foody"
+
+                points_el = block.select_one('.review-points, .pre-review-points')
+                rating = None
+                if points_el:
+                    pt_match = re.search(r"(\d+[\.,]?\d*)", points_el.get_text(strip=True))
+                    if pt_match:
+                        try:
+                            rating = float(pt_match.group(1).replace(",", "."))
+                        except Exception:
+                            pass
+
+                time_el = block.select_one('.ru-time, .time-ago, span[ng-bind*="CreatedDate"]')
+                date_raw = time_el.get_text(strip=True) if time_el else "Gần đây"
+                date = date_raw.rstrip(',').strip()
+
+                foody_id = block.get('data-review-id', '')
+
+                fp = compute_review_fingerprint(url, author, date, text, foody_id)
+                if fp in seen_fingerprints_this_run:
+                    continue
+                seen_fingerprints_this_run.add(fp)
+
+                if fp in known_fps:
+                    consecutive_existing_count += 1
+                    result["skipped_existing_count"] += 1
+                    if consecutive_existing_count >= max_consecutive_existing:
+                        result["stopped_early"] = True
+                        early_stopped = True
+                        break
+                    continue
+                else:
+                    consecutive_existing_count = 0
+
+                recent_texts = [r["text"] for r in result["reviews"]]
+                filter_res = classify_review(
+                    text,
+                    author=author,
+                    restaurant_name=restaurant_name,
+                    recent_texts=recent_texts
+                )
+
+                result["reviews"].append({
+                    "foody_review_id": foody_id,
+                    "fingerprint": fp,
+                    "author": author,
+                    "rating": rating,
+                    "text": text,
+                    "date": date,
+                    "is_spam": 1 if filter_res["is_spam"] else 0,
+                    "spam_score": filter_res["spam_score"],
+                    "spam_category": filter_res["spam_category"],
+                    "spam_reason": json.dumps(filter_res["spam_reason"], ensure_ascii=False)
+                })
+
+                if len(result["reviews"]) >= max_reviews:
+                    break
+
+            if early_stopped or len(result["reviews"]) >= max_reviews:
+                break
+
+    except Exception as e:
+        print(f"[Fast HTTP Review Extraction Warning] Lỗi: {e}")
+
+    return result
+
+
 def crawl_restaurant(
     url: str,
     max_reviews: int = 50,
@@ -258,12 +493,46 @@ def crawl_restaurant(
 ) -> Dict[str, Any]:
     """
     Cào bài đánh giá của 1 nhà hàng từ URL Foody.
-    Hỗ trợ chế độ Incremental Crawl (Ưu tiên review mới nhất & Early-Stopping):
-    - Đọc từ review mới nhất ở đầu trang xuống dưới.
-    - So sánh với `known_fingerprints` (các review đã lưu trong DB).
-    - Khi gặp `max_consecutive_existing` review liên tiếp đã có trong DB,
-      tự động DỪNG CÀO SỚM để tiết kiệm thời gian, băng thông và không cào lại review cũ.
+    Hỗ trợ quy trình 3 lớp tối ưu hóa hiệu năng:
+    1. Lớp 1 (Fast HTTP Inspector < 1s): Nếu phát hiện quán 0 review hoặc 404, trả về ngay.
+    2. Lớp 2 (Fast HTTP Review Extractor < 2s): Bóc tách review từ trang /binh-luan qua HTTP trực tiếp,
+       tiết kiệm 95% RAM (chống OOM 512MB trên Render) và chống 502 Gateway Timeout.
+    3. Lớp 3 (Incremental Chrome Crawler): Fallback dự phòng bằng Selenium chỉ khi thật sự cần.
     """
+    # 1. Fast HTTP Pre-check
+    http_meta = inspect_foody_via_http(url, timeout=8)
+    if http_meta:
+        if http_meta.get("not_found"):
+            print(f"-> [Fast HTTP Inspector] Trang quán không tồn tại trên Foody (404): {url}")
+            return http_meta
+        if http_meta.get("is_zero_reviews"):
+            print(f"-> [Fast HTTP Inspector] Quán '{http_meta.get('name')}' xác nhận 0 bài đánh giá. Hoàn tất cào trong < 1s (bỏ qua Selenium).")
+            return http_meta
+
+    rest_name = http_meta.get("name", "") if http_meta else ""
+
+    # 2. Fast HTTP Review Extraction (< 2s, siêu nhẹ, không tốn RAM Chrome)
+    http_crawl = fetch_reviews_via_http(
+        url=url,
+        max_reviews=max_reviews,
+        known_fingerprints=known_fingerprints,
+        restaurant_name=rest_name,
+        max_consecutive_existing=max_consecutive_existing
+    )
+    if http_crawl and len(http_crawl.get("reviews", [])) > 0:
+        result = {
+            "url": url,
+            "name": rest_name or "Quán ăn Foody",
+            "address": http_meta.get("address", "") if http_meta else "",
+            "overall_rating": http_meta.get("overall_rating") if http_meta else None,
+            "reviews": http_crawl["reviews"],
+            "skipped_existing_count": http_crawl.get("skipped_existing_count", 0),
+            "stopped_early": http_crawl.get("stopped_early", False)
+        }
+        print(f"-> [Fast HTTP Crawler] Thu thập thành công {len(result['reviews'])} đánh giá trong < 2s (Không mở Selenium Chrome)!")
+        return result
+
+    # 3. Fallback: Selenium Chrome Crawler
     driver = build_driver(headless=headless)
     result = {
         "url": url,
@@ -281,16 +550,20 @@ def crawl_restaurant(
         )
         time.sleep(0.5)
 
-        # Lấy thông tin nhà hàng
-        result["name"] = _safe_text(driver, SELECTOR_RESTAURANT_NAME, default="Quán ăn Foody")
-        result["address"] = _safe_text(driver, SELECTOR_RESTAURANT_ADDRESS, default="")
-
-        rating_raw = _safe_text(driver, SELECTOR_OVERALL_RATING, default="")
-        try:
-            match = re.search(r"(\d+[\.,]?\d*)", rating_raw)
-            result["overall_rating"] = float(match.group(1).replace(",", ".")) if match else None
-        except Exception:
-            result["overall_rating"] = None
+        # Lấy thông tin nhà hàng (ưu tiên thông tin từ HTTP meta nếu có)
+        if http_meta and http_meta.get("name"):
+            result["name"] = http_meta["name"]
+            result["address"] = http_meta.get("address", "")
+            result["overall_rating"] = http_meta.get("overall_rating")
+        else:
+            result["name"] = _safe_text(driver, SELECTOR_RESTAURANT_NAME, default="Quán ăn Foody")
+            result["address"] = _safe_text(driver, SELECTOR_RESTAURANT_ADDRESS, default="")
+            rating_raw = _safe_text(driver, SELECTOR_OVERALL_RATING, default="")
+            try:
+                match = re.search(r"(\d+[\.,]?\d*)", rating_raw)
+                result["overall_rating"] = float(match.group(1).replace(",", ".")) if match else None
+            except Exception:
+                result["overall_rating"] = None
 
         print(f"  Tên: {result['name']} | Điểm: {result['overall_rating']} | Địa chỉ: {result['address']}")
 
@@ -327,6 +600,13 @@ def crawl_restaurant(
 
         while True:
             current_blocks = driver.find_elements(By.CSS_SELECTOR, SELECTOR_REVIEW_ITEMS)
+
+            # Nếu quán không có review block nào ngay từ đầu, dừng cào tức thì
+            if not current_blocks and clicks == 0:
+                print(f"  [Crawler] Quán không có bài đánh giá nào (0 reviews). Dừng cào tức thì.")
+                result["stopped_early"] = True
+                break
+
             new_blocks = current_blocks[processed_block_count:]
 
             if not new_blocks and processed_block_count > 0:

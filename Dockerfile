@@ -43,11 +43,12 @@ COPY restaurant-review-ai/ ./
 # Copy bản build frontend tĩnh từ STAGE 1 vào thư mục dist/
 COPY --from=frontend-builder /app/dist /app/dist
 
-# Tạo thư mục data để lưu SQLite DB và seed_data bảo vệ dữ liệu khi mount Volume
+# Tạo thư mục data để lưu SQLite DB, seed_data và symlink tương thích môi trường chạy
 RUN mkdir -p /app/data /app/seed_data && \
-    (cp /app/data/restaurants.db /app/seed_data/restaurants.db 2>/dev/null || true)
+    (cp /app/data/restaurants.db /app/seed_data/restaurants.db 2>/dev/null || true) && \
+    ln -s /app /app/restaurant-review-ai
 
 EXPOSE 10000
 
 # Chạy server FastAPI phục vụ cả REST API và Web tĩnh
-CMD ["sh", "-c", "uvicorn api_server:app --host 0.0.0.0 --port ${PORT:-10000}"]
+CMD ["sh", "-c", "exec uvicorn api_server:app --host 0.0.0.0 --port ${PORT:-10000}"]

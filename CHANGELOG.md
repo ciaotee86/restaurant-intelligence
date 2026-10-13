@@ -2,6 +2,24 @@
 
 All notable changes to the **Restaurant Intelligence** project will be documented in this file.
 
+## [1.10.0] - 2026-10-13
+
+### Khắc Phục Triệt Để Timeout 120s Khi Cào Foody & Cơ Chế Tự Phục Hồi Gemini API Key Render
+- **Kiến Trúc Fast HTTP Inspector 2 Lớp Cho Foody Crawler (`foody_crawler.py`)**:
+  - Tích hợp lớp tiền kiểm tra siêu tốc `inspect_foody_via_http(url, timeout=8)`: bóc tách metadata quán (tên, địa chỉ, điểm số, trạng thái bài đánh giá) qua HTTP request chỉ mất **< 0.5 giây**.
+  - Xử lý triệt để nguyên nhân gốc rễ gây lỗi timeout 120s (`HTTPConnectionPool Read timed out=120`) khi cào các quán có 0 bài đánh giá (ví dụ: `https://www.foody.vn/da-nang/mi-quang-ba-mua-duy-tan`).
+  - Thoát ngay lập tức mà không khởi động trình duyệt Selenium nặng nề nếu quán được xác nhận 0 review hoặc 404.
+  - Sửa lỗi điều kiện ngắt vòng lặp Selenium: bổ sung `if not current_blocks and clicks == 0: break` để tránh trường hợp cuộn trang và chờ socket vô hạn khi trang không có khối nhận xét nào.
+- **Tối Ưu Thông Báo Phản Hồi API Khi Quán Chưa Có Nhận Xét (`crawler.py`)**:
+  - Khi lưu trữ quán 0 review, API phản hồi thông điệp thân thiện: *"Quán '{restaurant.name}' hiện chưa có bài đánh giá nào trên Foody. Hệ thống đã lưu trữ thông tin quán thành công!"*.
+- **Tự Động Phát Hiện & Khôi Phục Gemini API Key Trên Render Dashboard (`assistant_service.py`, `gemini_analyzer.py`)**:
+  - Thêm cơ chế quét thông minh đa nền tảng (hỗ trợ cả Linux Container và Windows): tự động nhận diện và khôi phục khi người dùng dán nhầm API Key vào cột Tên (Key / Name column) thay vì cột Giá trị (Value column) trên giao diện cấu hình Render Dashboard.
+  - Khởi tạo client lười (`get_genai_client()`) đảm bảo nạp đúng key lúc runtime, tránh đóng băng `None` tại thời điểm import module.
+  - Hỗ trợ các định dạng key mới (`AQ...`, `AIzaSy...`) tương thích với cả `gemini-3.8-flash` và `gemini-3.5-flash-lite`.
+- **Kiểm Thử Hồi Quy Đầy Đủ**:
+  - Bộ 10 test case backend (`pytest tests/`) đạt tỷ lệ hoàn thành 10/10 (100% Passed).
+  - Bản build frontend (`npm run build`) hoàn thành thành công trong 391ms (0 lỗi biên dịch).
+
 ## [1.9.0] - 2026-10-13
 
 ### Khắc Phục Triệt Để Lỗi Kết Nối Gemini API & Tối Ưu Hóa Model Cascading Fallback

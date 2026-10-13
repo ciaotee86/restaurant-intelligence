@@ -20,7 +20,29 @@ load_dotenv()
 from google import genai
 from google.genai import types
 
-API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+def get_gemini_api_key() -> str | None:
+    key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not key:
+        base_dir = Path(__file__).resolve().parent.parent
+        load_dotenv(dotenv_path=base_dir / ".env")
+        load_dotenv()
+        key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not key:
+        for k, v in os.environ.items():
+            k_clean = k.strip()
+            v_clean = v.strip() if v else ""
+            if k_clean.startswith("AIzaSy") or k_clean.startswith("AQ."):
+                key = k_clean
+                break
+            if ("gemini" in k_clean.lower() or "google_api" in k_clean.lower()) and len(v_clean) > 15:
+                key = v_clean
+                break
+            if v_clean.startswith("AIzaSy"):
+                key = v_clean
+                break
+    return key.strip() if key else None
+
+API_KEY = get_gemini_api_key()
 
 MODEL_NAME = "gemini-3.5-flash-lite"
 
@@ -98,10 +120,19 @@ DANH SÁCH REVIEW:
 """
 
 
-client = None
+_cached_client = None
 
-if API_KEY:
-    client = genai.Client(api_key=API_KEY)
+def get_genai_client():
+    global _cached_client
+    if _cached_client is not None:
+        return _cached_client
+    key = get_gemini_api_key()
+    if key:
+        try:
+            _cached_client = genai.Client(api_key=key)
+        except Exception as e:
+            print(f"[Gemini Analyzer Warning] Lỗi khởi tạo client: {e}")
+    return _cached_client
 
 
 def analyze_batch_reviews(reviews: list, retries: int = 3) -> list:
@@ -125,9 +156,9 @@ def analyze_batch_reviews(reviews: list, retries: int = 3) -> list:
         }
     ]
     """
-
+    client = get_genai_client()
     if not client:
-        print("  [Cảnh báo] Chưa cấu hình GEMINI_API_KEY.")
+        print("  [Cảnh báo] Chưa cấu hình hoặc không thể khởi tạo GEMINI_API_KEY.")
 
         return [
             {

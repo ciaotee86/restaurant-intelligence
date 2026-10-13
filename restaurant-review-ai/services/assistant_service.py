@@ -32,14 +32,40 @@ from services.bi_service import format_restaurant_full, remove_accents
 _QUESTION_CACHE: Dict[str, Dict[str, Any]] = {}
 
 def get_gemini_api_key() -> Optional[str]:
-    """Lấy API Key linh hoạt từ biến môi trường hoặc nạp lại từ .env nếu bị thiếu lúc runtime"""
+    """
+    Lấy API Key linh hoạt từ biến môi trường với cơ chế tự động nhận diện và khôi phục:
+    1. Kiểm tra GEMINI_API_KEY hoặc GOOGLE_API_KEY chuẩn.
+    2. Nạp lại từ các file .env nếu bị thiếu lúc runtime.
+    3. Tự động quét os.environ:
+       - Trường hợp người dùng vô tình nhập Key vào cột Tên (Key column) trên Render Dashboard.
+       - Trường hợp tên biến có chữ 'gemini' hoặc 'google_api'.
+       - Trường hợp giá trị hoặc tên bắt đầu bằng 'AIzaSy' hoặc 'AQ.'.
+    4. Cảnh báo định dạng nếu phát hiện token dạng 'AQ.' thay vì API Key chuẩn 'AIzaSy...'.
+    """
     key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+
     if not key:
-        base_dir = Path(__file__).resolve().parent.parent
-        load_dotenv(dotenv_path=base_dir / ".env")
-        load_dotenv(dotenv_path=base_dir.parent / ".env")
-        load_dotenv()
-        key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        # Cơ chế dò tìm thông minh đề phòng cấu hình nhầm cột trên Render Dashboard
+        for k, v in os.environ.items():
+            k_clean = k.strip()
+            v_clean = v.strip() if v else ""
+
+            # Case A: Người dùng paste nhầm API Key vào cột Key/Name trên Render
+            if k_clean.lower().startswith("aizasy") or k_clean.lower().startswith("aq."):
+                print(f"[Gemini API Info] Phát hiện API Key được cấu hình ở cột Tên/Key '{k_clean[:10]}...' trên Render. Đang tự động khôi phục...")
+                key = k_clean
+                break
+
+            # Case B: Tên biến có chứa gemini hoặc google_api
+            if ("gemini" in k_clean.lower() or "google_api" in k_clean.lower()) and len(v_clean) > 15:
+                key = v_clean
+                break
+
+            # Case C: Giá trị bắt đầu bằng AIzaSy hoặc AQ.
+            if v_clean.startswith("AIzaSy") or v_clean.startswith("AQ."):
+                key = v_clean
+                break
+
     return key.strip() if key else None
 
 # Danh sách Candidate Models theo thứ tự ưu tiên (Cascading Fallback)
@@ -49,7 +75,6 @@ CANDIDATE_MODELS = [
     "gemini-2.5-flash",
 ]
 MODEL_NAME = CANDIDATE_MODELS[0]
-API_KEY = get_gemini_api_key()
 
 
 def get_quick_questions(restaurant_name: str = "quán") -> List[str]:

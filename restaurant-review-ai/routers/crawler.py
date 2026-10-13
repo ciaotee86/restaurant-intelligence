@@ -84,9 +84,15 @@ def analyze_foody_url(req: AnalyzeRequest):
             )
             invalidate_restaurants_cache()
             formatted = format_restaurant_full(restaurant, db)
+            rev_count = len(crawl_data.get('reviews', []))
+            if rev_count > 0:
+                msg = f"Đã cào và phân tích thành công {rev_count} đánh giá thực tế!"
+            else:
+                msg = f"Quán '{restaurant.name}' hiện chưa có bài đánh giá nào trên Foody. Hệ thống đã lưu trữ thông tin quán thành công!"
+
             return {
                 "success": True,
-                "message": f"Đã cào và phân tích thành công {len(crawl_data.get('reviews', []))} đánh giá thực tế!",
+                "message": msg,
                 "restaurant": formatted
             }
 

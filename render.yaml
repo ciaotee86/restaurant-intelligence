@@ -5,6 +5,7 @@ services:
     dockerfilePath: Dockerfile
     plan: free
     region: singapore
+    healthCheckPath: /healthz
     envVars:
       - key: GEMINI_API_KEY
         sync: false

@@ -72,6 +72,13 @@ app.add_middleware(
 app.include_router(restaurants_router)
 app.include_router(crawler_router)
 
+@app.get("/healthz")
+@app.get("/health")
+def healthz():
+    """Health check endpoint cho Render và Docker health probes"""
+    return {"status": "ok", "service": "restaurant-intelligence"}
+
+
 from fastapi.responses import JSONResponse
 from fastapi import Request
 
