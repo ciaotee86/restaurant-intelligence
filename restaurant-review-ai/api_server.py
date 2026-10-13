@@ -6,6 +6,7 @@ Kiến trúc tinh gọn, module hóa (Routers & Services).
 import os
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Đảm bảo UTF-8 console output trên Windows và Linux
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
@@ -18,6 +19,16 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
 CURRENT_DIR = Path(__file__).resolve().parent
 if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
+
+# Nạp biến môi trường từ các file .env khả dĩ ngay khi khởi chạy server
+load_dotenv(dotenv_path=CURRENT_DIR / ".env")
+load_dotenv(dotenv_path=CURRENT_DIR.parent / ".env")
+load_dotenv()
+
+if os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"):
+    print("-> [Environment] GEMINI_API_KEY đã được nạp thành công.")
+else:
+    print("-> [Environment Cảnh báo] Chưa tìm thấy GEMINI_API_KEY. Hệ thống sẽ tự động dùng Local BI Fallback khi cần.")
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware

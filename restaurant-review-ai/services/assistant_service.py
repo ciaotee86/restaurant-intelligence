@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
+load_dotenv(dotenv_path=env_path.parent / ".env")
 load_dotenv()
 
 # Đảm bảo console UTF-8 trên Windows
@@ -30,8 +31,25 @@ from services.bi_service import format_restaurant_full, remove_accents
 # In-memory FAQ & Question Cache: key = f"{restaurant_id}:{normalized_question}"
 _QUESTION_CACHE: Dict[str, Dict[str, Any]] = {}
 
-API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-MODEL_NAME = "gemini-3.5-flash-lite"
+def get_gemini_api_key() -> Optional[str]:
+    """Lấy API Key linh hoạt từ biến môi trường hoặc nạp lại từ .env nếu bị thiếu lúc runtime"""
+    key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not key:
+        base_dir = Path(__file__).resolve().parent.parent
+        load_dotenv(dotenv_path=base_dir / ".env")
+        load_dotenv(dotenv_path=base_dir.parent / ".env")
+        load_dotenv()
+        key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    return key.strip() if key else None
+
+# Danh sách Candidate Models theo thứ tự ưu tiên (Cascading Fallback)
+CANDIDATE_MODELS = [
+    "gemini-3.5-flash-lite",
+    "gemini-3.8-flash",
+    "gemini-2.5-flash",
+]
+MODEL_NAME = CANDIDATE_MODELS[0]
+API_KEY = get_gemini_api_key()
 
 
 def get_quick_questions(restaurant_name: str = "quán") -> List[str]:
@@ -608,9 +626,12 @@ def synthesize_local_answer(restaurant_data: Dict[str, Any], intent: str) -> str
 def call_gemini_assistant_raw(restaurant_data: Dict[str, Any], question: str) -> Optional[str]:
     """
     Gọi Gemini API cho chế độ Sáng tạo sâu.
+    Hỗ trợ Dynamic API Key resolution và Model Cascading Fallback tự động.
     Prompt được định vị chuẩn Chuyên viên Phân tích Nền tảng độc lập, tuân thủ Guardrails nghiêm ngặt.
     """
-    if not API_KEY:
+    api_key = get_gemini_api_key()
+    if not api_key:
+        print("[Gemini Assistant Warning] Chưa cấu hình GEMINI_API_KEY trong biến môi trường hoặc .env. Chuyển sang Local BI Fallback.")
         return None
 
     name = restaurant_data.get("name", "Quán")
@@ -647,16 +668,29 @@ QUY TẮC PHÂN TÍCH & GUARDRAILS (BẮT BUỘC TUÂN THỦ):
 
     try:
         from google import genai
-        client = genai.Client(api_key=API_KEY)
-        response = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=f"{system_context}\n\nCâu hỏi cần phân tích: {question}"
-        )
-        if response and response.text:
-            return response.text.strip()
+        client = genai.Client(api_key=api_key)
+        
+        last_error = None
+        for model in CANDIDATE_MODELS:
+            try:
+                response = client.models.generate_content(
+                    model=model,
+                    contents=f"{system_context}\n\nCâu hỏi cần phân tích: {question}"
+                )
+                if response and response.text:
+                    return response.text.strip()
+            except Exception as model_err:
+                last_error = model_err
+                safe_err = str(model_err).encode("ascii", "replace").decode("ascii")
+                print(f"[Gemini Assistant Warning] Model '{model}' không thành công: {safe_err}. Thử model dự phòng...")
+                continue
+
+        if last_error:
+            safe_err = str(last_error).encode("ascii", "replace").decode("ascii")
+            print(f"[Gemini Assistant Error] Tất cả candidate models đều gặp lỗi: {safe_err}")
     except Exception as e:
         safe_err = str(e).encode("ascii", "replace").decode("ascii")
-        print(f"[Gemini Assistant Error] {safe_err}")
+        print(f"[Gemini Assistant Error] Lỗi khởi tạo client: {safe_err}")
 
     return None
 

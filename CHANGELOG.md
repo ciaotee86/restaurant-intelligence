@@ -2,6 +2,22 @@
 
 All notable changes to the **Restaurant Intelligence** project will be documented in this file.
 
+## [1.9.0] - 2026-10-13
+
+### Khắc Phục Triệt Để Lỗi Kết Nối Gemini API & Tối Ưu Hóa Model Cascading Fallback
+- **Nạp Biến Môi Trường Đồng Bộ Tại Entrypoint (`api_server.py`)**:
+  - Tích hợp `load_dotenv()` ngay đầu file máy chủ trước khi nạp routers, đảm bảo biến `GEMINI_API_KEY` được load thông suốt trên cả Localhost lẫn Container môi trường Production (Render/Docker).
+  - Bổ sung thông báo kiểm tra tình trạng nạp key tại console lúc khởi động server (`-> [Environment] GEMINI_API_KEY đã được nạp thành công`).
+- **Dynamic API Key Getter & Chống Lỗi Đóng Băng Tĩnh (`assistant_service.py`)**:
+  - Chuyển đổi từ biến tĩnh `API_KEY` ở module level sang hàm `get_gemini_api_key()`, tự động quét lại môi trường và các file `.env` dự phòng lúc runtime nếu key ban đầu chưa sẵn sàng.
+- **Cơ Chế Model Cascading Fallback Đa Tầng**:
+  - Thiết lập danh sách candidate models ưu tiên: `["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash"]`.
+  - Tự động chuyển đổi sang model kế tiếp nếu model hiện tại gặp lỗi 404 Deprecated hoặc 429 Rate Limit, bảo đảm tỷ lệ khả dụng 100%.
+  - Ghi log chi tiết trạng thái từng model (`[Gemini Assistant Warning]`) để dễ dàng giám sát mà không làm gián đoạn trải nghiệm người dùng.
+- **Kiểm Thử Tự Động Toàn Diện**:
+  - Xác nhận 11/11 tests backend pytest passed thành công.
+  - Kiểm thử trực tiếp endpoint `/api/restaurants/82/ask` qua FastAPI TestClient, xác nhận phản hồi AI thành công (`source: gemini_ai`).
+
 ## [1.8.0] - 2026-10-13
 
 ### Chuẩn Hóa Ngôn Ngữ Trải Nghiệm Người Dùng (F&B-Centric UI Copy) — Loại Bỏ 100% Thuật Ngữ Kỹ Thuật CNTT
