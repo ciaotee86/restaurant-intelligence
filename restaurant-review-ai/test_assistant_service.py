@@ -125,6 +125,45 @@ class TestAssistantService(unittest.TestCase):
             res_tc07_cached = ask_assistant(restaurant, db, "Quán hiện có bao nhiêu bài đánh giá?", force_ai=False)
             self.assertEqual(res_tc07_cached["source"], "cache")
 
+    def test_force_ai_endpoint_and_service(self):
+        """Kiểm thử Chế độ Phân tích Chuyên sâu (force_ai / forceAi) qua API Server"""
+        from fastapi.testclient import TestClient
+        from api_server import app
+
+        client = TestClient(app)
+        with get_session() as db:
+            restaurant = db.query(DBRestaurant).first()
+            if not restaurant:
+                self.skipTest("Không có nhà hàng trong database")
+
+            # 1. Kiểm tra với payload camelCase: forceAi = True
+            res_camel = client.post(
+                f"/api/restaurants/{restaurant.id}/ask",
+                json={"question": "Món ăn nào được khen nhiều nhất?", "forceAi": True}
+            )
+            self.assertEqual(res_camel.status_code, 200)
+            data_camel = res_camel.json()
+            self.assertTrue(data_camel["success"])
+            self.assertIn(data_camel["source"], ["gemini_ai", "local_bi", "cache"])
+
+            # 2. Kiểm tra với payload snake_case: force_ai = True
+            res_snake = client.post(
+                f"/api/restaurants/{restaurant.id}/ask",
+                json={"question": "Dịch vụ ở đây thế nào?", "force_ai": True}
+            )
+            self.assertEqual(res_snake.status_code, 200)
+            data_snake = res_snake.json()
+            self.assertTrue(data_snake["success"])
+            self.assertIn(data_snake["source"], ["gemini_ai", "local_bi", "cache"])
+
+            # 3. Kiểm tra với tên nhà hàng có dấu hoặc ký tự đặc biệt
+            res_name = client.post(
+                f"/api/restaurants/{restaurant.name}/ask",
+                json={"question": "Không gian quán thế nào?", "force_ai": False}
+            )
+            self.assertEqual(res_name.status_code, 200)
+            self.assertTrue(res_name.json()["success"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -266,10 +266,11 @@ class RestaurantService {
   ): Promise<{ success: boolean; answer: string; source: 'local_bi' | 'cache' | 'gemini_ai'; error?: string }> {
     try {
       const baseUrl = getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/restaurants/${restaurantId}/ask`, {
+      const safeId = encodeURIComponent(restaurantId.trim());
+      const response = await fetch(`${baseUrl}/restaurants/${safeId}/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, force_ai: forceAi })
+        body: JSON.stringify({ question, force_ai: forceAi, forceAi })
       });
       if (response.ok) {
         const data = await response.json();
@@ -379,6 +380,10 @@ class RestaurantService {
       answer = `📋 **Kế hoạch Hành động Cải thiện Vận hành cho ${r.name}:**\n\n${items || 'Tiếp tục duy trì chất lượng món ăn và phát huy phong độ phục vụ.'}`;
     } else {
       answer = `📊 **Báo cáo Tổng thể Đánh giá Thực tế tại ${r.name}:**\n\n- **Quy mô dữ liệu:** Phân tích dựa trên **${totalRev} bài đánh giá thực tế** từ thực khách.\n- **Cảm xúc thực khách:** **${posPct}% Hài lòng**, **${neutPct}% Trung lập**, **${negPct}% Chưa ưng ý**.\n- **Khía cạnh xuất sắc nhất:** **${r.strengths?.[0]?.aspect || 'Món ăn'}**.\n- ${r.sentimentSummarySentence || 'Quán đang duy trì phong độ phục vụ tốt.'}`;
+    }
+
+    if (forceAi) {
+      answer = `> [!NOTE]\n> *Chế độ Phân tích Chuyên sâu (Gemini AI) chưa thể kết nối đến máy chủ Backend API. Hệ thống đang tạm thời hiển thị dữ liệu tổng hợp cục bộ (Local BI):*\n\n` + answer;
     }
 
     return {

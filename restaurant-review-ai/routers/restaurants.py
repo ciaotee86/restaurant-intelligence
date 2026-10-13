@@ -6,8 +6,9 @@ gợi ý tự động và kiểm tra sức khỏe hệ thống (Health Check).
 import re
 from datetime import datetime
 from typing import Optional
+from urllib.parse import unquote
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from database.models import (
     Restaurant as DBRestaurant,
@@ -223,29 +224,33 @@ def search_restaurants_db(
 
 def find_restaurant(db, identifier: str) -> Optional[DBRestaurant]:
     """Tìm nhà hàng linh hoạt theo id số, res-{id}, foody_url slug, hoặc tên"""
-    if identifier.isdigit():
-        r = db.query(DBRestaurant).filter_by(id=int(identifier)).first()
+    clean_id = unquote(identifier).strip() if identifier else ""
+    if not clean_id:
+        return None
+
+    if clean_id.isdigit():
+        r = db.query(DBRestaurant).filter_by(id=int(clean_id)).first()
         if r:
             return r
 
-    if identifier.startswith("res-") and identifier[4:].isdigit():
-        r = db.query(DBRestaurant).filter_by(id=int(identifier[4:])).first()
+    if clean_id.startswith("res-") and clean_id[4:].isdigit():
+        r = db.query(DBRestaurant).filter_by(id=int(clean_id[4:])).first()
         if r:
             return r
 
     restaurants = db.query(DBRestaurant).all()
     # 1. Khớp chính xác tên hoặc res-{id}
     for r in restaurants:
-        if r.name.lower() == identifier.lower() or f"res-{r.id}" == identifier:
+        if r.name.lower() == clean_id.lower() or f"res-{r.id}" == clean_id:
             return r
 
     # 2. Khớp theo URL Foody (slug trên url)
     for r in restaurants:
-        if r.foody_url and identifier.lower() in r.foody_url.lower():
+        if r.foody_url and clean_id.lower() in r.foody_url.lower():
             return r
 
     # 3. Khớp mờ theo tên không dấu
-    norm_id = remove_accents(identifier.lower()).replace("-", " ").strip()
+    norm_id = remove_accents(clean_id.lower()).replace("-", " ").strip()
     for r in restaurants:
         norm_name = remove_accents(r.name.lower()).replace("-", " ")
         if norm_id in norm_name or norm_name in norm_id:
@@ -299,7 +304,9 @@ def get_suggestions(q: str = ""):
 
 class AskAssistantRequest(BaseModel):
     question: str
-    force_ai: bool = False
+    force_ai: bool = Field(False, alias="forceAi")
+
+    model_config = {"populate_by_name": True}
 
 
 @router.get("/restaurants/{identifier}/quick-questions")

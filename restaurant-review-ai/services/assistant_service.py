@@ -71,8 +71,9 @@ def get_gemini_api_key() -> Optional[str]:
 # Danh sách Candidate Models theo thứ tự ưu tiên (Cascading Fallback)
 CANDIDATE_MODELS = [
     "gemini-3.5-flash-lite",
-    "gemini-3.8-flash",
     "gemini-2.5-flash",
+    "gemini-3.8-flash",
+    "gemini-flash-lite-latest",
 ]
 MODEL_NAME = CANDIDATE_MODELS[0]
 

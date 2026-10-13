@@ -2,6 +2,24 @@
 
 All notable changes to the **Restaurant Intelligence** project will be documented in this file.
 
+## [1.11.0] - 2026-10-13
+
+### Sửa Lỗi Chế Độ Trợ Lý Phân Tích Chuyên Sâu (Deep Creative AI) & Khởi Động Đa Nền Tảng
+- **Sửa Lỗi Khởi Động Script `npm run dev` Trên Windows PowerShell 5.1 (`package.json`)**:
+  - Loại bỏ cú pháp toán tử `&&` trong `"cd restaurant-review-ai && python api_server.py"` vì gây lỗi biên dịch nghiêm trọng (`InvalidEndOfLine: The token '&&' is not a valid statement separator`) trên PowerShell 5.1 mặc định của Windows.
+  - Thay bằng đường dẫn gọi trực tiếp `"python restaurant-review-ai/api_server.py"` chạy tương thích 100% trên cả Windows PowerShell, CMD, Bash, Linux và macOS.
+  - Giúp FastAPI Backend luôn khởi động đồng thời cùng Vite, chấm dứt việc Frontend bị rớt kết nối dẫn đến rơi vào Local Offline Synthesis.
+- **Tương Thích Payload Pydantic Đa Quy Ước (`routers/restaurants.py`)**:
+  - Bổ sung alias `forceAi` và cấu hình `model_config = {"populate_by_name": True}` trong schema `AskAssistantRequest`, hỗ trợ cả chuẩn JavaScript camelCase (`forceAi`) lẫn Python snake_case (`force_ai`).
+- **An Toàn Khớp Định Danh Quán Ăn Có Dấu & Ký Tự Đặc Biệt (`routers/restaurants.py`, `restaurantService.ts`)**:
+  - Thêm `unquote(identifier)` và `encodeURIComponent(restaurantId)` khi gọi endpoint `/api/restaurants/{id}/ask`, xử lý thông suốt các định danh tên quán tiếng Việt và slug chứa dấu cách / dấu gạch ngang.
+- **Minh Bạch Hóa Thông Báo Khi Mất Kết Nối Máy Chủ (`restaurantService.ts`)**:
+  - Khi người dùng bật toggle "Phân tích chuyên sâu" nhưng máy chủ backend tạm thời không phản hồi, client-side fallback tự động hiển thị khối thông báo rõ ràng (`> [!NOTE]`) giải thích lý do, thay vì âm thầm trả về kết quả số liệu cục bộ gây hiểu lầm.
+- **Mở Rộng Model Cascading Fallback Cho Gemini Assistant (`assistant_service.py`)**:
+  - Bổ sung `gemini-flash-lite-latest` và ưu tiên `gemini-3.5-flash-lite`, `gemini-2.5-flash` mang lại tốc độ phản hồi nhanh và tỷ lệ sẵn sàng cao nhất.
+- **Bổ Sung Bộ Test Case Tự Động (`test_assistant_service.py`)**:
+  - Thêm `test_force_ai_endpoint_and_service` bao phủ kiểm tra cả 2 dạng payload `force_ai` / `forceAi`, định danh tiếng Việt và phản hồi `gemini_ai`. 100% tests vượt qua thành công.
+
 ## [1.10.0] - 2026-10-13
 
 ### Khắc Phục Triệt Để Timeout 120s Khi Cào Foody & Cơ Chế Tự Phục Hồi Gemini API Key Render
