@@ -1,7 +1,6 @@
 import React from 'react';
 import type { SearchFilterState } from '../../types/restaurant';
 import { Filter, RotateCcw } from 'lucide-react';
-
 import { VIETNAM_CITIES } from '../../utils/cityUtils';
 
 interface FilterBarProps {
@@ -9,6 +8,7 @@ interface FilterBarProps {
   onChange: (filters: SearchFilterState) => void;
   onReset: () => void;
 }
+
 export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, onReset }) => {
   const cities = [
     'Tất cả địa điểm',
@@ -25,33 +25,33 @@ export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, onReset
   ];
 
   return (
-    <div className="bg-white border border-[#E4E4E7] rounded-lg p-4 sm:p-5 space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="bg-white border border-[#E8E4DC] rounded-2xl p-5 sm:p-6 space-y-5 shadow-editorial-sm">
+      <div className="flex items-center justify-between pb-3 border-b border-[#E8E4DC]">
         <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-zinc-500" />
-          <h3 className="text-xs font-bold text-[#18181B] uppercase tracking-wider">
+          <Filter className="w-4 h-4 text-[#991B1B]" />
+          <h3 className="font-display font-bold text-sm text-[#1C1917] uppercase tracking-wider">
             Bộ lọc & Tinh chỉnh
           </h3>
         </div>
         <button
           onClick={onReset}
-          className="text-xs text-[#71717A] hover:text-[#18181B] flex items-center gap-1 transition-colors"
+          className="text-xs text-[#8C857B] hover:text-[#991B1B] flex items-center gap-1.5 transition-colors font-medium"
         >
           <RotateCcw className="w-3 h-3" />
           <span>Đặt lại bộ lọc</span>
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {/* Bộ lọc Thành phố */}
         <div>
-          <label className="block text-[11px] font-semibold text-[#71717A] uppercase tracking-wider mb-1">
+          <label className="block text-[11px] font-semibold text-[#78716C] uppercase tracking-wider mb-1.5">
             Địa điểm
           </label>
           <select
             value={filters.city}
             onChange={(e) => onChange({ ...filters, city: e.target.value })}
-            className="w-full bg-zinc-50 border border-[#D4D4D8] rounded-md px-3 py-2 text-xs text-[#18181B] focus:outline-none focus:ring-1 focus:ring-zinc-800"
+            className="w-full bg-[#FAF7F2] border border-[#E8E4DC] rounded-xl px-3 py-2 text-xs text-[#1C1917] focus:outline-none focus:border-[#991B1B]"
           >
             {cities.map((c) => (
               <option key={c} value={c}>
@@ -63,13 +63,13 @@ export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, onReset
 
         {/* Bộ lọc Ẩm thực */}
         <div>
-          <label className="block text-[11px] font-semibold text-[#71717A] uppercase tracking-wider mb-1">
+          <label className="block text-[11px] font-semibold text-[#78716C] uppercase tracking-wider mb-1.5">
             Loại hình ẩm thực
           </label>
           <select
             value={filters.cuisineCategory}
             onChange={(e) => onChange({ ...filters, cuisineCategory: e.target.value })}
-            className="w-full bg-zinc-50 border border-[#D4D4D8] rounded-md px-3 py-2 text-xs text-[#18181B] focus:outline-none focus:ring-1 focus:ring-zinc-800"
+            className="w-full bg-[#FAF7F2] border border-[#E8E4DC] rounded-xl px-3 py-2 text-xs text-[#1C1917] focus:outline-none focus:border-[#991B1B]"
           >
             {cuisines.map((c) => (
               <option key={c} value={c}>
@@ -81,13 +81,13 @@ export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, onReset
 
         {/* Điểm tối thiểu */}
         <div>
-          <label className="block text-[11px] font-semibold text-[#71717A] uppercase tracking-wider mb-1">
+          <label className="block text-[11px] font-semibold text-[#78716C] uppercase tracking-wider mb-1.5">
             Điểm đánh giá tối thiểu
           </label>
           <select
             value={filters.minRating}
             onChange={(e) => onChange({ ...filters, minRating: Number(e.target.value) })}
-            className="w-full bg-zinc-50 border border-[#D4D4D8] rounded-md px-3 py-2 text-xs text-[#18181B] focus:outline-none focus:ring-1 focus:ring-zinc-800"
+            className="w-full bg-[#FAF7F2] border border-[#E8E4DC] rounded-xl px-3 py-2 text-xs text-[#1C1917] focus:outline-none focus:border-[#991B1B]"
           >
             <option value={0}>Tất cả điểm số</option>
             <option value={4.0}>4.0 ★ trở lên</option>
@@ -98,7 +98,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, onReset
 
         {/* Trạng thái cảm xúc */}
         <div>
-          <label className="block text-[11px] font-semibold text-[#71717A] uppercase tracking-wider mb-1">
+          <label className="block text-[11px] font-semibold text-[#78716C] uppercase tracking-wider mb-1.5">
             Mức độ hài lòng
           </label>
           <select
@@ -109,7 +109,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, onReset
                 sentimentHealth: e.target.value as SearchFilterState['sentimentHealth']
               })
             }
-            className="w-full bg-zinc-50 border border-[#D4D4D8] rounded-md px-3 py-2 text-xs text-[#18181B] focus:outline-none focus:ring-1 focus:ring-zinc-800"
+            className="w-full bg-[#FAF7F2] border border-[#E8E4DC] rounded-xl px-3 py-2 text-xs text-[#1C1917] focus:outline-none focus:border-[#991B1B]"
           >
             <option value="all">Tất cả mức độ</option>
             <option value="high_positive">Được khen nhiều (&gt;75% hài lòng)</option>
@@ -120,9 +120,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, onReset
       </div>
 
       {/* Sắp xếp kết quả */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-100 text-xs">
-        <span className="text-[#71717A]">Sắp xếp theo:</span>
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#E8E4DC] text-xs">
+        <span className="text-[#78716C] font-medium">Sắp xếp theo:</span>
+        <div className="flex flex-wrap items-center gap-2">
           {(
             [
               { id: 'reviews', label: 'Nhiều đánh giá nhất' },
@@ -134,10 +134,10 @@ export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, onReset
             <button
               key={opt.id}
               onClick={() => onChange({ ...filters, sortBy: opt.id })}
-              className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-xs transition-all ${
                 filters.sortBy === opt.id
-                  ? 'bg-zinc-900 text-white font-semibold shadow-2xs'
-                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+                  ? 'bg-[#1C1917] text-white font-bold shadow-editorial-sm'
+                  : 'bg-[#F2EFE9] text-[#57534E] hover:bg-[#E8E4DC] font-medium'
               }`}
             >
               {opt.label}

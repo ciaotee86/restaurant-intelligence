@@ -91,15 +91,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       />
 
       {/* 2. TAB SELECTOR: BỘ CHUYỂN ĐỔI 3 GÓC NHÌN */}
-      <div className="bg-[#FBF9F5] border-b border-[#E5E3DE] sticky top-16 z-30 shadow-2xs">
+      <div className="bg-[#F8F6F0]/95 backdrop-blur-sm border-b border-[#E8E4DC] sticky top-16 z-30 shadow-editorial-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-2 sm:gap-3 overflow-x-auto py-2.5">
           <button
             type="button"
             onClick={() => setActiveTab('diner')}
-            className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
               activeTab === 'diner'
-                ? 'bg-[#C2410C] text-white shadow-craft-sm'
-                : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/5'
+                ? 'bg-[#991B1B] text-white shadow-editorial-sm'
+                : 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#1C1917]/5'
             }`}
           >
             <Utensils className="w-4 h-4" />
@@ -109,10 +109,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('owner')}
-            className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
               activeTab === 'owner'
-                ? 'bg-[#18181B] text-white shadow-craft-sm'
-                : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/5'
+                ? 'bg-[#1C1917] text-white shadow-editorial-sm'
+                : 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#1C1917]/5'
             }`}
           >
             <Store className="w-4 h-4" />
@@ -122,15 +122,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('assistant')}
-            className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
               activeTab === 'assistant'
-                ? 'bg-[#18181B] text-white shadow-craft-sm'
-                : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/5'
+                ? 'bg-[#1C1917] text-white shadow-editorial-sm'
+                : 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#1C1917]/5'
             }`}
           >
-            <Sparkles className="w-4 h-4 text-orange-400" />
+            <Sparkles className="w-4 h-4 text-[#D97706]" />
             <span>Trợ lý Thông tin Nền tảng (Hỏi - Đáp)</span>
-            <span className="px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 text-[10px] font-black uppercase tracking-wider">
+            <span className="px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E] text-[10px] font-bold uppercase tracking-wider">
               Mới
             </span>
           </button>
@@ -138,10 +138,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('reviews')}
-            className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
               activeTab === 'reviews'
-                ? 'bg-[#18181B] text-white shadow-craft-sm'
-                : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/5'
+                ? 'bg-[#1C1917] text-white shadow-editorial-sm'
+                : 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#1C1917]/5'
             }`}
           >
             <MessageSquare className="w-4 h-4" />

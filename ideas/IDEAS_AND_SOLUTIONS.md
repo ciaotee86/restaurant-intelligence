@@ -20,18 +20,27 @@
                                          │
     ┌────────────────────┬───────────────┴───────────────┬────────────────────┐
     ▼                    ▼                               ▼                    ▼
-[Ý Tưởng 1]          [Ý Tưởng 2]                     [Ý Tưởng 3]          [Ý Tưởng 4]
+[Ý Tưởng 1] ✅        [Ý Tưởng 2] ⏳                  [Ý Tưởng 3]          [Ý Tưởng 4]
 Trợ Lý AI            AI Soạn Phản Hồi                Phát Hiện Đánh Giá    Xuất Báo Cáo
 Hỏi-Đáp Về Quán      Review & Khủng Hoảng            Ảo & Độ Tin Cậy       PDF / Excel
-(Conversational BI)  (Closed-Loop Action)            (Credibility Score)  (Executive Brief)
+(ĐÃ HOÀN THÀNH)      (Closed-Loop Action)            (Credibility Score)  (Executive Brief)
 ```
 
-### Ý Tưởng 1: Trợ Lý AI Hỏi-Đáp Về Quán Ăn (Conversational BI Assistant) ⭐⭐⭐⭐⭐
+### [ĐÃ HOÀN THÀNH ✅] Ý Tưởng 1: Trợ Lý AI Hỏi-Đáp Về Quán Ăn (Conversational BI Assistant) ⭐⭐⭐⭐⭐
+* **Trạng thái**: **Đã hoàn thành & Hoạt động thực tế (Phiên bản v1.5.0)**
 * **Mô tả**: Tích hợp một khung chat thông minh ngay trên trang Dashboard của nhà hàng. Cho phép chủ quán hoặc thực khách hỏi đáp ngôn ngữ tự nhiên về dữ liệu review.
-* **Câu hỏi mẫu**:
+* **Các thành phần đã triển khai**:
+  * **Frontend UI**: [`AiAssistantWidget.tsx`](file:///d:/SourceCode/WEB/.gemini/antigravity/scratch/restaurant-intelligence/src/components/dashboard/AiAssistantWidget.tsx) tích hợp ở tab riêng *"Trợ lý AI"*, tab *"Thực khách"* và tab *"Chủ quán"*.
+  * **Kiến trúc Hybrid 2 Tầng**:
+    * *Tầng 1 (Local Contextual BI - 0 Quota, 0 Token)*: Tự động phân tích điểm nghẽn vận hành (`bottleneck_flow`), gợi ý mở rộng món ăn (`menu_expansion`), món khen nhiều nhất, giá cả, dịch vụ và kế hoạch hành động.
+    * *Tầng 2 (Gemini 3.5 Flash Lite)*: Kích hoạt khi người dùng bật checkbox *"Sáng tạo sâu (Gemini)"*.
+  * **In-Memory Semantic Cache**: Tự động lưu cache câu trả lời theo cặp `{restaurant_id}:{normalized_question}`, phản hồi tức thì 0ms khi hỏi lại.
+  * **Endpoints API**: `POST /api/restaurants/{id}/ask` và `GET /api/restaurants/{id}/quick-questions`.
+* **Câu hỏi mẫu đã hỗ trợ**:
   * *"Khách hay phàn nàn về món ăn hoặc nhân viên ca tối như thế nào?"*
   * *"Món nào là món được khen nhiều nhất (món đinh) của quán?"*
-  * *"Gợi ý 3 hành động thực tế để nâng cao tỷ lệ hài lòng trong tháng tới?"*
+  * *"Gợi ý thêm món ăn hoặc đồ uống mới để tăng doanh thu?"*
+  * *"Luồng hoạt động từ đầu đến cuối có điểm nghẽn nào gây ách tắc không?"*
 * **Giá trị buổi báo cáo**: Biến website từ một bảng thống kê số liệu khô khan thành **Hệ Chuyên Gia Cố Vấn Quản Trị**.
 
 ---
@@ -123,9 +132,19 @@ Câu trả lời này thể hiện tư duy của một **Kỹ sư Kiến trúc P
 
 ---
 
-## 5. Lộ Trình Triển Khai Tiếp Theo
+## 5. Tiến Độ Thực Hiện & Lộ Trình Tiếp Theo
 
-1. **Bước 1**: Tạo modal và thuật toán Local Template Engine cho tính năng **Soạn thư phản hồi review** ([`ReviewExplorer.tsx`](file:///d:/SourceCode/WEB/.gemini/antigravity/scratch/restaurant-intelligence/src/components/dashboard/ReviewExplorer.tsx)).
-2. **Bước 2**: Tích hợp widget **Trợ lý Quản lý Quán** kèm 4 câu hỏi FAQ nhanh trên trang Dashboard ([`DashboardPage.tsx`](file:///d:/SourceCode/WEB/.gemini/antigravity/scratch/restaurant-intelligence/src/pages/DashboardPage.tsx)).
-3. **Bước 3**: Bổ sung bộ nhớ đệm Cache tại `restaurant-review-ai/services/bi_service.py` để lưu trữ câu trả lời.
-4. **Bước 4**: Thêm nút xuất báo cáo Executive Brief (PDF) để hoàn thiện gói sản phẩm demo.
+- [x] **Ý Tưởng 1: Trợ Lý AI Hỏi-Đáp Về Quán Ăn (ĐÃ HOÀN THÀNH - v1.5.0)**
+  - [x] Tích hợp widget Trợ lý AI trên Dashboard ([`AiAssistantWidget.tsx`](file:///d:/SourceCode/WEB/.gemini/antigravity/scratch/restaurant-intelligence/src/components/dashboard/AiAssistantWidget.tsx)).
+  - [x] Thuật toán Hybrid 2 tầng: Local BI Engine 0 Token + Gemini 3.5 Flash Lite ([`assistant_service.py`](file:///d:/SourceCode/WEB/.gemini/antigravity/scratch/restaurant-intelligence/restaurant-review-ai/services/assistant_service.py)).
+  - [x] Bộ nhớ đệm In-Memory Semantic Caching cho các câu hỏi phổ biến.
+  - [x] Tối ưu phân tích luồng điểm nghẽn vận hành (`bottleneck_flow`) và tư vấn thực đơn (`menu_expansion`).
+
+- [ ] **Ý Tưởng 2: AI Soạn Thư Phản Hồi Khách Hàng (Dự kiến triển khai tiếp theo)**
+  - [ ] Thêm nút *"⚡ AI Soạn phản hồi"* trong từng thẻ review tại [`ReviewExplorer.tsx`](file:///d:/SourceCode/WEB/.gemini/antigravity/scratch/restaurant-intelligence/src/components/dashboard/ReviewExplorer.tsx).
+  - [ ] Thiết kế Modal chọn 4 tông giọng: *Chân thành & Nhận lỗi, Lịch sự & Voucher đền bù, Biết ơn & Thân thiện, Giải thích & Cầu thị*.
+  - [ ] Tích hợp Local Template Engine (0 Token) kết hợp AI sinh lời văn tự do.
+
+- [ ] **Ý Tưởng 3: Phát Hiện Đánh Giá Ảo & Chấm Điểm Tin Cậy (Credibility Score %)**
+- [ ] **Ý Tưởng 4: Xuất Báo Cáo Điều Hành 1 Trang (Executive Brief PDF / Excel)**
+- [ ] **Ý Tưởng 5: Hoàn thiện slide & kịch bản demo bảo vệ đồ án**

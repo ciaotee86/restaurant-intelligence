@@ -1,28 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 @import "tailwindcss";
+
+/* ═══════ DESIGN SYSTEM — Restaurant Intelligence ═══════
+   Industry: Restaurant / F&B Data Analytics & Gastronomy
+   Mood:     Warm, premium, editorial, trustworthy (Michelin Guide / Art de la Table)
+   ═══════════════════════════════════════════════════════ */
 
 @layer base {
   :root {
-    --bg-canvas: #fbf9f5;
-    --bg-card: #ffffff;
-    --text-ink: #18181b;
-    --text-body: #3f3f46;
-    --text-muted: #71717a;
-    --border-craft: #e5e3de;
-    --border-strong: #18181b;
-    --accent-terracotta: #c2410c;
-    --accent-terracotta-hover: #9a3412;
-    --accent-emerald: #0f766e;
-    --accent-amber: #b45309;
-    --accent-crimson: #dc2626;
+    /* ── 2 FONTS ONLY ── */
+    --font-display: 'Spectral', Georgia, serif;              /* Headings: hero, h1, h2, key numbers */
+    --font-body:    'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif; /* Everything else */
+
+    /* ── TYPE SCALE (1.25 Modular Ratio) ── */
+    --text-xs:   0.75rem;    /* 12px: captions, labels, tags */
+    --text-sm:   0.875rem;   /* 14px: nav, buttons, meta, secondary text */
+    --text-base: 1rem;       /* 16px: body paragraphs, inputs */
+    --text-lg:   1.25rem;    /* 20px: card titles, subheadings */
+    --text-xl:   1.5rem;     /* 24px: section subtitles */
+    --text-2xl:  2rem;       /* 32px: section titles */
+    --text-3xl:  2.75rem;    /* 44px: page headings */
+    --text-hero: clamp(2.5rem, 4vw + 1.25rem, 4.25rem); /* Hero display */
+
+    /* ── 3 WEIGHTS ONLY ── */
+    --weight-normal: 400;
+    --weight-medium: 500;
+    --weight-bold:   700;
+
+    /* ── COLORS: Warm Gastronomy & Modern Editorial ── */
+    --bg:             #F8F6F0;  /* Warm oat canvas */
+    --bg-subtle:      #F2EFE9;  /* Secondary warm linen background */
+    --surface:        #FFFFFF;  /* Crisp white card surface */
+    --surface-raised: #FFFFFF;  /* Elevated card */
+    --surface-tinted: #FAF7F2;  /* Slightly tinted warm surface */
+    --border:         #E8E4DC;  /* Soft warm sand border */
+    --border-strong:  #292524;  /* Deep stone accent border */
+    --border-warm:    #DFD9CE;  /* Accent border */
+
+    /* Hierarchy Ink */
+    --text:           #1C1917;  /* Deep organic stone black */
+    --text-alt:       #57534E;  /* Warm stone medium */
+    --muted:          #8C857B;  /* Muted warm stone */
+
+    /* Culinary & Editorial Accents */
+    --primary:        #991B1B;  /* Grand Cru Bordeaux Crimson */
+    --primary-hover:  #7F1D1D;
+    --primary-light:  #FDF2F2;
+    --accent:         #C2410C;  /* Warm Terracotta */
+    --accent-hover:   #9A3412;
+    --accent-gold:    #D97706;  /* Champagne Gold */
+    --accent-gold-bg: #FEF3C7;
+
+    /* Semantic Sentiment Indicators */
+    --emerald:        #065F46;  /* Forest Emerald (Positive) */
+    --emerald-bg:     #ECFDF5;
+    --emerald-border: #A7F3D0;
+
+    --amber:          #B45309;  /* Amber Honey (Notice / Neutral) */
+    --amber-bg:       #FFFBEB;
+    --amber-border:   #FDE68A;
+
+    --crimson:        #991B1B;  /* Deep Pomegranate (Negative) */
+    --crimson-bg:     #FEF2F2;
+    --crimson-border: #FECACA;
+
+    /* ── SPACING TOKENS ── */
+    --sp-1: 0.25rem;  --sp-2: 0.5rem;   --sp-3: 0.75rem; --sp-4: 1rem;
+    --sp-5: 1.25rem;  --sp-6: 1.5rem;   --sp-8: 2rem;    --sp-10: 2.5rem;
+    --sp-12: 3rem;   --sp-16: 4rem;    --sp-20: 5rem;   --sp-24: 6rem;
+
+    /* ── CORNER RADII ── */
+    --radius-sm: 6px;
+    --radius-md: 12px;
+    --radius-lg: 18px;
+    --radius-xl: 26px;
   }
 
   body {
-    background-color: var(--bg-canvas);
-    color: var(--text-ink);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
   }
 
   #root {
@@ -37,62 +104,102 @@
   }
 }
 
-/* Custom Scrollbar for dense analytical views */
+/* ── NAMED TYPOGRAPHY STYLES ── */
+.t-hero    { font-family: var(--font-display); font-size: var(--text-hero); font-weight: var(--weight-bold); line-height: 1.1; color: var(--text); }
+.t-h1      { font-family: var(--font-display); font-size: var(--text-3xl); font-weight: var(--weight-bold); line-height: 1.15; color: var(--text); }
+.t-h2      { font-family: var(--font-display); font-size: var(--text-2xl); font-weight: var(--weight-bold); line-height: 1.25; color: var(--text); }
+.t-h3      { font-family: var(--font-display); font-size: var(--text-xl); font-weight: var(--weight-bold); line-height: 1.3; color: var(--text); }
+.t-body-lg { font-family: var(--font-body); font-size: var(--text-lg); font-weight: var(--weight-normal); line-height: 1.55; color: var(--text-alt); }
+.t-body    { font-family: var(--font-body); font-size: var(--text-base); font-weight: var(--weight-normal); line-height: 1.6; color: var(--text-alt); }
+.t-small   { font-family: var(--font-body); font-size: var(--text-sm); font-weight: var(--weight-normal); line-height: 1.5; color: var(--text-alt); }
+.t-caption { font-family: var(--font-body); font-size: var(--text-xs); font-weight: var(--weight-medium); line-height: 1.4; color: var(--muted); letter-spacing: 0.04em; }
+.t-nav     { font-family: var(--font-body); font-size: var(--text-sm); font-weight: var(--weight-medium); line-height: 1; color: var(--text); }
+.t-btn     { font-family: var(--font-body); font-size: var(--text-sm); font-weight: var(--weight-bold); line-height: 1; }
+
+/* ── REFINED EDITORIAL SHADOWS ── */
+.shadow-editorial-sm {
+  box-shadow: 0 1px 3px 0 rgba(28, 25, 23, 0.04), 0 1px 2px -1px rgba(28, 25, 23, 0.04);
+}
+
+.shadow-editorial {
+  box-shadow: 0 4px 16px -2px rgba(28, 25, 23, 0.06), 0 2px 6px -2px rgba(28, 25, 23, 0.03);
+}
+
+.shadow-editorial-lg {
+  box-shadow: 0 12px 32px -4px rgba(28, 25, 23, 0.08), 0 4px 12px -2px rgba(28, 25, 23, 0.04);
+}
+
+.shadow-editorial-float {
+  box-shadow: 0 20px 40px -10px rgba(28, 25, 23, 0.12), 0 1px 3px 0 rgba(28, 25, 23, 0.05);
+}
+
+/* ── RETRO-CRAFT COMPATIBILITY WITH SOFTER PROFILE ── */
+.shadow-craft {
+  box-shadow: 0 4px 16px -2px rgba(28, 25, 23, 0.07);
+}
+
+.shadow-craft-sm {
+  box-shadow: 0 2px 6px -1px rgba(28, 25, 23, 0.05);
+}
+
+.shadow-craft-orange {
+  box-shadow: 0 6px 20px -3px rgba(153, 27, 27, 0.25);
+}
+
+/* ── CRISP GASTRONOMIC HIGHLIGHTS ── */
+.sentiment-highlight-pos {
+  background-color: var(--emerald-bg);
+  color: var(--emerald);
+  border-bottom: 2px solid rgba(6, 95, 70, 0.4);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.sentiment-highlight-neg {
+  background-color: var(--crimson-bg);
+  color: var(--crimson);
+  border-bottom: 2px solid rgba(153, 27, 27, 0.4);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.sentiment-highlight-neu {
+  background-color: var(--amber-bg);
+  color: var(--amber);
+  border-bottom: 2px solid rgba(180, 83, 9, 0.4);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+/* ── LUXURY ATMOSPHERE OVERLAYS ── */
+.hero-atmosphere-pattern {
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(153, 27, 27, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(217, 119, 6, 0.08) 0%, transparent 40%);
+}
+
+.hero-vignette {
+  background: linear-gradient(180deg, rgba(28, 25, 23, 0.65) 0%, rgba(28, 25, 23, 0.85) 100%);
+}
+
+/* Custom Scrollbar for analytical views */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f4f3ee;
+  background: var(--bg-subtle);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d5d3cb;
+  background: #D8D2C7;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a69e;
-}
-
-/* Editorial Neo-Craft Shadow Utilities */
-.shadow-craft {
-  box-shadow: 3px 3px 0px 0px rgba(24, 24, 27, 0.9);
-}
-
-.shadow-craft-sm {
-  box-shadow: 2px 2px 0px 0px rgba(24, 24, 27, 0.9);
-}
-
-.shadow-craft-orange {
-  box-shadow: 3px 3px 0px 0px rgba(194, 65, 12, 0.9);
-}
-
-/* Crisp Analytical Badges & Highlights */
-.sentiment-highlight-pos {
-  background-color: rgba(15, 118, 110, 0.12);
-  color: #0f766e;
-  border-bottom: 2px solid rgba(15, 118, 110, 0.4);
-  padding: 1px 4px;
-  border-radius: 2px;
-  font-weight: 500;
-}
-
-.sentiment-highlight-neg {
-  background-color: rgba(220, 38, 38, 0.12);
-  color: #b91c1c;
-  border-bottom: 2px solid rgba(220, 38, 38, 0.4);
-  padding: 1px 4px;
-  border-radius: 2px;
-  font-weight: 500;
-}
-
-.sentiment-highlight-neu {
-  background-color: rgba(217, 119, 6, 0.12);
-  color: #b45309;
-  border-bottom: 2px solid rgba(217, 119, 6, 0.4);
-  padding: 1px 4px;
-  border-radius: 2px;
-  font-weight: 500;
+  background: #B6AFA2;
 }

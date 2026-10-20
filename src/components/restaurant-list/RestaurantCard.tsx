@@ -34,66 +34,66 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurant, onSe
   return (
     <article 
       onClick={() => onSelect(restaurant.id)}
-      className="bg-white border border-[#E5E3DE] hover:border-[#18181B] rounded-xl p-5 sm:p-6 flex flex-col justify-between transition-all duration-150 hover:shadow-craft cursor-pointer group relative"
+      className="bg-white border border-[#E8E4DC] hover:border-[#991B1B]/40 rounded-2xl p-5 sm:p-6 flex flex-col justify-between transition-all duration-200 hover:shadow-editorial cursor-pointer group relative"
     >
       <div>
         {/* Hàng 1: Phân loại ẩm thực, Mức giá, Thành phố */}
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11px] font-bold text-[#C2410C] bg-orange-50 px-2.5 py-0.5 rounded border border-orange-200/90 tracking-tight">
+            <span className="text-[11px] font-bold text-[#991B1B] bg-[#FDF2F2] px-2.5 py-0.5 rounded-full border border-[#FECACA] tracking-tight">
               {restaurant.cuisine || 'Ẩm thực'}
             </span>
-            <span className="text-[11px] font-semibold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200">
+            <span className="text-[11px] font-medium text-[#57534E] bg-[#F2EFE9] px-2 py-0.5 rounded-full border border-[#E8E4DC]">
               {restaurant.priceLevel || '$$'} · {restaurant.priceRange || 'Bình dân'}
             </span>
           </div>
 
-          <span className="text-xs text-[#71717A] font-medium flex items-center gap-1 shrink-0">
-            <MapPin className="w-3.5 h-3.5 text-zinc-400" />
+          <span className="text-xs text-[#8C857B] font-medium flex items-center gap-1 shrink-0">
+            <MapPin className="w-3.5 h-3.5 text-[#A8A29E]" />
             {restaurant.city || 'Việt Nam'}
           </span>
         </div>
 
         {/* Tên quán ăn */}
-        <h3 className="text-lg sm:text-xl font-extrabold text-[#18181B] group-hover:text-[#C2410C] transition-colors tracking-tight line-clamp-1 mb-2.5">
+        <h3 className="font-display font-bold text-lg sm:text-xl text-[#1C1917] group-hover:text-[#991B1B] transition-colors tracking-tight line-clamp-1 mb-2.5">
           {restaurant.name}
         </h3>
 
         {/* Hàng chỉ số tin cậy: Điểm sao & Số lượng review đã xác thực */}
         <div className="flex items-center justify-between gap-2 text-xs mb-3">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-300 px-2 py-0.5 rounded font-black">
-              <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+            <div className="flex items-center gap-1 bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] px-2 py-0.5 rounded-md font-bold">
+              <Star className="w-3.5 h-3.5 fill-[#D97706] text-[#D97706]" />
               <span>{restaurant.rating ?? 5.0}</span>
             </div>
 
-            <div className="flex items-center gap-1 text-[#52525B] text-xs">
-              <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
+            <div className="flex items-center gap-1 text-[#57534E] text-xs">
+              <MessageSquare className="w-3.5 h-3.5 text-[#A8A29E]" />
               <span>{formatNumber(restaurant.totalReviews || 0)} đánh giá</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-            <ShieldCheck className="w-3 h-3 text-emerald-600" />
+          <div className="flex items-center gap-1 text-[11px] font-bold text-[#065F46] bg-[#ECFDF5] border border-[#A7F3D0] px-2.5 py-0.5 rounded-md">
+            <ShieldCheck className="w-3 h-3 text-[#065F46]" />
             <span>{posPct}% Hài lòng</span>
           </div>
         </div>
 
         {/* Thanh xếp tầng phân bổ cảm xúc thực tế (Positive - Neutral - Negative Bar) */}
         <div className="mb-3.5">
-          <div className="flex items-center justify-between text-[10px] text-zinc-500 font-semibold mb-1">
+          <div className="flex items-center justify-between text-[10px] text-[#8C857B] font-medium mb-1">
             <span>Phân bổ phản hồi:</span>
-            <span>{posPct}% Tốt · {neuPct}% Ổn · {negPct}% Chê</span>
+            <span>{posPct}% Khen · {neuPct}% Ổn · {negPct}% Chê</span>
           </div>
-          <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden flex">
-            <div style={{ width: `${posPct}%` }} className="bg-emerald-600 h-full" title={`Hài lòng: ${posPct}%`} />
-            <div style={{ width: `${neuPct}%` }} className="bg-amber-500 h-full" title={`Trung lập: ${neuPct}%`} />
-            <div style={{ width: `${negPct}%` }} className="bg-red-600 h-full" title={`Không hài lòng: ${negPct}%`} />
+          <div className="h-1.5 w-full bg-[#F2EFE9] rounded-full overflow-hidden flex">
+            <div style={{ width: `${posPct}%` }} className="bg-[#065F46] h-full" title={`Hài lòng: ${posPct}%`} />
+            <div style={{ width: `${neuPct}%` }} className="bg-[#D97706] h-full" title={`Trung lập: ${neuPct}%`} />
+            <div style={{ width: `${negPct}%` }} className="bg-[#991B1B] h-full" title={`Không hài lòng: ${negPct}%`} />
           </div>
         </div>
 
         {/* Trích dẫn thực khách (Editorial Diner Quote) */}
-        <div className="mb-3.5 p-3 rounded-lg bg-[#FAF9F5] border-l-2 border-[#C2410C] border-y border-r border-[#E5E3DE] text-xs text-[#3F3F46] leading-relaxed relative">
+        <div className="mb-3.5 p-3 rounded-xl bg-[#FAF7F2] border-l-2 border-[#991B1B] border-y border-r border-[#E8E4DC] text-xs text-[#57534E] leading-relaxed relative">
           <p className="line-clamp-2 italic">
             "{quoteText}"
           </p>
@@ -102,41 +102,41 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurant, onSe
         {/* 2 Điểm nhấn mấu chốt: Món nên thử & Điểm cần lưu ý */}
         <div className="space-y-1.5 mb-4 text-xs">
           {topStrength && (
-            <div className="flex items-center gap-1.5 text-emerald-800 font-medium">
-              <ThumbsUp className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+            <div className="flex items-center gap-1.5 text-[#065F46] font-medium">
+              <ThumbsUp className="w-3.5 h-3.5 shrink-0 text-[#065F46]" />
               <span className="truncate">
-                <strong className="text-emerald-950 font-bold">Nên gọi:</strong> {topStrength.title}
+                <strong className="font-bold">Nên gọi:</strong> {topStrength.title}
               </span>
             </div>
           )}
 
           {topComplaint && (
-            <div className="flex items-center gap-1.5 text-amber-800 font-medium">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+            <div className="flex items-center gap-1.5 text-[#92400E] font-medium">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-[#D97706]" />
               <span className="truncate">
-                <strong className="text-amber-950 font-bold">Lưu ý:</strong> {topComplaint}
+                <strong className="font-bold">Lưu ý:</strong> {topComplaint}
               </span>
             </div>
           )}
         </div>
 
         {/* 3 Thước đo khía cạnh cốt lõi */}
-        <div className="grid grid-cols-3 gap-2 pt-3 border-t border-[#E5E3DE] text-[11px] text-zinc-600 mb-4">
-          <div className="bg-[#FAF9F5] p-1.5 rounded text-center border border-[#E5E3DE]/60">
-            <span className="block text-[10px] text-zinc-500 uppercase font-semibold">Món ăn</span>
-            <span className="font-extrabold text-[#18181B] text-xs">
+        <div className="grid grid-cols-3 gap-2 pt-3 border-t border-[#E8E4DC] text-[11px] text-[#57534E] mb-4">
+          <div className="bg-[#FAF7F2] p-1.5 rounded-lg text-center border border-[#E8E4DC]">
+            <span className="block text-[10px] text-[#8C857B] uppercase font-semibold">Món ăn</span>
+            <span className="font-bold text-[#1C1917] text-xs">
               {foodAspect ? `${foodAspect.positivePercentage}%` : 'N/A'}
             </span>
           </div>
-          <div className="bg-[#FAF9F5] p-1.5 rounded text-center border border-[#E5E3DE]/60">
-            <span className="block text-[10px] text-zinc-500 uppercase font-semibold">Phục vụ</span>
-            <span className="font-extrabold text-[#18181B] text-xs">
+          <div className="bg-[#FAF7F2] p-1.5 rounded-lg text-center border border-[#E8E4DC]">
+            <span className="block text-[10px] text-[#8C857B] uppercase font-semibold">Phục vụ</span>
+            <span className="font-bold text-[#1C1917] text-xs">
               {serviceAspect ? `${serviceAspect.positivePercentage}%` : 'N/A'}
             </span>
           </div>
-          <div className="bg-[#FAF9F5] p-1.5 rounded text-center border border-[#E5E3DE]/60">
-            <span className="block text-[10px] text-zinc-500 uppercase font-semibold">Giá cả</span>
-            <span className="font-extrabold text-[#18181B] text-xs">
+          <div className="bg-[#FAF7F2] p-1.5 rounded-lg text-center border border-[#E8E4DC]">
+            <span className="block text-[10px] text-[#8C857B] uppercase font-semibold">Giá cả</span>
+            <span className="font-bold text-[#1C1917] text-xs">
               {priceAspect ? `${priceAspect.positivePercentage}%` : 'N/A'}
             </span>
           </div>
@@ -151,7 +151,7 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurant, onSe
             e.stopPropagation();
             onSelect(restaurant.id);
           }}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#18181B] group-hover:bg-[#C2410C] text-white rounded-lg text-xs font-bold tracking-wide transition-all duration-150 shadow-craft-sm"
+          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#1C1917] group-hover:bg-[#991B1B] text-white rounded-xl text-xs font-bold tracking-wide transition-all duration-150 shadow-editorial-sm"
         >
           <span>Xem báo cáo chi tiết</span>
           <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />

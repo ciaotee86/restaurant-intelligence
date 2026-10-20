@@ -2,6 +2,27 @@
 
 All notable changes to the **Restaurant Intelligence** project will be documented in this file.
 
+## [1.12.0] - 2026-10-13
+
+### Tái Thiết Toàn Diện Giao Diện, Bố Cục & Hệ Màu Sắc (Warm Gastronomy & Modern Editorial)
+- **Hệ Thống Thiết Kế Mới (Design System Tokens - `src/index.css`)**:
+  - **Bảng màu Warm Gastronomy**: Nền canvas kem yến mạch ấm (`#F8F6F0`), thẻ bài trắng tuyết (`#FFFFFF`), chữ than đá hữu cơ (`#1C1917`), màu điểm nhấn chính Rượu vang Bordeaux (`#991B1B`), Vàng đồng Champagne (`#D97706`), Xanh ô-liu rừng sâu (`#065F46`).
+  - **Hệ thống Typography 2 Phông Chuẩn Mực**:
+    - Phông Display: `Spectral` (Serif cổ điển, sang trọng chuẩn Michelin Guide).
+    - Phông Body: `Be Vietnam Pro` (Sans-serif hoàn hảo cho hiển thị dấu tiếng Việt).
+  - Thay thế toàn bộ bóng đổ thô đen (`shadow-craft 3px 3px 0px`) bằng bóng đổ đa tầng mềm mại (`shadow-editorial`, `shadow-editorial-sm`, `shadow-editorial-lg`, `shadow-editorial-float`).
+- **Cấu Trúc Lại Trang Chủ (Hero Tràn Viền & Floating Bento Radar - `src/pages/HomePage.tsx`)**:
+  - **Hero Section**: Nền gradient ấm với hoa văn họa tiết nhẹ, tiêu đề lớn dạng chuyên san (`Spectral`), thanh tìm kiếm nổi kính mờ đa tầng (`shadow-editorial-float`), chip nhu cầu theo dịp ăn uống (hẹn hò, gia đình, phục vụ nhanh, bình dân, đặc sản).
+  - **Bento Grid Spotlight 8-4**: Bố cục bất đối xứng với thẻ trung tâm (8 cột) hiển thị hồ sơ quán ăn tiêu biểu, điểm số hài lòng, trích dẫn thực khách và 5 thước đo cốt lõi; cột phụ (4 cột) với 2 thẻ Bento vệ tinh minh bạch hoá việc lọc nhận xét ảo và món signature.
+  - **So Sánh Đối Đầu 2 Quán (Head-to-Head)**: Bảng điểm cân xứng sang trọng, thanh đo tỷ lệ mượt mà hai phía, huy hiệu ưu thế rõ ràng.
+  - **Bộ Chuyển Đổi 2 Góc Nhìn (Thực khách vs Quản lý)**: Bento Grid 1 thẻ trọng tâm + 2 thẻ vệ tinh thay vì 3 thẻ bằng nhau.
+  - **Lưới Tuyển Tập Quán Ăn Tiêu Biểu**: Sử dụng thẻ `RestaurantCard` phong cách mới với typography phân cấp rõ nét.
+- **Đồng Bộ Giao Diện Các Trang Thành Phần**:
+  - Cập nhật `Navbar`, `Footer`, `SearchBar`, `RestaurantCard`, `FilterBar`, `ExplorePage`, `DashboardPage`, `HowItWorksPage` theo cùng bảng màu và phông chữ mới.
+- **Kiểm Thử & Đảm Bảo Chất Lượng**:
+  - `oxlint`: 0 warnings, 0 errors.
+  - `vite build`: biên dịch thành công 100%.
+
 ## [1.11.0] - 2026-10-13
 
 ### Sửa Lỗi Chế Độ Trợ Lý Phân Tích Chuyên Sâu (Deep Creative AI) & Khởi Động Đa Nền Tảng

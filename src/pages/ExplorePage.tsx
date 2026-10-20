@@ -209,16 +209,16 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
       
       {/* Tiêu đề & Ô tìm kiếm */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#E5E3DE] pb-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#E8E4DC] pb-6">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#C2410C] mb-1">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#991B1B] mb-1">
             <Compass className="w-4 h-4" />
             <span>Danh mục quán ăn đã đánh giá</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black text-[#18181B] tracking-tight">
+          <h1 className="font-display font-bold text-3xl sm:text-4xl text-[#1C1917] tracking-tight">
             {isSearchActive ? `Kết quả cho "${filters.query}"` : 'Khám phá quán ăn'}
           </h1>
-          <p className="text-xs sm:text-sm text-[#71717A] mt-1">
+          <p className="text-xs sm:text-sm text-[#78716C] mt-1">
             Tra cứu mức độ hài lòng thực tế và đánh giá chi tiết của thực khách tại các quán ăn trên toàn quốc.
           </p>
         </div>
@@ -239,8 +239,8 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
 
       {/* Quick Category Chips: Thẻ món ăn chọn nhanh */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-        <span className="text-xs font-bold text-zinc-500 shrink-0 flex items-center gap-1 mr-1">
-          <Sparkles className="w-3.5 h-3.5 text-[#C2410C]" />
+        <span className="text-xs font-bold text-[#8C857B] shrink-0 flex items-center gap-1 mr-1">
+          <Sparkles className="w-3.5 h-3.5 text-[#991B1B]" />
           <span>Món phổ biến:</span>
         </span>
         {QUICK_CATEGORIES.map((cat) => {
@@ -251,10 +251,10 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
             <button
               key={cat.label}
               onClick={() => handleQuickCategoryClick(cat.query)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                 isSelected
-                  ? 'bg-[#18181B] text-white shadow-craft-sm'
-                  : 'bg-white border border-[#E5E3DE] text-zinc-700 hover:border-zinc-500 hover:bg-[#FAF9F5]'
+                  ? 'bg-[#1C1917] text-white shadow-editorial-sm'
+                  : 'bg-white border border-[#E8E4DC] text-[#57534E] hover:border-[#991B1B]/40 hover:bg-[#FAF7F2]'
               }`}
             >
               {cat.label}

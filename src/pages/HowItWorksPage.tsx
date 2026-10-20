@@ -11,7 +11,7 @@ export const HowItWorksPage: React.FC<HowItWorksPageProps> = ({ onNavigateExplor
       number: "01",
       title: "Thu thập đánh giá",
       subtitle: "Ý kiến từ thực khách",
-      description: "Tập hợp các nhận xét, số sao và trải nghiệm thực tế mà thực khách đã công khai chia sẻ sau khi đến quán.",
+      description: "Tập hợp các nhận xét, số sao và trải nghiệm thực tế mà thực khách đã công khai chia sẻ sau khi đến quán ăn.",
       highlight: "Nguồn gốc minh bạch từ người đi ăn thật."
     },
     {
@@ -41,15 +41,15 @@ export const HowItWorksPage: React.FC<HowItWorksPageProps> = ({ onNavigateExplor
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16 space-y-16">
       
       {/* Tiêu đề trang */}
-      <div className="text-center max-w-3xl mx-auto space-y-3">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-50 text-xs font-semibold text-[#C2410C] border border-orange-200/80">
+      <div className="text-center max-w-3xl mx-auto space-y-3.5">
+        <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#FDF2F2] text-xs font-semibold text-[#991B1B] border border-[#FECACA]">
           <Eye className="w-3.5 h-3.5" />
           <span>Minh bạch & Khách quan</span>
         </div>
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#18181B] tracking-tight">
+        <h1 className="font-display font-bold text-3xl sm:text-4xl lg:text-5xl text-[#1C1917] tracking-tight">
           Cách Restaurant Intelligence hoạt động
         </h1>
-        <p className="text-sm sm:text-base text-[#52525B] leading-relaxed">
+        <p className="text-sm sm:text-base text-[#57534E] leading-relaxed">
           Làm thế nào để từ hàng trăm nhận xét rời rạc biến thành bức tranh toàn cảnh rõ ràng chỉ trong vài giây?
         </p>
       </div>
@@ -59,14 +59,14 @@ export const HowItWorksPage: React.FC<HowItWorksPageProps> = ({ onNavigateExplor
         {steps.map((step, idx) => (
           <div
             key={idx}
-            className="bg-white border border-[#E4E4E7] rounded-xl p-6 flex flex-col justify-between hover:border-orange-300 transition-colors shadow-2xs group"
+            className="bg-white border border-[#E8E4DC] rounded-2xl p-6 flex flex-col justify-between hover:border-[#991B1B]/40 transition-all shadow-editorial-sm group"
           >
             <div>
               <div className="flex items-center justify-between mb-4">
-                <span className="font-mono text-2xl font-bold text-[#C2410C]">
+                <span className="font-display text-2xl font-bold text-[#991B1B]">
                   {step.number}
                 </span>
-                <div className="w-9 h-9 rounded-lg bg-orange-50/60 border border-orange-100 flex items-center justify-center text-[#C2410C] group-hover:bg-[#C2410C] group-hover:text-white transition-colors">
+                <div className="w-9 h-9 rounded-xl bg-[#FDF2F2] border border-[#FECACA] flex items-center justify-center text-[#991B1B] group-hover:bg-[#991B1B] group-hover:text-white transition-colors">
                   {idx === 0 && <DownloadCloud className="w-4 h-4" />}
                   {idx === 1 && <Sparkles className="w-4 h-4" />}
                   {idx === 2 && <Utensils className="w-4 h-4" />}
@@ -74,18 +74,18 @@ export const HowItWorksPage: React.FC<HowItWorksPageProps> = ({ onNavigateExplor
                 </div>
               </div>
 
-              <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-0.5">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-[#8C857B] mb-1">
                 {step.subtitle}
               </div>
-              <h3 className="text-lg font-bold text-[#18181B] tracking-tight mb-2">
+              <h3 className="font-display font-bold text-lg text-[#1C1917] tracking-tight mb-2">
                 {step.title}
               </h3>
-              <p className="text-xs sm:text-sm text-[#52525B] leading-relaxed mb-4">
+              <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed mb-4">
                 {step.description}
               </p>
             </div>
 
-            <div className="pt-3 border-t border-zinc-100 text-[11px] font-medium text-[#C2410C] bg-orange-50/50 p-2.5 rounded border border-orange-100/60">
+            <div className="pt-3 border-t border-[#E8E4DC] text-[11px] font-semibold text-[#065F46] bg-[#ECFDF5] p-2.5 rounded-xl border border-[#A7F3D0]">
               ✓ {step.highlight}
             </div>
           </div>
@@ -93,51 +93,51 @@ export const HowItWorksPage: React.FC<HowItWorksPageProps> = ({ onNavigateExplor
       </section>
 
       {/* Cam kết chất lượng sản phẩm */}
-      <section className="bg-white border border-[#E4E4E7] rounded-xl p-6 sm:p-8 space-y-6">
+      <section className="bg-white border border-[#E8E4DC] rounded-2xl p-6 sm:p-10 space-y-6 shadow-editorial-sm">
         <div>
-          <div className="text-xs font-bold uppercase tracking-wider text-[#C2410C] mb-1">
+          <div className="text-xs font-bold uppercase tracking-wider text-[#991B1B] mb-1">
             Cam kết giá trị
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-[#18181B] tracking-tight">
+          <h2 className="font-display font-bold text-2xl sm:text-3xl text-[#1C1917] tracking-tight">
             Nguyên tắc phục vụ của chúng tôi
           </h2>
-          <p className="text-xs sm:text-sm text-[#71717A] mt-1">
+          <p className="text-xs sm:text-sm text-[#78716C] mt-1">
             Chúng tôi xây dựng nền tảng này nhằm giải quyết nỗi thất vọng khi đọc phải đánh giá ảo hoặc mất hàng giờ tìm quán ăn.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2 text-xs sm:text-sm">
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100">
+          <div className="flex items-start gap-3.5">
+            <div className="w-9 h-9 rounded-xl bg-[#ECFDF5] text-[#065F46] flex items-center justify-center shrink-0 border border-[#A7F3D0]">
               <CheckCircle className="w-4 h-4" />
             </div>
             <div>
-              <strong className="text-[#18181B] font-bold block mb-1">Tách bạch rõ ràng khen & chê</strong>
-              <span className="text-[#52525B] leading-relaxed">
+              <strong className="text-[#1C1917] font-bold block mb-1">Tách bạch rõ ràng khen & chê</strong>
+              <span className="text-[#57534E] leading-relaxed">
                 Một quán có thể nấu ăn rất ngon nhưng phục vụ chậm hoặc gửi xe khó. Chúng tôi phân tách từng yếu tố để bạn không bị đánh đồng.
               </span>
             </div>
           </div>
 
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 border border-blue-100">
+          <div className="flex items-start gap-3.5">
+            <div className="w-9 h-9 rounded-xl bg-[#EFF6FF] text-[#1D4ED8] flex items-center justify-center shrink-0 border border-[#BFDBFE]">
               <HeartHandshake className="w-4 h-4" />
             </div>
             <div>
-              <strong className="text-[#18181B] font-bold block mb-1">Không thiên vị bất kỳ quán nào</strong>
-              <span className="text-[#52525B] leading-relaxed">
+              <strong className="text-[#1C1917] font-bold block mb-1">Không thiên vị bất kỳ quán nào</strong>
+              <span className="text-[#57534E] leading-relaxed">
                 Các chỉ số được tổng hợp tự động từ nhận xét thực tế. Không nhận tiền quảng cáo để nói tốt cho quán dở.
               </span>
             </div>
           </div>
 
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-orange-50 text-[#C2410C] flex items-center justify-center shrink-0 border border-orange-100">
+          <div className="flex items-start gap-3.5">
+            <div className="w-9 h-9 rounded-xl bg-[#FDF2F2] text-[#991B1B] flex items-center justify-center shrink-0 border border-[#FECACA]">
               <Shield className="w-4 h-4" />
             </div>
             <div>
-              <strong className="text-[#18181B] font-bold block mb-1">Có thể xem lại đánh giá gốc</strong>
-              <span className="text-[#52525B] leading-relaxed">
+              <strong className="text-[#1C1917] font-bold block mb-1">Có thể xem lại đánh giá gốc</strong>
+              <span className="text-[#57534E] leading-relaxed">
                 Mọi kết luận về món ăn hay thái độ nhân viên đều có thể bấm vào để đọc lại chính xác bình luận nguyên bản của thực khách.
               </span>
             </div>
@@ -149,7 +149,7 @@ export const HowItWorksPage: React.FC<HowItWorksPageProps> = ({ onNavigateExplor
       <div className="text-center pt-2">
         <button
           onClick={onNavigateExplore}
-          className="px-6 py-3 bg-[#18181B] hover:bg-[#C2410C] text-white font-semibold text-xs sm:text-sm rounded-lg transition-colors shadow-sm"
+          className="px-6 py-3.5 bg-[#1C1917] hover:bg-[#991B1B] text-white font-bold text-xs sm:text-sm rounded-xl transition-all shadow-editorial-sm"
         >
           Khám phá các quán ăn đã đánh giá ngay →
         </button>
