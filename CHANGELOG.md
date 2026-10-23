@@ -2,6 +2,22 @@
 
 All notable changes to the **Restaurant Intelligence** project will be documented in this file.
 
+## [1.15.2] - 2026-10-23
+
+### Dọn Dẹp Cơ Sở Dữ Liệu: Loại Bỏ Các Nhà Hàng Không Có Đánh Giá (Database Clean-up & Zero-Review Purge)
+- **Thanh Lọc Cơ Sở Dữ Liệu SQLite (`restaurant-review-ai/data/restaurants.db` & `seed_data/restaurants.db`)**:
+  - Đã sao lưu an toàn trước khi xóa: `restaurants.db.bak_pre_clear`.
+  - Quét và loại bỏ thành công **147 nhà hàng rác không có bài đánh giá nào** (`review_count = 0` và không có bản ghi nào trong bảng `reviews`).
+  - Tổng số nhà hàng sau khi tinh gọn: **103 nhà hàng** (toàn bộ 100% đều có bài đánh giá thực tế và dữ liệu phân tích khía cạnh đầy đủ, tổng cộng **783 bài đánh giá**).
+  - Thực hiện lệnh `VACUUM` và checkpoint SQLite WAL giúp tối ưu hóa dung lượng lưu trữ và loại bỏ phân mảnh trang dữ liệu.
+  - Đồng bộ hóa toàn diện giữa cơ sở dữ liệu chính `data/restaurants.db` và cơ sở dữ liệu hạt giống `seed_data/restaurants.db`.
+- **Kiểm Định Tính Toàn Vẹn & Kiểm Thử Hệ Thống**:
+  - `PRAGMA integrity_check`: **ok**.
+  - `PRAGMA foreign_key_check`: **0 errors** (không phát sinh bản ghi mồ côi).
+  - Toàn bộ **80/80 test cases** backend (`pytest`) vượt qua thành công 100%.
+  - `npm run build` hoàn tất không có lỗi.
+
+
 ## [1.15.1] - 2026-10-23
 
 ### Loại Bỏ Triệt Để Mã Template AngularJS Rác & Làm Sạch Dữ Liệu Đánh Giá (AngularJS Template Filter & Review Sanitization)
