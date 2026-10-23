@@ -120,8 +120,42 @@ else:
 
 
 # ==================== ENTRYPOINT CHO LOCAL DEV ====================
+def _ensure_port_available(target_port: int):
+    """
+    Tự động kiểm tra và giải phóng cổng nếu có tiến trình Python mồ côi từ phiên trước đang chiếm giữ.
+    Giúp chống triệt để lỗi Errno 10048 (Address already in use) trên Windows khi chạy dev server.
+    """
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind(('0.0.0.0', target_port))
+            return
+        except OSError:
+            pass
+
+    # Nếu cổng đang bị chiếm, tự động tìm và thu hồi tiến trình mồ côi
+    if sys.platform == "win32":
+        try:
+            import subprocess
+            import time
+            res = subprocess.run(f"netstat -ano | findstr :{target_port}", shell=True, capture_output=True, text=True)
+            current_pid = os.getpid()
+            for line in res.stdout.strip().splitlines():
+                if "LISTENING" in line:
+                    parts = line.strip().split()
+                    pid = int(parts[-1])
+                    if pid != current_pid and pid > 0:
+                        print(f"-> [Port Guard] Phát hiện tiến trình cũ (PID {pid}) đang chiếm cổng {target_port}. Đang thu hồi cổng...")
+                        subprocess.run(f"taskkill /F /PID {pid}", shell=True, capture_output=True)
+            time.sleep(1)
+        except Exception:
+            pass
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
+    _ensure_port_available(port)
     print(f"Khởi chạy Restaurant Intelligence Server trên cổng {port}...")
     uvicorn.run("api_server:app", host="0.0.0.0", port=port, reload=False)

@@ -140,3 +140,37 @@ export interface SearchFilterState {
   sentimentHealth: 'all' | 'high_positive' | 'balanced' | 'needs_attention';
   sortBy: 'reviews' | 'rating' | 'positive_sentiment' | 'name';
 }
+
+/** 4 Tông giọng phản hồi thực khách F&B */
+export type ReplyTone = 'apology' | 'voucher' | 'gratitude' | 'clarification';
+
+/** Yêu cầu sinh thư phản hồi gửi tới Backend / Gemini */
+export interface GenerateReplyRequest {
+  restaurantId?: string;
+  restaurantName?: string;
+  reviewId?: string;
+  author: string;
+  rating: number;
+  overallSentiment?: 'positive' | 'neutral' | 'negative' | SentimentType;
+  reviewText: string;
+  aspects?: Array<{
+    aspect: AspectCategory | string;
+    sentiment: SentimentType | string;
+  }> | ExtractedAspect[];
+  tone: ReplyTone;
+  includeVoucher?: boolean;
+  voucherDiscountPercent?: number;
+  forceRegenerate?: boolean;
+}
+
+/** Kết quả sinh phản hồi trả về từ Backend / Gemini */
+export interface GenerateReplyResponse {
+  replyText: string;
+  toneUsed: ReplyTone;
+  engineUsed: 'gemini_ai' | 'gemini_cache' | 'gemini_fallback' | string;
+  responseTimeMs: number;
+  generatedVoucherCode?: string;
+  aspectsAddressed: string[];
+  modelName: string;
+}
+

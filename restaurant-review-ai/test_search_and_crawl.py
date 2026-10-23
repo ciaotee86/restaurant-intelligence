@@ -19,7 +19,8 @@ def test_search_and_crawl_matching_existing_restaurant():
         first_r = db.query(DBRestaurant).first()
         assert first_r is not None
 
-        req = SearchAndCrawlRequest(query=first_r.name, city="da-nang", max_reviews=5)
+        query_name = first_r.name.split(" - ")[0].strip()
+        req = SearchAndCrawlRequest(query=query_name, city="da-nang", max_reviews=5)
         res = search_and_crawl_restaurant(req)
 
         assert res["success"] is True
@@ -49,7 +50,7 @@ def test_city_filter_dish_with_city():
     """Kiểm tra gõ 'cơm hà nội' trích xuất đúng thành phố Hà Nội và từ khóa món ăn 'cơm'"""
     city_name, rem_q = extract_city_from_query("cơm hà nội")
     assert city_name == "Hà Nội"
-    assert rem_q == "com"
+    assert rem_q == "cơm"
 
 
 def test_city_filter_dish_only():

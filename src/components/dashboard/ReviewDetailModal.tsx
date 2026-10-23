@@ -3,14 +3,15 @@ import type { CustomerReview } from '../../types/restaurant';
 import { TextHighlighter } from '../../utils/textHighlighter';
 import { SentimentBadge } from '../common/SentimentBadge';
 import { AspectPill } from '../common/AspectPill';
-import { X, Calendar, User, Star, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, Calendar, User, Star, ShieldCheck, CheckCircle2, AlertCircle, Zap } from 'lucide-react';
 
 interface ReviewDetailModalProps {
   review: CustomerReview | null;
   onClose: () => void;
+  onOpenReplyModal?: (review: CustomerReview) => void;
 }
 
-export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, onClose }) => {
+export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, onClose, onOpenReplyModal }) => {
   if (!review) return null;
 
   return (
@@ -155,7 +156,22 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, on
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-zinc-50 border-t border-[#E4E4E7] px-6 py-3 flex items-center justify-end">
+        <div className="sticky bottom-0 bg-zinc-50 border-t border-[#E4E4E7] px-6 py-3 flex items-center justify-between gap-3">
+          {onOpenReplyModal ? (
+            <button
+              onClick={() => {
+                onOpenReplyModal(review);
+                onClose();
+              }}
+              className="px-3.5 py-1.5 bg-[#C2410C] hover:bg-[#9A3412] text-white rounded-md text-xs font-bold transition-all shadow-craft-sm flex items-center gap-1.5"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>Soạn phản hồi</span>
+            </button>
+          ) : (
+            <div />
+          )}
+
           <button
             onClick={onClose}
             className="px-4 py-1.5 bg-[#18181B] hover:bg-zinc-800 text-white rounded-md text-xs font-medium transition-colors"

@@ -2,6 +2,128 @@
 
 All notable changes to the **Restaurant Intelligence** project will be documented in this file.
 
+## [1.15.1] - 2026-10-23
+
+### Loại Bỏ Triệt Để Mã Template AngularJS Rác & Làm Sạch Dữ Liệu Đánh Giá (AngularJS Template Filter & Review Sanitization)
+- **Bộ Lọc Phía Scraper Engine (`restaurant-review-ai/crawler/foody_crawler.py`)**:
+  - Bổ sung hàm kiểm tra `is_template_or_garbage_review(text, author, date)`: Tự động phát hiện và loại bỏ các khối review chứa mã nội suy template AngularJS chưa hydrate (`{{...}}`), các biến hệ thống `Model.` (như `Model.Owner.DisplayName`, `Model.CreatedDate`, `Model.AvgRating`), các chuỗi nút hành động rác (`Sửacommon_delete`), và các review rỗng.
+  - Cả tầng HTTP Fast Inspector và Selenium Chrome Crawler đều tự động bỏ qua các phần tử HTML template ẩn (`display: none`, `ng-hide`, `ng-repeat` template container).
+- **Bộ Lọc Spam & Pipeline Guard Backend (`restaurant-review-ai/crawler/review_filter.py`, `services/pipeline_service.py`)**:
+  - `classify_review`: Tự động phân loại các review chứa cú pháp template vào danh mục `bot_placeholder` (`is_spam=True`, `spam_score=1.0`).
+  - `save_and_analyze_reviews`: Thiết lập chốt chặn phòng thủ không bao giờ lưu các review template rác vào SQLite, đồng thời tự động cập nhật chính xác `review_count` của nhà hàng.
+- **Tầng Làm Sạch Phòng Thủ Phía Giao Diện (`src/services/restaurantService.ts`, `src/components/dashboard/ReviewExplorer.tsx`)**:
+  - Bổ sung cơ chế `sanitizeReviews` và `sanitizeRestaurant`: Tự động làm sạch mảng `recentReviews` và `criticalReviews` khi nạp từ API.
+  - Các hàm helper hiển thị an toàn `getSafeAuthor`, `getSafeText`, `getSafeDateDisplay` đảm bảo không bao giờ render cú pháp `{{...}}` hoặc văn bản rác ra giao diện người dùng.
+- **Dọn Dẹp Dữ Liệu SQLite (`restaurant-review-ai/data/restaurants.db`)**:
+  - Đã xóa toàn bộ 10 bản ghi review rác (ID 740, 741, 753, 754, 765, 766, 775, 776, 792, 793) khỏi database.
+  - Đồng bộ lại `review_count` chính xác 100% cho các quán ăn bị ảnh hưởng (như quán ID 244 "Mì Quảng Bà Mua - Ngũ Hành Sơn").
+- **Kiểm Thử Toàn Diện (`restaurant-review-ai/tests/test_angular_template_filter.py`)**:
+  - Bổ sung 14 unit test cases chuyên sâu bao phủ toàn diện: lọc cú pháp AngularJS, lọc nút `common_delete`, phân loại spam bot placeholder, kiểm tra phòng thủ pipeline, và xác minh database sạch 0 review rác.
+  - Toàn bộ **72/72 tests** của hệ thống chạy qua thành công (100% PASS).
+
+
+## [1.15.0] - 2026-10-23
+
+### Phòng Vệ Đa Tầng Chống Cào URL Sai & Triệt Tiêu Lỗ Hổng SSRF (Foody URL Validation & SSRF Hardening)
+- **Kiểm Soát Xác Thực Phía Giao Diện (`src/components/common/AnalyzeUrlModal.tsx`)**:
+  - Khắc phục lỗ hổng logic kiểm tra `(url.includes('foody.vn') || url.startsWith('http'))` vốn chấp nhận mọi URL bắt đầu bằng `http` (kể cả Gmail, Facebook, IP lạ).
+  - Bổ sung hàm xác thực `isValidFoodyUrl` dựa trên `new URL()`: Bắt buộc giao thức `http/https`, hostname phải thuộc domain `foody.vn` hoặc subdomains `*.foody.vn`, và path phải trỏ tới slug quán ăn cụ thể.
+  - Tăng cường trải nghiệm người dùng (UX): Hiển thị cảnh báo trực quan viền đỏ kèm icon `AlertCircle` khi người dùng nhập URL không thuộc Foody (*"Chỉ hỗ trợ liên kết quán ăn từ Foody.vn..."*), đồng thời tự động vô hiệu hóa nút Submit.
+- **Bảo Vệ Đa Tầng Backend API & Chống SSRF (`restaurant-review-ai/routers/crawler.py`)**:
+  - Xây dựng hàm `validate_foody_url()` kiểm soát chặt chẽ URL đầu vào tại endpoint `/api/analyze-url`:
+    - Chỉ cho phép hostname thuộc `foody.vn` / `*.foody.vn`.
+    - Ngăn chặn triệt để SSRF: cấm IP addresses, cấm cổng lạ khác 80/443, cấm userinfo (`user:pass@host`), cấm DNS rebinding phân giải về dải IP private/loopback/link-local/multicast/reserved (`127.0.0.1`, `10.*`, `172.16.*`, `192.168.*`, `169.254.*`).
+    - Chặn các đường dẫn hệ thống/login của Foody (như `/dang-nhap`, `/thanh-vien`), bắt buộc link phải trỏ tới quán ăn thực tế.
+- **Sanity Check Kép Tại Crawler Engine (`restaurant-review-ai/crawler/foody_crawler.py`)**:
+  - Thêm các bộ lọc `is_foody_domain`, `is_valid_foody_restaurant_page`, và danh sách đen `INVALID_RESTAURANT_NAMES` (loại bỏ các tiêu đề như "Đăng nhập", "Sign in", "Login", "404", "Page Not Found").
+  - Cả hai lớp HTTP Fast Inspector và Selenium Crawler đều xác thực sự hiện diện của cấu trúc quán ăn Foody thật sự trước khi trích xuất dữ liệu, ngăn chặn việc tạo quán ma khi gặp trang chuyển hướng login.
+- **Dọn Dẹp Dữ Liệu Rác Cơ Sở Dữ Liệu (`restaurant-review-ai/data/restaurants.db`)**:
+  - Xóa bỏ triệt để bản ghi quán ăn rác ID 247 ("Đăng nhập" gắn với link `https://mail.google.com/mail/`), đưa tổng số lượng nhà hàng về 249 quán ăn chuẩn 100%.
+- **Kiểm Thử Toàn Diện (`restaurant-review-ai/tests/test_url_validation.py`)**:
+  - Bổ sung 17 unit test cases chuyên sâu bao phủ toàn diện: từ chối domain lạ (Gmail, Facebook), chặn IP/SSRF/DNS rebinding, từ chối trang đăng nhập, kiểm tra sanity check HTML, kiểm tra API response HTTP 400 và xác minh database sạch.
+  - Toàn bộ 58/58 tests của dự án vượt qua thành công (100% PASS).
+
+
+## [1.14.0] - 2026-10-23
+
+### Tinh Chỉnh Ngôn Ngữ Người Dùng & Loại Bỏ Triệt Để Thuật Ngữ Kỹ Thuật (Jargon Elimination & UX Polish)
+- **Chuẩn Hóa Giao Diện Trợ Lý & Khắc Phục Lỗi Hiển Thị**:
+  - **Loại bỏ đồng hồ đo latency**: Xóa bỏ hiển thị số giây đo lường kỹ thuật (`0.01s`) cạnh câu trả lời của trợ lý.
+  - **Khắc phục lỗi lặp biểu tượng & emoji**:
+    - Nút `✨ Sinh lại với AI` $\rightarrow$ Đổi thành `<Sparkles /> Gợi ý câu khác` (loại bỏ emoji `✨` lặp và từ chuyên ngành AI "sinh lại").
+    - Nút `⚡ AI Soạn phản hồi` / `⚡ AI Phản hồi` $\rightarrow$ Đổi thành `<Zap /> Soạn phản hồi` (loại bỏ emoji `⚡` lặp).
+  - **Ẩn hoàn toàn tên mô hình nội bộ & số mili-giây**:
+    - Thay thế huy hiệu `gemini-3.5-flash-lite • 2972ms` bằng nhãn thân thiện `Phản hồi gợi ý từ AI` (hoặc `Đã lưu sẵn`).
+  - **Việt hóa tự nhiên, loại bỏ thuật ngữ IT/Developer**:
+    - Thay `Phân tích bởi Gemini AI` $\rightarrow$ `Trợ lý AI`.
+    - Thay `Phản hồi tức thì (Bộ nhớ đệm)` $\rightarrow$ `Phản hồi tức thì` (bỏ chữ "Bộ nhớ đệm" / Cache).
+    - Thay tiêu đề `Trợ lý Thông tin Nền tảng (Platform Intelligence)` $\rightarrow$ `Trợ lý Thông tin Nền tảng`.
+    - Thay phụ đề `Phân tích thông minh với Gemini AI...` $\rightarrow$ `Phân tích khách quan dựa trên {totalReviews} đánh giá thực tế`.
+    - Thay `Gemini LLM-First` $\rightarrow$ `Hỗ trợ bởi AI`.
+    - Thay `Mã: {review.id}` $\rightarrow$ `Đánh giá của {review.author}`.
+    - Thay `seeding rác` / `spam` trên trang chủ $\rightarrow$ `đánh giá ảo` và `Tỷ lệ loại bỏ nhận xét ảo:`.
+- **Làm Sạch System Prompt Backend (`restaurant-review-ai/services/assistant_service.py`)**:
+  - Định vị tự nhiên: *"Bạn là Trợ lý Thông tin Ẩm thực của Restaurant Intelligence..."*, loại bỏ danh xưng kỹ thuật *"Platform Intelligence Analyst"*.
+  - Làm sạch mô tả lọc dữ liệu, loại bỏ các từ `thuật toán`, `spam`, `seeding ảo`.
+
+### Chuyển Đổi Trợ Lý Thông Tin Nền Tảng Sang 100% Gemini AI (Full LLM-First & Loại Bỏ Local Synthesizer)
+- **Trợ Lý Thông Tin Nền Tảng 100% AI (`restaurant-review-ai/services/assistant_service.py`)**:
+  - Chuyển đổi toàn bộ câu hỏi truy vấn của người dùng/chủ quán sang xử lý bằng **Google Gemini AI** (`gemini-3.5-flash-lite`, `gemini-2.5-flash`, `gemini-3.8-flash`).
+  - Loại bỏ hoàn toàn cơ chế phân nhánh và văn mẫu tổng hợp cục bộ (`synthesize_local_answer`), không còn tình trạng sinh câu trả lời cứng/thiếu chiều sâu.
+  - Tích hợp **Rich Context**: Trích xuất chi tiết 5 khía cạnh cốt lõi kèm tỷ lệ khen/chê, từ khóa trọng tâm, số lượt nhắc và mẫu trích dẫn đánh giá thực tế của thực khách (khen & chê có trích dẫn tác giả, điểm số) để AI phản hồi sâu sắc, chính xác và có bằng chứng cụ thể.
+  - Thiết lập nghiêm ngặt **4 Tầng Guardrails Nền Tảng**: Độc lập & khách quan (Platform Intelligence), từ chối ngoài phạm vi F&B lịch sự, giải thích rõ giới hạn dữ liệu doanh thu nội bộ, bảo mật danh tính cá nhân người đánh giá.
+  - Giữ cơ chế **In-Memory Question Caching** (`source="cache"`): Phản hồi tức thì 0ms cho các câu hỏi trùng lặp mà không tốn thêm token quota.
+  - Xử lý lỗi gián đoạn mạng hoặc API Key bằng cảnh báo Markdown trực quan `> [!WARNING]`, minh bạch hóa trạng thái kết nối AI mà không che đậy bằng dữ liệu giả.
+- **FastAPI Endpoints (`restaurant-review-ai/routers/restaurants.py`)**:
+  - Endpoint `/restaurants/{identifier}/ask` luôn thực thi Gemini AI.
+  - Tương thích ngược toàn diện với các payload cũ (`force_ai`, `forceAi`), đặt mặc định `True`.
+- **Giao Diện Trợ Lý Nền Tảng (`src/components/dashboard/AiAssistantWidget.tsx`)**:
+  - **Loại bỏ hoàn toàn checkbox toggle "Phân tích chuyên sâu"**: Vì hệ thống đã chạy 100% AI, không còn cần người dùng phải bấm chọn để kích hoạt AI.
+  - Cập nhật header subtitle sang chuẩn AI: *"Phân tích thông minh với Gemini AI dựa trên {totalReviews} đánh giá thực tế"*.
+  - Cập nhật lời chào mở đầu và hội thoại gắn nhãn nguồn `gemini_ai`.
+  - Chuẩn hóa 2 huy hiệu nguồn minh bạch:
+    - `gemini_ai`: Icon `Sparkles` kèm text *"Phân tích bởi Gemini AI"* (tone vàng cam ấm).
+    - `cache`: Icon `Zap` kèm text *"Phản hồi tức thì (Bộ nhớ đệm)"* (tone xanh dương).
+  - Tinh chỉnh trạng thái loading: *"Trợ lý AI đang phân tích dữ liệu và phản hồi..."*.
+- **Client Service (`src/services/restaurantService.ts`)**:
+  - Loại bỏ toàn bộ ~100 dòng mã offline synthesis fallback giả lập ở frontend.
+  - Gửi trực tiếp yêu cầu lên backend API và bắt lỗi kết nối trực quan.
+- **Kiểm Thử & Đảm Bảo Chất Lượng**:
+  - Toàn bộ 8 unit test cases tại `test_assistant_service.py` vượt qua thành công (100% pass).
+  - Frontend `oxlint` (0 errors, 0 warnings) và `tsc -b && vite build` biên dịch thành công 100%.
+
+## [1.13.0] - 2026-10-23
+
+### Ra Mắt Tính Năng AI Soạn Thư Phản Hồi Thực Khách (AI Review Responder - Closed-Loop Action)
+- **Backend Generative AI Engine (`restaurant-review-ai/services/reply_service.py`)**:
+  - Mô hình **Gemini LLM-First** (`gemini-3.5-flash-lite`, `gemini-2.5-flash`, `gemini-3.8-flash`) tự động thấu hiểu ngữ cảnh bài đánh giá (tên khách, điểm số, khuyết điểm hoặc món ăn được khen) để tạo thư phản hồi thấu cảm, đậm chất văn hóa ẩm thực Việt Nam.
+  - Hỗ trợ **4 Tông giọng nghiệp vụ chuẩn mực ngành F&B**:
+    - `apology`: *Chân thành & Nhận lỗi* (dành cho đánh giá tiêu cực 1-2 sao, xoa dịu khủng hoảng truyền thông).
+    - `voucher`: *Lịch sự & Tặng Voucher* (tự động đề xuất giải pháp đền bù và giữ chân khách hàng).
+    - `gratitude`: *Tri ân & Thân thiện* (dành cho bài khen ngợi 4-5 sao, khuyến khích khách quen quay lại).
+    - `clarification`: *Giải thích & Cầu thị* (làm rõ hiểu lầm về khẩu phần, giá cả hoặc giờ cao điểm).
+  - Tự động sinh mã voucher ưu đãi chuẩn định dạng `CARE-{SHORTNAME}-{DISCOUNT}` kèm kiểm soát tỷ lệ giảm giá (5% - 90%).
+  - Bộ nhớ đệm **In-Memory Cache** theo cặp `{restaurant_id}:{review_id}:{tone}`, phản hồi tức thì **0ms** khi chuyển qua lại giữa các tông giọng đã tạo trong phiên làm việc, tiết kiệm tối đa quota API.
+  - Bộ Gastronomy Fallback chuyên sâu chống lỗi 500 khi mạng gián đoạn.
+- **FastAPI Endpoints (`restaurant-review-ai/routers/restaurants.py`)**:
+  - Khởi tạo route `POST /api/restaurants/{identifier}/reply` và alias `POST /api/restaurants/{identifier}/generate-reply`.
+  - Hỗ trợ mọi định dạng định danh: ID số (`1`), ID tiền tố (`res-1`), slug Foody tiếng Việt có dấu và không dấu.
+  - Schema Pydantic `GenerateReplyRequest` & `GenerateReplyResponse` tương thích cả `camelCase` (frontend) lẫn `snake_case` (backend).
+- **Frontend Warm Gastronomy UI (`src/components/dashboard/ReviewReplyModal.tsx`)**:
+  - Thiết kế modal sang trọng theo hệ thiết kế Warm Gastronomy & Modern Editorial (`Spectral` & `Be Vietnam Pro`, viền `#E5E3DE`).
+  - Tự động nhận diện tông giọng khởi đầu thông minh dựa trên đánh giá thực khách ($\le 2$ sao $\rightarrow$ Nhận lỗi; $\ge 4$ sao $\rightarrow$ Tri ân).
+  - Khung soạn thảo `textarea` trực tiếp cho phép người quản lý hiệu chỉnh văn bản linh hoạt, tích hợp bộ đếm từ và ký tự thời gian thực.
+  - Trạng thái Skeleton Loading mượt mà khi AI đang suy luận.
+  - Huy hiệu minh bạch mô hình AI (`gemini-3.5-flash-lite`), thời gian suy luận (hoặc `0ms - Cache`), voucher badge kèm nút chép mã nhanh.
+  - Bộ nút hành động: `✨ Sinh lại với AI` và `📋 Sao chép phản hồi` (1-click clipboard copy kèm hiệu ứng tích xanh và thông báo xác nhận).
+- **Tích hợp tương tác (`ReviewExplorer.tsx`, `ReviewDetailModal.tsx`)**:
+  - Bổ sung nút bấm nhanh `⚡ AI Phản hồi` trên từng thẻ đánh giá và nút `⚡ AI Soạn phản hồi` trong footer modal chi tiết.
+- **Kiểm thử & Đảm bảo chất lượng**:
+  - Bổ sung bộ test suite 31 test cases tự động (`restaurant-review-ai/tests/test_reply_service.py`), 100% tests vượt qua thành công.
+  - Toàn bộ 41 unit/integration test cases của dự án đều pass (`pytest`).
+  - `oxlint`: 0 warnings, 0 errors.
+  - `vite build`: biên dịch thành công 100%.
+
 ## [1.12.0] - 2026-10-13
 
 ### Tái Thiết Toàn Diện Giao Diện, Bố Cục & Hệ Màu Sắc (Warm Gastronomy & Modern Editorial)

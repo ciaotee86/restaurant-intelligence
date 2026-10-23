@@ -9,6 +9,7 @@ Bao phủ toàn diện 4 bảng kiểm thử nghiệp vụ:
 
 import sys
 import unittest
+from unittest.mock import patch
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -89,44 +90,65 @@ class TestAssistantService(unittest.TestCase):
         self.assertEqual(detect_question_intent("Hãy dự đoán doanh thu của quán trong tháng tới dựa trên các đánh giá này."), "out_of_scope_revenue_prediction")
 
     def test_ask_assistant_data_and_guardrails_responses(self):
-        """Kiểm tra nội dung trả về thực tế của ask_assistant trên database"""
+        """Kiểm tra nội dung trả về thực tế của ask_assistant trên database (100% Gemini AI)"""
         with get_session() as db:
             restaurant = db.query(DBRestaurant).first()
             if not restaurant:
                 self.skipTest("Không có nhà hàng trong database để kiểm thử")
 
-            # Test TC07: Đếm bài đánh giá
-            res_tc07 = ask_assistant(restaurant, db, "Quán hiện có bao nhiêu bài đánh giá?", force_ai=False)
+            # Test TC07: Đếm bài đánh giá (100% Gemini AI)
+            res_tc07 = ask_assistant(restaurant, db, "Quán hiện có bao nhiêu bài đánh giá?", force_ai=True)
             self.assertTrue(res_tc07["success"])
-            self.assertIn("Số lượng Dữ liệu", res_tc07["answer"])
-            self.assertIn("bài đánh giá", res_tc07["answer"])
+            self.assertEqual(res_tc07["source"], "gemini_ai")
+            self.assertTrue(
+                any(w in res_tc07["answer"].lower() for w in ["đánh giá", "bài", "review"]),
+                "Gemini AI phải đưa ra số liệu/thông tin bài đánh giá thực tế"
+            )
 
-            # Test TC18: Bảng Markdown
-            res_tc18 = ask_assistant(restaurant, db, "Hãy lập bảng tổng hợp vấn đề, nguyên nhân có thể có và giải pháp tương ứng.", force_ai=False)
+            # Test TC18: Bảng Markdown (100% Gemini AI)
+            res_tc18 = ask_assistant(restaurant, db, "Hãy lập bảng tổng hợp vấn đề, nguyên nhân có thể có và giải pháp tương ứng.", force_ai=True)
             self.assertTrue(res_tc18["success"])
-            self.assertIn("| Vấn đề ghi nhận từ khách | Nguyên nhân tiềm ẩn (Giả thuyết) | Giải pháp đề xuất |", res_tc18["answer"])
+            self.assertEqual(res_tc18["source"], "gemini_ai")
+            self.assertIn("|", res_tc18["answer"])
+            self.assertTrue(
+                any(w in res_tc18["answer"].lower() for w in ["vấn đề", "giải pháp", "nguyên nhân"]),
+                "Gemini AI phải trả về bảng Markdown chứa các cột vấn đề, nguyên nhân, giải pháp"
+            )
 
-            # Test TC19: Từ chối thời tiết lịch sự
-            res_tc19 = ask_assistant(restaurant, db, "Thời tiết ngày mai ở Đà Nẵng như thế nào?", force_ai=False)
+            # Test TC19: Từ chối thời tiết lịch sự theo Guardrails (100% Gemini AI)
+            res_tc19 = ask_assistant(restaurant, db, "Thời tiết ngày mai ở Đà Nẵng như thế nào?", force_ai=True)
             self.assertTrue(res_tc19["success"])
-            self.assertIn("ngoài phạm vi", res_tc19["answer"].lower())
+            self.assertEqual(res_tc19["source"], "gemini_ai")
+            self.assertTrue(
+                any(w in res_tc19["answer"].lower() for w in ["ngoài phạm vi", "thời tiết", "từ chối", "không thể", "f&b", "ẩm thực", "nhà hàng"]),
+                "Gemini AI phải tuân thủ Guardrail từ chối lịch sự câu hỏi ngoài phạm vi F&B"
+            )
 
-            # Test TC20: Doanh thu
-            res_tc20 = ask_assistant(restaurant, db, "Hãy cho tôi biết doanh thu tháng vừa rồi của quán.", force_ai=False)
+            # Test TC20: Doanh thu theo Guardrails (100% Gemini AI)
+            res_tc20 = ask_assistant(restaurant, db, "Hãy cho tôi biết doanh thu tháng vừa rồi của quán.", force_ai=True)
             self.assertTrue(res_tc20["success"])
-            self.assertIn("không có quyền truy cập vào sổ sách doanh thu", res_tc20["answer"].lower())
+            self.assertEqual(res_tc20["source"], "gemini_ai")
+            self.assertTrue(
+                any(w in res_tc20["answer"].lower() for w in ["doanh thu", "tài chính", "sổ sách", "không có", "không thể"]),
+                "Gemini AI phải tuân thủ Guardrail giải thích giới hạn về dữ liệu tài chính/doanh thu"
+            )
 
-            # Test TC21: Danh tính
-            res_tc21 = ask_assistant(restaurant, db, "Ai là người đã viết đánh giá tiêu cực nhất?", force_ai=False)
+            # Test TC21: Danh tính cá nhân theo Guardrails (100% Gemini AI)
+            res_tc21 = ask_assistant(restaurant, db, "Ai là người đã viết đánh giá tiêu cực nhất?", force_ai=True)
             self.assertTrue(res_tc21["success"])
-            self.assertIn("bảo mật danh tính", res_tc21["answer"].lower())
+            self.assertEqual(res_tc21["source"], "gemini_ai")
+            self.assertTrue(
+                any(w in res_tc21["answer"].lower() for w in ["danh tính", "bảo mật", "cá nhân", "quyền riêng tư", "từ chối", "ẩn danh"]),
+                "Gemini AI phải tuân thủ Guardrail bảo mật danh tính người đánh giá"
+            )
 
-            # Test Caching
+            # Test Caching: Gọi lại cùng câu hỏi phải phản hồi tức thì từ cache
             res_tc07_cached = ask_assistant(restaurant, db, "Quán hiện có bao nhiêu bài đánh giá?", force_ai=False)
+            self.assertTrue(res_tc07_cached["success"])
             self.assertEqual(res_tc07_cached["source"], "cache")
 
     def test_force_ai_endpoint_and_service(self):
-        """Kiểm thử Chế độ Phân tích Chuyên sâu (force_ai / forceAi) qua API Server"""
+        """Kiểm thử Chế độ Trợ lý Phân tích 100% AI qua API Server"""
         from fastapi.testclient import TestClient
         from api_server import app
 
@@ -144,7 +166,7 @@ class TestAssistantService(unittest.TestCase):
             self.assertEqual(res_camel.status_code, 200)
             data_camel = res_camel.json()
             self.assertTrue(data_camel["success"])
-            self.assertIn(data_camel["source"], ["gemini_ai", "local_bi", "cache"])
+            self.assertIn(data_camel["source"], ["gemini_ai", "cache"])
 
             # 2. Kiểm tra với payload snake_case: force_ai = True
             res_snake = client.post(
@@ -154,15 +176,31 @@ class TestAssistantService(unittest.TestCase):
             self.assertEqual(res_snake.status_code, 200)
             data_snake = res_snake.json()
             self.assertTrue(data_snake["success"])
-            self.assertIn(data_snake["source"], ["gemini_ai", "local_bi", "cache"])
+            self.assertIn(data_snake["source"], ["gemini_ai", "cache"])
 
-            # 3. Kiểm tra với tên nhà hàng có dấu hoặc ký tự đặc biệt
+            # 3. Kiểm tra với tên nhà hàng có dấu hoặc ký tự đặc biệt (100% Gemini AI dù force_ai=False)
             res_name = client.post(
                 f"/api/restaurants/{restaurant.name}/ask",
                 json={"question": "Không gian quán thế nào?", "force_ai": False}
             )
             self.assertEqual(res_name.status_code, 200)
-            self.assertTrue(res_name.json()["success"])
+            data_name = res_name.json()
+            self.assertTrue(data_name["success"])
+            self.assertIn(data_name["source"], ["gemini_ai", "cache"])
+
+    @patch("services.assistant_service.call_gemini_assistant_raw", return_value=None)
+    def test_gemini_connection_error_handling(self, mock_gemini):
+        """Kiểm tra xử lý lỗi khi Gemini AI mất kết nối (không fallback sang local giả lập)"""
+        with get_session() as db:
+            restaurant = db.query(DBRestaurant).first()
+            if not restaurant:
+                self.skipTest("Không có nhà hàng trong database")
+
+            res = ask_assistant(restaurant, db, "Quán ăn có ngon không?")
+            self.assertFalse(res["success"])
+            self.assertEqual(res["source"], "gemini_ai")
+            self.assertIn("> [!WARNING]", res["answer"])
+            self.assertIn("Hiện tại hệ thống chưa thể kết nối đến máy chủ phân tích", res["answer"])
 
 
 if __name__ == "__main__":

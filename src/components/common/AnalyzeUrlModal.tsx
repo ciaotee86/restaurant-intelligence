@@ -9,6 +9,71 @@ interface AnalyzeUrlModalProps {
   onSuccess: (restaurantId: string) => void;
 }
 
+/**
+ * Kiểm tra tính hợp lệ của liên kết quán ăn từ Foody.vn:
+ * - Bắt buộc bắt đầu bằng giao thức http:// hoặc https://.
+ * - Hostname phải là foody.vn hoặc subdomain của foody.vn (ví dụ: www.foody.vn).
+ * - Path tối thiểu phải có độ dài hoặc chứa slug quán ăn (không chỉ là trang chủ https://www.foody.vn/).
+ */
+const isValidFoodyUrl = (urlString: string): boolean => {
+  const trimmed = urlString.trim();
+  if (!trimmed) return false;
+
+  // URL phải bắt đầu bằng http:// hoặc https://
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const protocol = parsed.protocol.toLowerCase();
+    if (protocol !== 'http:' && protocol !== 'https:') {
+      return false;
+    }
+
+    const hostname = parsed.hostname.toLowerCase();
+    // Hostname phải là foody.vn hoặc subdomain của foody.vn
+    const isFoodyHost = hostname === 'foody.vn' || hostname.endsWith('.foody.vn');
+    if (!isFoodyHost) {
+      return false;
+    }
+
+    // Path tối thiểu phải có độ dài, không chỉ là trang chủ "/"
+    const cleanPath = parsed.pathname.replace(/^\/+|\/+$/g, '');
+    if (!cleanPath) {
+      return false;
+    }
+
+    const segments = cleanPath.split('/').filter(Boolean);
+    if (segments.length === 0) {
+      return false;
+    }
+
+    // Danh sách các slug chỉ là danh mục thành phố (không phải quán ăn cụ thể)
+    const cityOnlySlugs = [
+      'da-nang',
+      'ho-chi-minh',
+      'ha-noi',
+      'hai-phong',
+      'can-tho',
+      'hue',
+      'khanh-hoa',
+      'lam-dong',
+      'vung-tau',
+      'quang-nam',
+      'kien-giang',
+      'quang-ninh'
+    ];
+    if (segments.length === 1 && cityOnlySlugs.includes(segments[0].toLowerCase())) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [tab, setTab] = useState<'keyword' | 'url'>('keyword');
   const [keyword, setKeyword] = useState('');
@@ -53,7 +118,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
   const isMaxReviewsValid = Boolean(maxReviews && maxReviews > 0);
   const isKeywordFormValid = isKeywordValid && isCityValid && isMaxReviewsValid;
 
-  const isUrlValid = Boolean(url.trim() && (url.includes('foody.vn') || url.startsWith('http')));
+  const isUrlValid = isValidFoodyUrl(url);
   const isUrlFormValid = isUrlValid && isMaxReviewsValid;
 
   const isFormValid = tab === 'keyword' ? isKeywordFormValid : isUrlFormValid;
@@ -119,7 +184,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
           setErrorMessage(res.message || 'Không tìm thấy quán nào trên Foody.');
         }
       } else {
-        if (!url.trim()) return;
+        if (!url.trim() || !isUrlValid) return;
         const res = await restaurantService.analyzeFoodyUrl(url.trim(), maxReviews);
         
         if (res.success && res.restaurant) {
@@ -349,8 +414,11 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="https://www.foody.vn/da-nang/banh-trang-tien-tien"
                   disabled={status === 'crawling'}
-                  className={`w-full text-xs sm:text-sm pl-3.5 pr-9 py-2.5 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C2410C]/20 focus:border-[#C2410C] transition-all text-[#18181B] ${
-                    url.length > 0 && !isUrlValid ? 'border-amber-400' : 'border-[#D4D4D8]'
+                  aria-invalid={url.trim().length > 0 && !isUrlValid}
+                  className={`w-full text-xs sm:text-sm pl-3.5 pr-9 py-2.5 bg-white border rounded-lg focus:outline-none focus:ring-2 transition-all text-[#18181B] ${
+                    url.trim().length > 0 && !isUrlValid
+                      ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20 bg-red-50/10'
+                      : 'border-[#D4D4D8] focus:border-[#C2410C] focus:ring-[#C2410C]/20'
                   }`}
                 />
                 {url && status !== 'crawling' && (
@@ -365,9 +433,16 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                   </button>
                 )}
               </div>
-              <p className="text-[11px] text-[#71717A] mt-1">
-                Dán liên kết trang quán ăn để xem đánh giá tổng hợp từ thực khách.
-              </p>
+              {url.trim().length > 0 && !isUrlValid ? (
+                <div className="flex items-center gap-1.5 text-[11px] text-red-600 mt-1.5 font-medium animate-in fade-in duration-150">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-500" />
+                  <span>Chỉ hỗ trợ liên kết quán ăn từ Foody.vn (Ví dụ: https://www.foody.vn/da-nang/...)</span>
+                </div>
+              ) : (
+                <p className="text-[11px] text-[#71717A] mt-1">
+                  Dán liên kết trang quán ăn để xem đánh giá tổng hợp từ thực khách.
+                </p>
+              )}
             </div>
           )}
 

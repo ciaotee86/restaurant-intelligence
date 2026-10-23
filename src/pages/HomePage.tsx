@@ -153,7 +153,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               </span>
               <span className="flex items-center gap-2 font-medium">
                 <CheckCircle2 className="w-4 h-4 text-[#991B1B] shrink-0" />
-                Loại bỏ nhận xét giả & seeding rác
+                Loại bỏ nhận xét giả & đánh giá ảo
               </span>
               <span className="flex items-center gap-2 font-medium">
                 <BarChart3 className="w-4 h-4 text-[#D97706] shrink-0" />
@@ -313,12 +313,12 @@ export const HomePage: React.FC<HomePageProps> = ({
                     Tách lọc nhận xét ảo
                   </h3>
                   <p className="text-xs text-[#78716C] leading-relaxed mb-4">
-                    Thuật toán kiểm duyệt loại trừ các bình luận quảng cáo, tài khoản mới tạo spam điểm số, chỉ giữ lại nhận xét từ tài khoản có lịch sử ăn uống thật.
+                    Hệ thống tự động loại trừ các bình luận quảng cáo, tài khoản mới tạo đánh giá ảo, chỉ giữ lại nhận xét từ người dùng có trải nghiệm thực tế.
                   </p>
                   
                   <div className="p-3 bg-[#FAF7F2] rounded-xl border border-[#E8E4DC] space-y-2">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-[#57534E]">Tỷ lệ lọc spam:</span>
+                      <span className="text-[#57534E]">Tỷ lệ loại bỏ nhận xét ảo:</span>
                       <span className="font-mono font-bold text-[#991B1B]">~18.5% đã loại bỏ</span>
                     </div>
                     <div className="flex items-center justify-between text-xs">

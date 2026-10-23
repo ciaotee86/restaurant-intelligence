@@ -1,7 +1,74 @@
-import type { Restaurant, SearchFilterState, CustomerReview, AspectCategory, SentimentType } from '../types/restaurant';
+import type {
+  Restaurant,
+  SearchFilterState,
+  CustomerReview,
+  AspectCategory,
+  SentimentType,
+  GenerateReplyRequest,
+  GenerateReplyResponse
+} from '../types/restaurant';
 import { parseSearchQuery, isRestaurantInCity, matchesRestaurantKeyword, removeVietnameseAccents } from '../utils/cityUtils';
 
 export { removeVietnameseAccents };
+
+/**
+ * Kiểm tra xem một bài đánh giá có phải là dữ liệu rác, lỗi trích xuất hoặc chứa mã template AngularJS hay không.
+ * Điều kiện vi phạm:
+ * 1. Bài đánh giá có text rỗng hoặc chỉ có khoảng trắng (< 2 ký tự).
+ * 2. Bài đánh giá có author, text, hoặc date chứa {{, }}, Model., hoặc common_delete.
+ */
+export const isJunkReview = (rev: CustomerReview): boolean => {
+  if (!rev) return true;
+
+  // 1. Loại bỏ bài đánh giá có text rỗng hoặc chỉ có khoảng trắng (< 2 ký tự)
+  const text = typeof rev.text === 'string' ? rev.text : '';
+  if (!text || text.trim().length < 2) {
+    return true;
+  }
+
+  // 2. Loại bỏ bài đánh giá có author, text, hoặc date chứa {{, }}, Model., hoặc common_delete
+  const junkPatterns = ['{{', '}}', 'model.', 'common_delete'];
+
+  const author = (typeof rev.author === 'string' ? rev.author : '').toLowerCase();
+  const lowerText = text.toLowerCase();
+  const date = (typeof rev.date === 'string' ? rev.date : '').toLowerCase();
+  const dateDisplay = (typeof rev.dateDisplay === 'string' ? rev.dateDisplay : '').toLowerCase();
+
+  const combined = `${author} ${lowerText} ${date} ${dateDisplay}`;
+
+  return junkPatterns.some((pattern) => combined.includes(pattern));
+};
+
+/**
+ * Helper làm sạch danh sách đánh giá: loại bỏ toàn bộ bài rác, bài rỗng, mã AngularJS template
+ */
+export const sanitizeReviews = (reviews: CustomerReview[]): CustomerReview[] => {
+  if (!reviews || !Array.isArray(reviews)) {
+    return [];
+  }
+  return reviews.filter((rev) => !isJunkReview(rev));
+};
+
+/**
+ * Làm sạch dữ liệu nhà hàng: bảo đảm reviews, recentReviews và criticalReviews đều được lọc sạch rác
+ */
+export const sanitizeRestaurant = (restaurant: Restaurant): Restaurant => {
+  if (!restaurant) return restaurant;
+  const anyRes = restaurant as any;
+  const sanitized = { ...restaurant };
+
+  if (Array.isArray(sanitized.reviews)) {
+    sanitized.reviews = sanitizeReviews(sanitized.reviews);
+  }
+  if (Array.isArray(anyRes.recentReviews)) {
+    anyRes.recentReviews = sanitizeReviews(anyRes.recentReviews);
+  }
+  if (Array.isArray(anyRes.criticalReviews)) {
+    anyRes.criticalReviews = sanitizeReviews(anyRes.criticalReviews);
+  }
+
+  return sanitized;
+};
 
 /**
  * Xác định API Base URL linh hoạt cho cả môi trường Development và Production Deployment
@@ -92,9 +159,9 @@ class RestaurantService {
     const apiData = await this.fetchFromApi<Restaurant[]>('/restaurants');
     
     if (apiData && Array.isArray(apiData) && apiData.length > 0) {
-      this.cachedRestaurants = apiData;
+      this.cachedRestaurants = apiData.map((r) => sanitizeRestaurant(r));
       this.isBackendConnected = true;
-      return [...apiData];
+      return [...this.cachedRestaurants];
     }
 
     if (apiData && Array.isArray(apiData) && apiData.length === 0) {
@@ -113,12 +180,18 @@ class RestaurantService {
   public async getRestaurantByIdOrSlug(identifier: string): Promise<Restaurant | undefined> {
     const apiData = await this.fetchFromApi<Restaurant>(`/restaurants/${identifier}`);
     if (apiData) {
-      return apiData;
+      const sanitized = sanitizeRestaurant(apiData);
+      const existingIdx = this.cachedRestaurants.findIndex((r) => r.id === sanitized.id || r.slug === sanitized.slug);
+      if (existingIdx >= 0) {
+        this.cachedRestaurants[existingIdx] = sanitized;
+      }
+      return sanitized;
     }
 
-    return this.cachedRestaurants.find(
+    const cached = this.cachedRestaurants.find(
       (r) => r.id === identifier || r.slug === identifier || r.id.toLowerCase() === identifier.toLowerCase()
     );
+    return cached ? sanitizeRestaurant(cached) : undefined;
   }
 
   public async analyzeFoodyUrl(url: string, maxReviews: number = 30): Promise<{ success: boolean; message: string; restaurant?: Restaurant }> {
@@ -136,14 +209,16 @@ class RestaurantService {
       }
 
       const data = parsed.data;
+      let sanitizedRestaurant: Restaurant | undefined = undefined;
       if (data.restaurant) {
-        this.cachedRestaurants = [data.restaurant, ...this.cachedRestaurants.filter(r => r.id !== data.restaurant.id)];
+        sanitizedRestaurant = sanitizeRestaurant(data.restaurant);
+        this.cachedRestaurants = [sanitizedRestaurant, ...this.cachedRestaurants.filter((r) => r.id !== sanitizedRestaurant!.id)];
       }
 
       return {
         success: true,
         message: data.message || 'Tổng hợp nhận xét thành công!',
-        restaurant: data.restaurant
+        restaurant: sanitizedRestaurant
       };
     } catch (e: any) {
       return {
@@ -180,15 +255,17 @@ class RestaurantService {
       }
 
       const data = parsed.data;
+      let sanitizedRestaurant: Restaurant | undefined = undefined;
       if (data.restaurant) {
-        this.cachedRestaurants = [data.restaurant, ...this.cachedRestaurants.filter(r => r.id !== data.restaurant.id)];
+        sanitizedRestaurant = sanitizeRestaurant(data.restaurant);
+        this.cachedRestaurants = [sanitizedRestaurant, ...this.cachedRestaurants.filter((r) => r.id !== sanitizedRestaurant!.id)];
       }
 
       return {
         success: true,
         source: data.source || 'crawled_and_analyzed',
         message: data.message || 'Thao tác thành công!',
-        restaurant: data.restaurant
+        restaurant: sanitizedRestaurant
       };
     } catch (e: any) {
       return {
@@ -197,6 +274,14 @@ class RestaurantService {
         message: e?.message || 'Không thể kết nối đến máy chủ dữ liệu để tìm kiếm & tổng hợp.'
       };
     }
+  }
+
+  public sanitizeReviews(reviews: CustomerReview[]): CustomerReview[] {
+    return sanitizeReviews(reviews);
+  }
+
+  public sanitizeRestaurant(restaurant: Restaurant): Restaurant {
+    return sanitizeRestaurant(restaurant);
   }
 
   /**
@@ -257,140 +342,46 @@ class RestaurantService {
   }
 
   /**
-   * Hỏi đáp với Trợ lý AI Nhà Hàng (Kiến trúc Hybrid 2 tầng kết hợp Caching)
+   * Hỏi đáp với Trợ lý AI Nhà Hàng (100% Google Gemini AI & Caching)
    */
   public async askAssistant(
     restaurantId: string,
     question: string,
-    forceAi: boolean = false
-  ): Promise<{ success: boolean; answer: string; source: 'local_bi' | 'cache' | 'gemini_ai'; error?: string }> {
+    _forceAi?: boolean
+  ): Promise<{ success: boolean; answer: string; source: 'cache' | 'gemini_ai'; error?: string }> {
     try {
       const baseUrl = getApiBaseUrl();
       const safeId = encodeURIComponent(restaurantId.trim());
       const response = await fetch(`${baseUrl}/restaurants/${safeId}/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, force_ai: forceAi, forceAi })
+        body: JSON.stringify({ question, force_ai: true })
       });
       if (response.ok) {
         const data = await response.json();
         return {
-          success: true,
+          success: data.success ?? true,
           answer: data.answer,
-          source: data.source || 'local_bi'
+          source: (data.source as 'cache' | 'gemini_ai') || 'gemini_ai'
         };
       }
-    } catch {
-      // Fallback nếu server chưa bật hoặc mạng ngắt
-    }
 
-    // Client-side offline synthesis fallback
-    const r = this.cachedRestaurants.find(item => item.id === restaurantId || item.slug === restaurantId);
-    if (!r) {
+      const parsed = await this.parseResponseSafe<any>(response);
       return {
         success: false,
-        answer: 'Không tìm thấy dữ liệu nhà hàng.',
-        source: 'local_bi',
-        error: 'Nhà hàng không tồn tại'
+        answer: parsed.errorMsg || '> [!WARNING]\n> *Hiện tại hệ thống chưa thể kết nối đến máy chủ phân tích. Vui lòng thử lại sau giây lát.*',
+        source: 'gemini_ai',
+        error: parsed.errorMsg
+      };
+    } catch (err: any) {
+      console.warn(`[RestaurantService] Lỗi kết nối trợ lý AI cho nhà hàng ${restaurantId}:`, err?.message || err);
+      return {
+        success: false,
+        answer: '> [!WARNING]\n> *Hiện tại hệ thống chưa thể kết nối đến máy chủ phân tích. Vui lòng thử lại sau giây lát.*',
+        source: 'gemini_ai',
+        error: err?.message || 'Không thể kết nối đến máy chủ phân tích.'
       };
     }
-
-    const normQ = removeVietnameseAccents(question.toLowerCase());
-    let answer = '';
-    const foodAsp = r.aspects?.find(a => a.category === 'Món ăn');
-    const serviceAsp = r.aspects?.find(a => a.category === 'Dịch vụ');
-    const priceAsp = r.aspects?.find(a => a.category === 'Giá cả');
-    const totalRev = r.totalReviews || 0;
-    const posPct = r.sentimentDistribution?.positive || 75;
-    const negPct = r.sentimentDistribution?.negative || 10;
-    const neutPct = r.sentimentDistribution?.neutral || 15;
-
-    // Guardrails ngoài phạm vi (TC19 - TC22)
-    if (normQ.includes('thoi tiet') || normQ.includes('nhiet do') || normQ.includes('mua khong') || normQ.includes('bong da') || normQ.includes('the thao') || normQ.includes('gia vang') || normQ.includes('chung khoan')) {
-      answer = `ℹ️ **Thông báo từ Nền tảng Restaurant Intelligence:**\n\nTôi là Trợ lý Phân tích Dữ liệu của nền tảng Restaurant Intelligence, chuyên hỗ trợ khai thác dữ liệu đánh giá thực tế và tối ưu vận hành ẩm thực. Câu hỏi của bạn nằm ngoài phạm vi phân tích đánh giá nhà hàng của hệ thống.`;
-    } else if (normQ.includes('ai la nguoi') || normQ.includes('danh tinh') || normQ.includes('ten nguoi danh gia') || normQ.includes('nguoi nao viet')) {
-      answer = `🛡️ **Chính sách Bảo mật & Dữ liệu Khách quan:**\n\nHệ thống tôn trọng chính sách bảo mật danh tính người dùng. Nền tảng chỉ ghi nhận và phân tích nội dung đánh giá công khai (các bài viết đánh giá thấp điểm về dịch vụ hoặc món ăn) nhằm phục vụ cải thiện chất lượng vận hành của quán, hoàn toàn không thu thập hoặc suy đoán danh tính cá nhân của người đánh giá.`;
-    } else if (normQ.includes('doanh thu') || normQ.includes('loi nhuan') || normQ.includes('doanh so')) {
-      if (normQ.includes('du doan') || normQ.includes('thang toi') || normQ.includes('sap toi')) {
-        answer = `⚠️ **Thông báo Giới hạn Dự báo Tài chính (${r.name}):**\n\nDữ liệu đánh giá của khách hàng (${posPct}% tích cực, ${negPct}% tiêu cực) phản ánh mức độ hài lòng về hương vị và dịch vụ. Dữ liệu này **không đủ cơ sở khoa học để dự đoán doanh thu** chính xác trong tháng tới nếu thiếu các chỉ số kinh doanh cốt lõi (chi phí vận hành, giá trị trung bình đơn hàng, số lượt xoay bàn).`;
-      } else {
-        answer = `📊 **Giới hạn Dữ liệu Doanh thu (${r.name}):**\n\nNền tảng Restaurant Intelligence hiện chỉ thu thập và phân tích dữ liệu đánh giá trải nghiệm thực khách công khai (${totalRev} bài đánh giá). Hệ thống không có quyền truy cập vào sổ sách doanh thu hoặc dữ liệu tài chính nội bộ của quán, do đó không thể cung cấp số liệu doanh thu thực tế.`;
-      }
-    }
-    // Truy vấn định lượng (TC07 - TC12)
-    else if (normQ.includes('bao nhieu bai danh gia') || normQ.includes('bao nhieu review') || normQ.includes('tong so danh gia') || normQ.includes('so luong danh gia') || normQ.includes('co bao nhieu bai danh gia')) {
-      answer = `📊 **Số lượng Dữ liệu Thu thập tại ${r.name}:**\n\nHệ thống Restaurant Intelligence hiện ghi nhận chính xác **${totalRev} bài đánh giá** từ thực khách thực tế, đã được sàng lọc và loại bỏ hoàn toàn các nhận xét giả mạo hoặc bình luận quảng cáo rác.`;
-    } else if (normQ.includes('bao nhieu khach hang danh gia tich cuc') || normQ.includes('bao nhieu danh gia tich cuc') || normQ.includes('bao nhieu nguoi khen') || normQ.includes('so luong tich cuc')) {
-      const posCount = Math.round((totalRev * posPct) / 100);
-      answer = `📈 **Thống kê Đánh giá Tích cực (${r.name}):**\n\n- **Số lượng khách hàng hài lòng:** Khoảng **${posCount}/${totalRev} lượt đánh giá**.\n- **Tỷ lệ tích cực:** Đạt **${posPct}%** trên toàn bộ dữ liệu phản hồi thu thập được.\n- **Tỷ lệ còn lại:** ${neutPct}% trung lập và ${negPct}% chưa ưng ý.`;
-    } else if (normQ.includes('nhan xet tieu cuc ve dich vu') || normQ.includes('danh gia tieu cuc ve dich vu') || normQ.includes('khach che dich vu') || normQ.includes('phan nan ve dich vu')) {
-      const serviceAtt = r.attentionAreas?.find(a => a.aspect === 'Dịch vụ');
-      const complaints = serviceAtt?.commonComplaints?.map(c => `  • ${c}`).join('\n') || '  • Chưa ghi nhận phàn nàn nghiêm trọng về dịch vụ.';
-      answer = `🔍 **Tổng hợp Nhận xét Tiêu cực về Dịch vụ tại ${r.name}:**\n\nTheo ghi nhận thực tế từ các bài đánh giá chưa ưng ý:\n${complaints}\n\n**Khuyến nghị:** Cần đào tạo bổ sung nhân sự chạy bàn vào các khung giờ cao điểm trưa và tối.`;
-    } else if (normQ.includes('dan chung tu danh gia thuc te') || normQ.includes('dan chung thuc te') || normQ.includes('trich dan thuc te')) {
-      const sampleQuotes = r.attentionAreas?.flatMap(a => a.sampleReviewQuotes || []).slice(0, 2) || [];
-      const quotesText = sampleQuotes.length > 0 ? sampleQuotes.map(q => `  • Trích dẫn thực tế: "${q}"`).join('\n') : `  • Trích dẫn điểm mạnh: "${r.strengths?.[0]?.description || 'Món ăn nêm nếm đậm đà hợp khẩu vị.'}"`;
-      answer = `📝 **Dẫn chứng Trích xuất từ Đánh giá Thực tế tại ${r.name}:**\n\nDưới đây là các câu nhận xét nguyên văn từ khách hàng thực tế:\n${quotesText}\n\n*(Tất cả trích dẫn đều trích xuất trực tiếp từ các bài review gốc, không tự tạo nội dung giả lập).*`;
-    } else if (normQ.includes('nhac den nhieu lan nhat') || normQ.includes('lap lai nhieu lan')) {
-      const topIssues = (r.attentionAreas || []).flatMap(a => a.commonComplaints || []).slice(0, 3).map(c => `  • ${c}`).join('\n') || '  • Không có vấn đề tiêu cực lặp lại phổ biến.';
-      answer = `📌 **Các Vấn đề Được Thực khách Nhắc đến Nhiều Lần Nhất (${r.name}):**\n\n${topIssues}\n\n💡 *Khuyến nghị:* Các vấn đề lặp lại cần được quán ưu tiên xử lý trước trong quy trình vận hành.`;
-    } else if (normQ.includes('tap trung vao nhung khia canh nao') || normQ.includes('chu yeu tap trung vao')) {
-      const aspectList = (r.aspects || []).map(a => `  • **${a.category}:** ${a.positivePercentage}% hài lòng | ${a.negativePercentage}% phàn nàn (${a.mentionCount} lượt đề cập)`).join('\n');
-      answer = `📑 **Phân bố Ý kiến Khách hàng Theo Tiêu chí (${r.name}):**\n\nCác đánh giá của khách hàng tập trung vào các tiêu chí cốt lõi sau:\n${aspectList}\n\nTiêu chí được khen ngợi nhiều nhất là **${r.strengths?.[0]?.aspect || 'Món ăn'}**.`;
-    }
-    // Đề xuất kinh doanh (TC13 - TC18)
-    else if (normQ.includes('lap bang') || normQ.includes('bang tong hop')) {
-      const rows = (r.operationalChecklist || []).slice(0, 3).map(c => `| **${c.area}**: ${c.issue} | Quá tải ca cao điểm hoặc thiếu quy chuẩn định lượng | ${c.suggestedFix} |`).join('\n');
-      answer = `📊 **Bảng Tổng hợp Vấn đề - Nguyên nhân - Giải pháp cho ${r.name}:**\n\n| Vấn đề ghi nhận từ khách | Nguyên nhân tiềm ẩn (Giả thuyết) | Giải pháp đề xuất |\n| :--- | :--- | :--- |\n${rows || '| Tốc độ phục vụ giờ cao điểm | Lượng khách dồn cục bộ cùng lúc | Phân ca hợp lý và chuẩn bị sẵn đồ ăn kèm |'}\n\n*(Ghi chú: Cột 'Vấn đề' trích từ phản hồi thật, cột 'Nguyên nhân' là giả thuyết phân tích nghiệp vụ).*`;
-    } else if (normQ.includes('cai thien dieu gi truoc tien') || normQ.includes('chi mot van de') || normQ.includes('uu tien nhat') || normQ.includes('uu tien van de nao')) {
-      const topIssue = r.operationalChecklist?.find(c => c.priority === 'Cao') || r.operationalChecklist?.[0];
-      answer = `🎯 **Ưu tiên Số 1 Cần Cải Thiện Ngay tại ${r.name}:**\n\nNếu chỉ được chọn **duy nhất một vấn đề**, quán cần tập trung giải quyết:\n\n- **Vấn đề ưu tiên hàng đầu:** **${topIssue?.area || 'Dịch vụ'}** - ${topIssue?.issue || 'Thời gian chờ đợi lúc quán đông khách'}.\n- **Căn cứ dữ liệu:** Đây là điểm phát sinh tỷ lệ phản ánh tiêu cực cao nhất trong ${totalRev} đánh giá của thực khách.\n- **Hành động đề xuất:** ${topIssue?.suggestedFix || 'Tối ưu hóa quy trình order và chuẩn bị món nhanh'}.`;
-    } else if (normQ.includes('ke hoach hanh dong cu the') || normQ.includes('trong thang toi')) {
-      const item1 = r.operationalChecklist?.[0] || { issue: 'Tối ưu tốc độ phục vụ', suggestedFix: 'Sắp xếp lại ca trực' };
-      const item2 = r.operationalChecklist?.[1] || { issue: 'Đảm bảo độ nóng sốt của món', suggestedFix: 'Kiểm soát khâu ra món' };
-      answer = `📅 **Kế hoạch Hành động Cải thiện Trải nghiệm trong Tháng tới (${r.name}):**\n\n**Giai đoạn 1 (Tuần 1 - Tuần 2: Xử lý điểm nghẽn cấp bách):**\n- **Mục tiêu:** Giảm phàn nàn về thời gian chờ và thái độ nhân viên.\n- **Hành động:** ${item1.suggestedFix}.\n- **Hạn chót:** Ngày 14 của tháng.\n\n**Giai đoạn 2 (Tuần 3 - Tuần 4: Chuẩn hóa chất lượng & Đo lường):**\n- **Mục tiêu:** ${item2.suggestedFix}.\n- **Hành động:** Khảo sát nhanh ý kiến khách hàng tại bàn sau bữa ăn để đo lường mức độ hài lòng mới.\n- **Hạn chót:** Cuối tháng.`;
-    } else if (normQ.includes('cai thien chat luong phuc vu') || normQ.includes('nang cao chat luong phuc vu')) {
-      answer = `👥 **Giải pháp Cải thiện Chất lượng Phục vụ tại ${r.name}:**\n\n1. **Khắc phục điểm nghẽn:** Tập trung giảm thời gian chờ đợi lên món vào giờ cao điểm.\n2. **Tổ chức nhân sự:** Bố trí thêm nhân sự chạy bàn hỗ trợ vào khung giờ cao điểm (11h30-13h00 và 18h30-20h00).\n3. **Chuẩn hóa giao tiếp:** Quy chuẩn câu chào đón khách và chủ động xin lỗi, báo trước thời gian nếu quán đang quá tải.`;
-    } else if (normQ.includes('hai long hon ve mon an') || normQ.includes('cai thien chat luong mon an')) {
-      answer = `🍲 **Giải pháp Nâng cao Mức độ Hài lòng về Món ăn (${r.name}):**\n\n1. **Kiểm soát độ ổn định:** Rà soát công thức nêm nếm gia vị đồng đều giữa các mẻ nấu.\n2. **Độ nóng & Trình bày:** Đảm bảo món ăn được phục vụ ngay khi vừa chế biến xong để giữ trọn độ nóng sốt.\n3. **Đa dạng hóa:** Đưa ra các combo ăn kèm hoặc món mới dùng thử để thực khách có thêm lựa chọn.`;
-    }
-    // Món ăn khen / chê / khẩu phần
-    else if (normQ.includes('che nhieu nhat') || normQ.includes('mon bi che')) {
-      const foodAtt = r.attentionAreas?.find(a => a.aspect === 'Món ăn');
-      const complaints = foodAtt?.commonComplaints?.map(c => `  • ${c}`).join('\n') || '  • Các món ăn nhìn chung được đánh giá tốt, ít phát sinh phàn nàn.';
-      answer = `⚠️ **Các Phản hồi Chưa Ưng ý về Món ăn tại ${r.name}:**\n\nDựa trên bóc tách từ các đánh giá tiêu cực:\n${complaints}\n\n💡 **Khuyến nghị Bếp trưởng:** Cần kiểm tra định lượng gia vị và độ tươi mới trong từng mẻ chế biến để đảm bảo chất lượng đồng đều.`;
-    } else if (normQ.includes('chat luong mon an')) {
-      answer = `🍲 **Tổng hợp Nhận xét về Chất lượng Món ăn tại ${r.name}:**\n\n- **Tỷ lệ khen ngợi (Tích cực):** Đạt **${foodAsp?.positivePercentage || 80}%**, khách hàng đánh giá cao: *"${r.strengths?.[0]?.description || 'Hương vị thơm ngon vừa miệng'}"*.\n- **Tỷ lệ chưa hài lòng:** Chiếm **${foodAsp?.negativePercentage || 10}%**, chủ yếu liên quan đến độ nóng hoặc gia vị.\n- **Đánh giá chung:** Chất lượng món ăn là thế mạnh cốt lõi giúp giữ chân khách hàng của quán.`;
-    } else if (normQ.includes('khau phan') || normQ.includes('dinh luong')) {
-      answer = `🍽️ **Đánh giá về Khẩu phần & Định lượng Ăn (${r.name}):**\n\n- **Mức độ hài lòng:** Khoảng **${priceAsp?.positivePercentage || 80}% thực khách** cho rằng định lượng phần ăn đầy đặn, tương xứng với mức giá bán.\n- **Điểm lưu ý:** Một số ít phản hồi mong muốn bổ sung thêm đồ ăn kèm hoặc gia tăng topping cho suất lớn.`;
-    } else if (normQ.includes('khen') || normQ.includes('ngon nhat') || normQ.includes('dac sac')) {
-      const pos = foodAsp?.positivePercentage || 85;
-      const kw = foodAsp?.sampleKeywords?.join(', ') || 'hương vị, đậm đà';
-      answer = `🍴 **Phân tích về Ẩm thực & Món ăn tại ${r.name}:**\n\n- **Tỷ lệ khen ngợi:** Khía cạnh Món ăn đạt **${pos}% phản hồi tích cực** từ thực khách.\n- **Từ khóa nổi bật:** \`${kw}\`.\n- **Đặc trưng:** ${r.strengths?.[0]?.description || 'Món ăn nêm nếm vừa vặn, hấp dẫn thực khách.'}`;
-    } else if (normQ.includes('dich vu') || normQ.includes('nhan vien') || normQ.includes('phuc vu') || normQ.includes('thai do')) {
-      const pos = serviceAsp?.positivePercentage || 80;
-      const neg = serviceAsp?.negativePercentage || 15;
-      const att = r.attentionAreas?.find(a => a.aspect === 'Dịch vụ') || r.attentionAreas?.[0];
-      const complaint = att?.commonComplaints?.join('\n  • ') || 'Chưa ghi nhận phàn nàn nghiêm trọng.';
-      answer = `👥 **Báo cáo Dịch vụ & Phục vụ (${r.name}):**\n\n- **Chỉ số:** **${pos}% hài lòng** vs **${neg}% cần lưu ý**.\n- **Phản ánh từ khách:**\n  • ${complaint}\n- **Khuyến nghị:** Cần đào tạo thêm nhân sự và giữ tốc độ lên món ổn định giờ cao điểm.`;
-    } else if (normQ.includes('gia') || normQ.includes('tien') || normQ.includes('dat') || normQ.includes('re')) {
-      answer = `💰 **Đánh giá Giá cả & Khẩu phần ăn:**\n\n- **Khung giá tham khảo:** **${r.priceRange || '30.000₫ - 80.000₫'}**.\n- **Mức độ hài lòng:** **${priceAsp?.positivePercentage || 80}% khách hàng** nhận xét mức giá hợp lý và xứng đáng với chất lượng.\n- **Đề xuất:** Quán có thể bổ sung combo ăn kèm để tăng doanh thu.`;
-    } else if (normQ.includes('ke hoach') || normQ.includes('hanh dong') || normQ.includes('cai thien') || normQ.includes('checklist')) {
-      const items = (r.operationalChecklist || []).map((c, i) => `${i + 1}. **[${c.priority}] ${c.area}:** ${c.issue} → *${c.suggestedFix}*`).join('\n\n');
-      answer = `📋 **Kế hoạch Hành động Cải thiện Vận hành cho ${r.name}:**\n\n${items || 'Tiếp tục duy trì chất lượng món ăn và phát huy phong độ phục vụ.'}`;
-    } else {
-      answer = `📊 **Báo cáo Tổng thể Đánh giá Thực tế tại ${r.name}:**\n\n- **Quy mô dữ liệu:** Phân tích dựa trên **${totalRev} bài đánh giá thực tế** từ thực khách.\n- **Cảm xúc thực khách:** **${posPct}% Hài lòng**, **${neutPct}% Trung lập**, **${negPct}% Chưa ưng ý**.\n- **Khía cạnh xuất sắc nhất:** **${r.strengths?.[0]?.aspect || 'Món ăn'}**.\n- ${r.sentimentSummarySentence || 'Quán đang duy trì phong độ phục vụ tốt.'}`;
-    }
-
-    if (forceAi) {
-      answer = `> [!NOTE]\n> *Chế độ Phân tích Chuyên sâu (Gemini AI) chưa thể kết nối đến máy chủ Backend API. Hệ thống đang tạm thời hiển thị dữ liệu tổng hợp cục bộ (Local BI):*\n\n` + answer;
-    }
-
-    return {
-      success: true,
-      answer,
-      source: 'local_bi'
-    };
   }
 
   /**
@@ -528,7 +519,8 @@ class RestaurantService {
     aspectFilter: 'all' | AspectCategory,
     searchKeyword: string
   ): CustomerReview[] {
-    return (reviews || []).filter((rev) => {
+    const cleanReviews = sanitizeReviews(reviews || []);
+    return cleanReviews.filter((rev) => {
       if (sentimentFilter !== 'all' && rev.overallSentiment !== sentimentFilter) {
         return false;
       }
@@ -548,6 +540,44 @@ class RestaurantService {
       }
       return true;
     });
+  }
+
+  /**
+   * Sinh thư phản hồi thực khách bằng AI (Google Gemini LLM-First)
+   * Hỗ trợ 4 tông giọng chuyên sâu, voucher đền bù và In-Memory cache
+   */
+  public async generateReviewReply(
+    restaurantId: string,
+    req: GenerateReplyRequest
+  ): Promise<GenerateReplyResponse> {
+    const baseUrl = getApiBaseUrl();
+    const safeId = encodeURIComponent(restaurantId || 'unknown');
+    const controller = new AbortController();
+    // Timeout 20s cho suy luận mô hình AI
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+    try {
+      const response = await fetch(`${baseUrl}/restaurants/${safeId}/reply`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(req),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      const parsed = await this.parseResponseSafe<GenerateReplyResponse>(response);
+      if (!parsed.ok || !parsed.data) {
+        throw new Error(parsed.errorMsg || 'Không thể tạo phản hồi từ AI.');
+      }
+
+      return parsed.data;
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      console.warn(`[RestaurantService] Lỗi khi tạo thư phản hồi AI cho quán ${restaurantId}:`, err?.message || err);
+      throw err;
+    }
   }
 }
 

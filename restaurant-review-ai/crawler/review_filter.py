@@ -174,15 +174,38 @@ def classify_review(
         "spam_reason": list[str],  # Danh sách các nguyên nhân phát hiện
     }
     """
-    if not text or not text.strip():
+    raw_text = (text or "").strip()
+    raw_author = (author or "").strip()
+
+    # --------------------------------------------------------------------------
+    # TÍN HIỆU TIỀN XỬ LÝ: MÃ TEMPLATE ANGULARJS CHƯA HYDRATE HOẶC RÁC DUMMY
+    # --------------------------------------------------------------------------
+    template_reasons = []
+    for src in [raw_text, raw_author]:
+        if not src:
+            continue
+        if "{{" in src or "}}" in src:
+            template_reasons.append("angular_template_syntax")
+        if "model." in src.lower():
+            template_reasons.append("angular_model_binding")
+        if "common_delete" in src.lower() or "sửacommon_delete" in src.lower() or "suacommon_delete" in src.lower():
+            template_reasons.append("common_delete_garbage")
+
+    if template_reasons:
+        return {
+            "is_spam": True,
+            "spam_score": 1.0,
+            "spam_category": "bot_placeholder",
+            "spam_reason": list(dict.fromkeys(template_reasons))
+        }
+
+    if not raw_text:
         return {
             "is_spam": False,
             "spam_score": 0.0,
             "spam_category": "low_information",
             "spam_reason": ["empty_text"]
         }
-
-    raw_text = text.strip()
     norm_text = normalize_text(raw_text)
     lower_text = norm_text.lower()
     no_accent_text = remove_accents(lower_text)

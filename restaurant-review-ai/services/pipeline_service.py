@@ -39,13 +39,27 @@ def save_and_analyze_reviews(
 
     new_review_ids: List[tuple] = []
     for rv in crawl_data.get("reviews", []):
+        author = (rv.get("author") or "Khách hàng").strip()
+        text = (rv.get("text") or "").strip()
+        review_date = (rv.get("date") or "Gần đây").strip()
+
+        # KIỂM TRA PHÒNG THỦ: Tuyệt đối KHÔNG lưu vào DB bất kỳ review nào có author/text/date chứa {{ hoặc common_delete hoặc text rỗng
+        if not text or len(text) < 5:
+            continue
+
+        fields_to_check = [text, author, review_date]
+        if any("{{" in f or "}}" in f or "model." in f.lower() for f in fields_to_check):
+            continue
+        if any("common_delete" in f.lower() or "sửacommon_delete" in f.lower() or "suacommon_delete" in f.lower() for f in fields_to_check):
+            continue
+
         saved = save_review(
             db,
             restaurant_id=restaurant.id,
-            author=rv.get("author", "Khách hàng"),
+            author=author or "Khách hàng",
             rating=rv.get("rating"),
-            text=rv.get("text", ""),
-            review_date=rv.get("date", "Gần đây"),
+            text=text,
+            review_date=review_date or "Gần đây",
             is_spam=rv.get("is_spam", 0),
             spam_score=rv.get("spam_score", 0.0),
             spam_category=rv.get("spam_category", "normal"),
@@ -82,5 +96,7 @@ def save_and_analyze_reviews(
             if rev_obj:
                 rev_obj.is_analyzed = 1
 
+    # Cập nhật số lượng review thực tế cho quán
+    restaurant.review_count = db.query(DBReview).filter_by(restaurant_id=restaurant.id).count()
     db.commit()
     return restaurant

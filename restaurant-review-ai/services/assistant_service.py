@@ -1,9 +1,9 @@
 """
 Dịch vụ Trợ lý Phân tích Nền tảng (Restaurant Intelligence Platform Assistant).
 Cung cấp góc nhìn phân tích dữ liệu độc lập, khách quan dựa trên dữ liệu đánh giá thực tế.
-Ứng dụng kiến trúc Hybrid 2 tầng kết hợp Semantic/FAQ Caching:
-- Tầng 1: Local Contextual Synthesis & Data Query Engine (0 Token, 0ms, chính xác 100% theo dữ liệu BI thực tế).
-- Tầng 2: Gemini AI (Google GenAI SDK) xử lý các câu hỏi mở chuyên sâu, tuân thủ Guardrails và Cache tự động.
+Kiến trúc 100% Gemini AI Engine kết hợp In-Memory Semantic/Question Caching:
+- 100% Gemini AI (Google GenAI SDK) xử lý toàn bộ câu hỏi với Rich Context và Guardrails độc lập.
+- Cache nội bộ thông minh đảm bảo phản hồi tức thì với source="cache" cho các câu hỏi trùng lặp.
 """
 
 import os
@@ -219,9 +219,10 @@ def detect_question_intent(question: str) -> Optional[str]:
 
 def synthesize_local_answer(restaurant_data: Dict[str, Any], intent: str) -> str:
     """
-    Sinh câu trả lời phân tích chuyên sâu 100% dựa trên số liệu thực tế của quán.
-    Đóng vai trò: Chuyên viên Phân tích Dữ liệu Nền tảng (Restaurant Intelligence Analyst).
-    Không tốn token Gemini, độ trễ 0ms, chính xác theo số liệu thực tế.
+    [DEPRECATED - Không còn sử dụng trong luồng vận hành chính]
+    Hàm phân tích cục bộ cũ dựa trên template rule-based.
+    Toàn bộ hệ thống Trợ lý Phân tích Nền tảng hiện đã chuyển đổi sang 100% Gemini AI
+    trong hàm `ask_assistant`. Hàm này được lưu giữ chỉ nhằm tương thích ngược nếu có import ngoài.
     """
     name = restaurant_data.get("name", "Quán ăn")
     aspects = restaurant_data.get("aspects", [])
@@ -245,8 +246,8 @@ def synthesize_local_answer(restaurant_data: Dict[str, Any], intent: str) -> str
     if intent == "out_of_scope_general":
         return (
             "ℹ️ **Thông báo từ Nền tảng Restaurant Intelligence:**\n\n"
-            "Tôi là Trợ lý Phân tích Dữ liệu của nền tảng Restaurant Intelligence, chuyên hỗ trợ khai thác dữ liệu đánh giá thực tế và tối ưu vận hành ẩm thực. "
-            "Câu hỏi của bạn nằm ngoài phạm vi phân tích đánh giá nhà hàng của hệ thống."
+            "Tôi là Trợ lý Thông tin của Restaurant Intelligence. "
+            "Câu hỏi này nằm ngoài phạm vi tìm hiểu, đánh giá quán ăn của hệ thống."
         )
 
     if intent == "out_of_scope_financial":
@@ -279,7 +280,7 @@ def synthesize_local_answer(restaurant_data: Dict[str, Any], intent: str) -> str
         return (
             f"📊 **Số lượng Dữ liệu Thu thập tại {name}:**\n\n"
             f"Hệ thống Restaurant Intelligence hiện ghi nhận chính xác **{total_rev} bài đánh giá** từ thực khách thực tế, "
-            f"đã được sàng lọc và loại bỏ hoàn toàn các nhận xét giả mạo hoặc bình luận quảng cáo rác."
+            f"đã qua chọn lọc, loại bỏ các đánh giá ảo hoặc bình luận quảng cáo."
         )
 
     if intent == "query_positive_count":
@@ -651,57 +652,162 @@ def synthesize_local_answer(restaurant_data: Dict[str, Any], intent: str) -> str
 
 def call_gemini_assistant_raw(restaurant_data: Dict[str, Any], question: str) -> Optional[str]:
     """
-    Gọi Gemini API cho chế độ Sáng tạo sâu.
+    Gọi Gemini API cho Trợ lý Phân tích Nền tảng (Platform Intelligence Assistant).
     Hỗ trợ Dynamic API Key resolution và Model Cascading Fallback tự động.
-    Prompt được định vị chuẩn Chuyên viên Phân tích Nền tảng độc lập, tuân thủ Guardrails nghiêm ngặt.
+    Prompt được định vị chuẩn Chuyên viên Phân tích Nền tảng độc lập, kết hợp:
+    - Dữ liệu khía cạnh (aspects với tỉ lệ khen/chê, từ khóa, số lượt nhắc)
+    - Mẫu đánh giá thực tế từ thực khách (cả khen và chê để trả lời sâu sắc, chân thực)
+    - Guardrails độc lập nghiêm ngặt: F&B scope, doanh thu/tài chính, bảo mật danh tính thực khách.
     """
     api_key = get_gemini_api_key()
     if not api_key:
-        print("[Gemini Assistant Warning] Chưa cấu hình GEMINI_API_KEY trong biến môi trường hoặc .env. Chuyển sang Local BI Fallback.")
+        print("[Gemini Assistant Warning] Chưa cấu hình GEMINI_API_KEY trong biến môi trường hoặc .env.")
         return None
 
     name = restaurant_data.get("name", "Quán")
-    cuisine = restaurant_data.get("cuisine", "Ẩm thực")
+    brand = restaurant_data.get("brand", name.split("-")[0].strip() if name else "Quán")
+    cuisine = restaurant_data.get("cuisine", "Ẩm thực địa phương")
     city = restaurant_data.get("city", "Đà Nẵng")
+    address = restaurant_data.get("address", "Chưa cập nhật")
+    price_range = restaurant_data.get("priceRange", "Bình dân")
     rating = restaurant_data.get("rating", 4.0)
+    total_reviews = restaurant_data.get("totalReviews", 0)
     sentiment = restaurant_data.get("sentimentDistribution", {})
-    strengths = [s.get("description", "") for s in restaurant_data.get("strengths", [])]
-    complaints = [a.get("commonComplaints", []) for a in restaurant_data.get("attentionAreas", [])]
-    flat_complaints = [c for sub in complaints for c in sub][:4]
-    aspect_words = []
+    pos_pct = sentiment.get("positive", 0)
+    neu_pct = sentiment.get("neutral", 0)
+    neg_pct = sentiment.get("negative", 0)
+
+    # 1. Trích xuất dữ liệu chi tiết 5 khía cạnh (Aspects)
+    aspect_lines = []
     for a in restaurant_data.get("aspects", []):
-        aspect_words.extend(a.get("sampleKeywords", []))
-    keywords_str = ", ".join(aspect_words[:10])
+        cat = a.get("category", "")
+        pos = a.get("positivePercentage", 0)
+        neg = a.get("negativePercentage", 0)
+        neu = a.get("neutralPercentage", 0)
+        count = a.get("mentionCount", 0)
+        pct = a.get("mentionPercentage", 0)
+        kws = ", ".join(a.get("sampleKeywords", [])[:6])
+        kw_part = f" (Từ khóa: {kws})" if kws else ""
+        aspect_lines.append(f"  • {cat}: {pos}% tích cực | {neg}% tiêu cực | {neu}% trung lập ({count} lượt nhắc ~ {pct}% bài viết){kw_part}")
+    aspects_str = "\n".join(aspect_lines) if aspect_lines else "  • Đang cập nhật thống kê khía cạnh."
 
-    system_context = f"""Bạn là Chuyên viên Phân tích Dữ liệu Nền tảng (Platform Intelligence Analyst) của Restaurant Intelligence.
-Bạn KHÔNG PHẢI là nhân viên hay trợ lý của bất kỳ quán ăn nào. Bạn đưa ra các phân tích độc lập, khách quan, dựa trên dữ liệu đánh giá thực tế của thực khách.
+    # 2. Điểm mạnh nổi bật (Strengths)
+    strength_lines = []
+    for s in restaurant_data.get("strengths", []):
+        asp = s.get("aspect", "")
+        title = s.get("title", "")
+        desc = s.get("description", "")
+        pos = s.get("positivePercentage", "")
+        strength_lines.append(f"  • [{asp} - {pos}% tích cực]: {title} - {desc}")
+    strengths_str = "\n".join(strength_lines) if strength_lines else "  • Hương vị ẩm thực đặc sắc được thực khách yêu thích."
 
-Dữ liệu thực tế của nhà hàng:
-- Tên quán: {name}
+    # 3. Điểm lưu ý / Phàn nàn (Attention Areas)
+    att_lines = []
+    for att in restaurant_data.get("attentionAreas", []):
+        asp = att.get("aspect", "")
+        neg = att.get("negativePercentage", 0)
+        complaints = "; ".join(att.get("commonComplaints", []))
+        quotes = "; ".join([f'"{q}"' for q in att.get("sampleReviewQuotes", [])[:2]])
+        rec = att.get("recommendedAction", "")
+        att_lines.append(f"  • [{asp} - {neg}% phàn nàn]: Vấn đề: {complaints}. Dẫn chứng thực tế: {quotes}. Khuyến nghị: {rec}")
+    att_str = "\n".join(att_lines) if att_lines else "  • Chưa ghi nhận phàn nàn nghiêm trọng."
+
+    # 4. Checklist vận hành đề xuất
+    checklist_lines = []
+    for item in restaurant_data.get("operationalChecklist", []):
+        prio = item.get("priority", "Trung bình")
+        area = item.get("area", "")
+        issue = item.get("issue", "")
+        fix = item.get("suggestedFix", "")
+        checklist_lines.append(f"  • [{prio} - {area}]: {issue} → Giải pháp: {fix}")
+    checklist_str = "\n".join(checklist_lines) if checklist_lines else "  • Tiếp tục duy trì quy chuẩn vận hành hiện tại."
+
+    # 5. Mẫu đánh giá thực tế của thực khách (khen và chê)
+    reviews = restaurant_data.get("reviews", [])
+    pos_reviews = [r for r in reviews if r.get("overallSentiment") == "positive" and len(r.get("text", "").strip()) > 8]
+    neg_reviews = [r for r in reviews if r.get("overallSentiment") == "negative" and len(r.get("text", "").strip()) > 8]
+
+    sample_pos_quotes = []
+    for r in pos_reviews[:6]:
+        author = r.get("author", "Thực khách")
+        rating_val = r.get("rating", 5.0)
+        txt = r.get("text", "").strip().replace("\n", " ")
+        if len(txt) > 160:
+            txt = txt[:160] + "..."
+        sample_pos_quotes.append(f'  • [{author} - {rating_val}/5★]: "{txt}"')
+
+    sample_neg_quotes = []
+    for r in neg_reviews[:6]:
+        author = r.get("author", "Thực khách")
+        rating_val = r.get("rating", 1.0)
+        txt = r.get("text", "").strip().replace("\n", " ")
+        if len(txt) > 160:
+            txt = txt[:160] + "..."
+        sample_neg_quotes.append(f'  • [{author} - {rating_val}/5★]: "{txt}"')
+
+    pos_quotes_str = "\n".join(sample_pos_quotes) if sample_pos_quotes else "  • (Không có trích đoạn khen dài)"
+    neg_quotes_str = "\n".join(sample_neg_quotes) if sample_neg_quotes else "  • (Không có trích đoạn phàn nàn dài)"
+
+    system_context = f"""Bạn là Trợ lý Thông tin Ẩm thực của Restaurant Intelligence. Bạn đưa ra góc nhìn phân tích trung lập, khách quan dựa trên dữ liệu đánh giá thực tế từ thực khách.
+VAI TRÒ VÀ ĐỊNH VỊ:
+- Bạn là Trợ lý Thông tin độc lập, khách quan của Restaurant Intelligence.
+- Bạn KHÔNG PHẢI là nhân viên hay trợ lý riêng của quán ăn, cũng KHÔNG PHẢI người trò chuyện xã giao chung chung.
+- Mọi phân tích, kết luận và dẫn chứng của bạn phải dựa trên số liệu và các trích dẫn đánh giá thực tế từ thực khách.
+
+THÔNG TIN NHÀ HÀNG & DỮ LIỆU ĐÁNH GIÁ THỰC TẾ:
+- Tên quán: {name} (Thương hiệu: {brand})
 - Loại hình ẩm thực: {cuisine} tại {city}
-- Khung giá tham khảo: {restaurant_data.get('priceRange', 'Bình dân')}
-- Điểm đánh giá: {rating}/5.0 ({restaurant_data.get('totalReviews', 0)} bài đánh giá)
-- Tỷ lệ hài lòng thực khách: {sentiment.get('positive', 0)}% tích cực, {sentiment.get('negative', 0)}% tiêu cực
-- Điểm mạnh nổi bật từ khách: {'; '.join(strengths) if strengths else 'Hương vị thơm ngon, hợp khẩu vị'}
-- Điểm khách chê / cần cải thiện: {'; '.join(flat_complaints) if flat_complaints else 'Thời gian chờ đợi lúc quán đông'}
-- Từ khóa khách nhắc nhiều: {keywords_str}
+- Địa chỉ: {address}
+- Khung giá tham khảo: {price_range}
+- Điểm đánh giá trung bình: {rating}/5.0 sao
+- Tổng số bài đánh giá thực tế: {total_reviews} bài đánh giá (đã qua chọn lọc, loại bỏ các đánh giá ảo hoặc bình luận quảng cáo)
+- Tỷ lệ cảm xúc chung: {pos_pct}% Tích cực | {neu_pct}% Trung lập | {neg_pct}% Tiêu cực
 
-QUY TẮC PHÂN TÍCH & GUARDRAILS (BẮT BUỘC TUÂN THỦ):
-1. ĐÚNG PHẠM VI: Nếu câu hỏi hỏi về thời tiết, thể thao, tin tức bên ngoài F&B, hãy từ chối lịch sự và nêu rõ bạn là Trợ lý Phân tích F&B của Restaurant Intelligence.
-2. TÀI CHÍNH / DOANH THU: Hệ thống chỉ phân tích dữ liệu đánh giá của khách hàng, KHÔNG có dữ liệu sổ sách doanh thu nội bộ. Tuyệt đối không suy đoán hay bịa đặt doanh thu của quán.
-3. BẢO MẬT DANH TÍNH: Không suy đoán danh tính cá nhân người đánh giá. Chỉ nhận xét dựa trên nội dung review và số sao công khai.
-4. KHÁCH QUAN & TRỌNG TÂM: Trả lời đúng câu hỏi, ngắn gọn, hành văn khách quan, dùng Markdown rõ ràng."""
+CHI TIẾT 5 KHÍA CẠNH ĐÁNH GIÁ (ASPECTS):
+{aspects_str}
+
+ĐIỂM SÁNG NỔI BẬT ĐƯỢC KHÁCH KHEN (STRENGTHS):
+{strengths_str}
+
+CÁC ĐIỂM CẦN LƯU Ý & PHÀN NÀN (ATTENTION AREAS):
+{att_str}
+
+CHECKLIST VẬN HÀNH ĐỀ XUẤT CHO QUÁN:
+{checklist_str}
+
+MẪU ĐÁNH GIÁ THỰC TẾ TỪ THỰC KHÁCH:
++ Đánh giá tích cực tiêu biểu:
+{pos_quotes_str}
+
++ Đánh giá tiêu cực / phàn nàn tiêu biểu:
+{neg_quotes_str}
+
+QUY TẮC PHÂN TÍCH & GUARDRAILS ĐỘC LẬP CỦA NỀN TẢNG (BẮT BUỘC TUÂN THỦ NGHIÊM NGẶT):
+1. ĐỘC LẬP & KHÁCH QUAN:
+   - Đưa ra góc nhìn phân tích trung lập, minh bạch, dựa trên dữ liệu thật.
+   - Khi được hỏi về số lượng hoặc tỷ lệ (ví dụ: có bao nhiêu bài đánh giá, bao nhiêu đánh giá tích cực): hãy trả lời chính xác bằng số liệu trong báo cáo ({total_reviews} bài đánh giá, tỷ lệ tích cực {pos_pct}%).
+   - Khi người dùng yêu cầu dẫn chứng từ đánh giá thực tế: trích dẫn trực tiếp các câu nhận xét của thực khách từ phần mẫu đánh giá trên.
+   - Khi được yêu cầu lập bảng tổng hợp vấn đề - nguyên nhân - giải pháp: BẮT BUỘC trình bày dạng bảng Markdown có 3 cột: | Vấn đề | Nguyên nhân | Giải pháp | (hoặc | Vấn đề ghi nhận từ khách | Nguyên nhân tiềm ẩn | Giải pháp đề xuất |).
+   - Khi được hỏi cải thiện điều gì trước tiên hoặc chỉ được giải quyết 1 vấn đề: xác định ĐÚNG 1 vấn đề ưu tiên hàng đầu (từ khía cạnh có tỷ lệ phàn nàn cao nhất hoặc checklist ưu tiên Cao) và đề xuất giải pháp cụ thể.
+2. NGOÀI PHẠM VI ẨM THỰC:
+   - Nếu câu hỏi hỏi về thời tiết, thể thao, chính trị, tin tức hoặc chủ đề ngoài ẩm thực: Hãy từ chối lịch sự, nêu rõ bạn là Trợ lý Thông tin của Restaurant Intelligence và câu hỏi này nằm ngoài phạm vi tìm hiểu, đánh giá quán ăn của hệ thống.
+3. DOANH THU & TÀI CHÍNH NỘI BỘ:
+   - Nếu câu hỏi yêu cầu cung cấp doanh thu, lợi nhuận hoặc dự đoán doanh thu tương lai: Hãy giải thích rõ ràng rằng nền tảng Restaurant Intelligence chỉ thu thập và phân tích dữ liệu đánh giá trải nghiệm thực khách công khai ({total_reviews} bài đánh giá), hệ thống KHÔNG có quyền truy cập vào sổ sách doanh thu hoặc dữ liệu tài chính nội bộ của quán, do đó không thể cung cấp hay dự báo doanh thu.
+4. BẢO MẬT QUYỀN RIÊNG TƯ & DANH TÍNH:
+   - Nếu người dùng hỏi về danh tính người đánh giá (ví dụ: ai đã viết đánh giá tiêu cực nhất, thông tin cá nhân của người đánh giá): Hãy từ chối và giải thích hệ thống tuân thủ chính sách bảo mật danh tính thực khách, chỉ phân tích nội dung đánh giá công khai nhằm mục đích cải thiện chất lượng dịch vụ, tuyệt đối không suy đoán hoặc cung cấp danh tính cá nhân.
+5. ĐỊNH DẠNG TRẢ LỜI:
+   - Trả lời bằng tiếng Việt, hành văn chuyên nghiệp, súc tích, cấu trúc rõ ràng với tiêu đề Markdown, gạch đầu dòng, highlight số liệu quan trọng."""
 
     try:
         from google import genai
         client = genai.Client(api_key=api_key)
-        
+
         last_error = None
         for model in CANDIDATE_MODELS:
             try:
                 response = client.models.generate_content(
                     model=model,
-                    contents=f"{system_context}\n\nCâu hỏi cần phân tích: {question}"
+                    contents=f"{system_context}\n\nCâu hỏi cần phân tích từ người dùng: {question}"
                 )
                 if response and response.text:
                     return response.text.strip()
@@ -716,7 +822,7 @@ QUY TẮC PHÂN TÍCH & GUARDRAILS (BẮT BUỘC TUÂN THỦ):
             print(f"[Gemini Assistant Error] Tất cả candidate models đều gặp lỗi: {safe_err}")
     except Exception as e:
         safe_err = str(e).encode("ascii", "replace").decode("ascii")
-        print(f"[Gemini Assistant Error] Lỗi khởi tạo client: {safe_err}")
+        print(f"[Gemini Assistant Error] Lỗi khởi tạo hoặc thực thi client Gemini: {safe_err}")
 
     return None
 
@@ -725,18 +831,26 @@ def ask_assistant(
     restaurant: DBRestaurant,
     db,
     question: str,
-    force_ai: bool = False
+    force_ai: bool = True
 ) -> Dict[str, Any]:
     """
-    Hàm điều phối chính:
-    1. Kiểm tra Cache nội bộ
-    2. Phân tách rạch ròi 2 chế độ:
-       - force_ai = False (MẶC ĐỊNH): 100% Local BI / Query Engine (0 Quota, 0 Token, source='local_bi')
-       - force_ai = True: Gọi Gemini 3.5 Flash Lite (source='gemini_ai')
+    Trợ lý Phân tích Nền tảng (Platform Intelligence Assistant) - 100% Gemini AI Engine.
+    
+    Quy trình xử lý:
+    1. Chuẩn hóa câu hỏi và kiểm tra In-Memory Semantic/Question Cache.
+       - Nếu đã có trong Cache -> Trả về ngay lập tức với source="cache".
+    2. Nếu chưa có -> Bóc tách dữ liệu BI toàn diện của quán ăn (khía cạnh, điểm mạnh, lưu ý, mẫu review thật).
+    3. Chuyển tiếp câu hỏi sang Gemini AI (Google GenAI SDK) kèm System Prompt giàu ngữ cảnh và Guardrails độc lập.
+    4. Nếu kết nối Gemini thành công:
+       - Lưu câu trả lời vào Cache.
+       - Trả về source="gemini_ai", success=True.
+    5. Nếu kết nối Gemini thất bại (mất mạng/API key lỗi):
+       - Trả về thông báo lỗi cảnh báo rõ ràng từ AI, source="gemini_ai", success=False.
+       - TUYỆT ĐỐI không âm thầm fallback sang văn mẫu local giả lập.
     """
     q_clean = question.strip()
     norm_q = remove_accents(q_clean.lower())
-    cache_key = f"{restaurant.id}:{norm_q}:force_{force_ai}"
+    cache_key = f"{restaurant.id}:{norm_q}"
 
     # 1. Kiểm tra bộ nhớ đệm Cache
     if cache_key in _QUESTION_CACHE:
@@ -749,42 +863,35 @@ def ask_assistant(
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
-    # Lấy dữ liệu phân tích BI đầy đủ của quán
+    # 2. Lấy dữ liệu phân tích BI đầy đủ của quán
     restaurant_data = format_restaurant_full(restaurant, db)
     intent = detect_question_intent(q_clean) or "overview"
 
-    # Nếu câu hỏi rơi vào Guardrails ngoài phạm vi, xử lý ngay tại Local để bảo vệ Quota và tránh ảo giác
-    if intent.startswith("out_of_scope_"):
-        answer = synthesize_local_answer(restaurant_data, intent)
-        source = "local_bi"
-    elif force_ai:
-        # CHẾ ĐỘ SÁNG TẠO SÂU: GỌI GEMINI AI
-        ai_resp = call_gemini_assistant_raw(restaurant_data, q_clean)
-        if ai_resp:
-            answer = ai_resp
-            source = "gemini_ai"
-        else:
-            # Fallback nếu lỗi kết nối Gemini
-            answer = (
-                "> [!NOTE]\n"
-                "> *Hệ thống tự động chuyển sang Phân tích Số liệu Cục bộ do lỗi kết nối Gemini API.*\n\n"
-                + synthesize_local_answer(restaurant_data, intent)
-            )
-            source = "local_bi"
-    else:
-        # CHẾ ĐỘ TIẾT KIỆM QUOTA (TẮT): 100% LOCAL BI
-        answer = synthesize_local_answer(restaurant_data, intent)
-        source = "local_bi"
+    # 3. 100% Chuyển cho Gemini AI xử lý cùng Rich Context và Guardrails
+    ai_resp = call_gemini_assistant_raw(restaurant_data, q_clean)
 
-    # 3. Lưu vào Cache để tái sử dụng
-    _QUESTION_CACHE[cache_key] = {
-        "answer": answer,
-        "intent": intent,
-        "source": source
-    }
+    if ai_resp:
+        answer = ai_resp
+        source = "gemini_ai"
+        success = True
+
+        # Lưu vào Cache để tái sử dụng
+        _QUESTION_CACHE[cache_key] = {
+            "answer": answer,
+            "intent": intent,
+            "source": source
+        }
+    else:
+        # Xử lý lỗi kết nối rõ ràng, không âm thầm fallback sang văn mẫu local
+        answer = (
+            "> [!WARNING]\n"
+            "> *Hiện tại hệ thống chưa thể kết nối đến máy chủ phân tích. Vui lòng thử lại sau giây lát.*"
+        )
+        source = "gemini_ai"
+        success = False
 
     return {
-        "success": True,
+        "success": success,
         "answer": answer,
         "source": source,
         "detected_intent": intent,

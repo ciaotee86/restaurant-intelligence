@@ -20,10 +20,10 @@
                                          │
     ┌────────────────────┬───────────────┴───────────────┬────────────────────┐
     ▼                    ▼                               ▼                    ▼
-[Ý Tưởng 1] ✅        [Ý Tưởng 2] ⏳                  [Ý Tưởng 3]          [Ý Tưởng 4]
+[Ý Tưởng 1] ✅        [Ý Tưởng 2] ✅                  [Ý Tưởng 3]          [Ý Tưởng 4]
 Trợ Lý AI            AI Soạn Phản Hồi                Phát Hiện Đánh Giá    Xuất Báo Cáo
 Hỏi-Đáp Về Quán      Review & Khủng Hoảng            Ảo & Độ Tin Cậy       PDF / Excel
-(ĐÃ HOÀN THÀNH)      (Closed-Loop Action)            (Credibility Score)  (Executive Brief)
+(ĐÃ HOÀN THÀNH)      (ĐÃ HOÀN THÀNH)                 (Credibility Score)  (Executive Brief)
 ```
 
 ### [ĐÃ HOÀN THÀNH ✅] Ý Tưởng 1: Trợ Lý AI Hỏi-Đáp Về Quán Ăn (Conversational BI Assistant) ⭐⭐⭐⭐⭐
@@ -140,10 +140,10 @@ Câu trả lời này thể hiện tư duy của một **Kỹ sư Kiến trúc P
   - [x] Bộ nhớ đệm In-Memory Semantic Caching cho các câu hỏi phổ biến.
   - [x] Tối ưu phân tích luồng điểm nghẽn vận hành (`bottleneck_flow`) và tư vấn thực đơn (`menu_expansion`).
 
-- [ ] **Ý Tưởng 2: AI Soạn Thư Phản Hồi Khách Hàng (Dự kiến triển khai tiếp theo)**
-  - [ ] Thêm nút *"⚡ AI Soạn phản hồi"* trong từng thẻ review tại [`ReviewExplorer.tsx`](file:///d:/SourceCode/WEB/.gemini/antigravity/scratch/restaurant-intelligence/src/components/dashboard/ReviewExplorer.tsx).
-  - [ ] Thiết kế Modal chọn 4 tông giọng: *Chân thành & Nhận lỗi, Lịch sự & Voucher đền bù, Biết ơn & Thân thiện, Giải thích & Cầu thị*.
-  - [ ] Tích hợp Local Template Engine (0 Token) kết hợp AI sinh lời văn tự do.
+- [x] **Ý Tưởng 2: AI Soạn Thư Phản Hồi Khách Hàng (ĐÃ HOÀN THÀNH - v1.13.0)**
+  - [x] Thêm nút *"⚡ AI Phản hồi"* trong từng thẻ review tại [`ReviewExplorer.tsx`](file:///d:/SourceCode/WEB/.gemini/antigravity/scratch/restaurant-intelligence/src/components/dashboard/ReviewExplorer.tsx) và [`ReviewDetailModal.tsx`](file:///d:/SourceCode/WEB/.gemini/antigravity/scratch/restaurant-intelligence/src/components/dashboard/ReviewDetailModal.tsx).
+  - [x] Thiết kế Modal Warm Gastronomy chọn 4 tông giọng: *Chân thành & Nhận lỗi, Lịch sự & Voucher đền bù, Biết ơn & Thân thiện, Giải thích & Cầu thị* ([`ReviewReplyModal.tsx`](file:///d:/SourceCode/WEB/.gemini/antigravity/scratch/restaurant-intelligence/src/components/dashboard/ReviewReplyModal.tsx)).
+  - [x] Tích hợp Gemini LLM-First (`gemini-3.5-flash-lite`), tự sinh mã voucher, bộ nhớ đệm In-Memory Cache (0ms) và 1-click clipboard copy ([`reply_service.py`](file:///d:/SourceCode/WEB/.gemini/antigravity/scratch/restaurant-intelligence/restaurant-review-ai/services/reply_service.py)).
 
 - [ ] **Ý Tưởng 3: Phát Hiện Đánh Giá Ảo & Chấm Điểm Tin Cậy (Credibility Score %)**
 - [ ] **Ý Tưởng 4: Xuất Báo Cáo Điều Hành 1 Trang (Executive Brief PDF / Excel)**

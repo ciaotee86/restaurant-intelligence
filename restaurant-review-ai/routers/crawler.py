@@ -3,8 +3,12 @@ Router xử lý các tác vụ cào dữ liệu (Crawler) bằng Selenium,
 hàng đợi cào ngầm (Crawl Queue) và phân tích NLP Aspect-Based Sentiment với Gemini AI.
 """
 
+import ipaddress
+import re
+import socket
 from datetime import datetime
 from typing import Optional, List
+from urllib.parse import urlparse
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -40,21 +44,160 @@ class QueueCrawlRequest(BaseModel):
     city: Optional[str] = "da-nang"
 
 
+BLOCKED_SYSTEM_PATHS = {
+    "", "/", "/dang-nhap", "/dang-ky", "/login", "/register",
+    "/account", "/tai-khoan", "/admin", "/api", "/gioi-thieu",
+    "/lien-he", "/quy-dinh", "/tro-giup", "/mobile"
+}
+
+
+def validate_foody_url(url: str) -> str:
+    """
+    Xác thực nghiêm ngặt URL Foody và phòng chống SSRF / DNS Rebinding:
+    1. Kiểm tra chuỗi URL và độ dài hợp lệ.
+    2. Chỉ chấp nhận giao thức http:// hoặc https:// (chống file://, gopher://, javascript:...)
+    3. Chặn URL có thông tin nhúng userinfo (user:pass@host).
+    4. Chỉ chấp nhận các cổng tiêu chuẩn (80, 443 hoặc mặc định).
+    5. Kiểm tra domain: Bắt buộc phải là 'foody.vn' hoặc subdomain '*.foody.vn'.
+    6. Phòng chống SSRF: Phân giải DNS và cấm toàn bộ dải IP private/loopback/link-local/multicast/reserved.
+    7. Kiểm tra cấu trúc path: Chặn trang chủ và các đường dẫn hệ thống/login không phải quán ăn.
+    """
+    if not url or not isinstance(url, str):
+        raise HTTPException(
+            status_code=400,
+            detail="URL không được để trống. Vui lòng cung cấp liên kết Foody."
+        )
+
+    raw_url = url.strip()
+    if len(raw_url) > 2048:
+        raise HTTPException(
+            status_code=400,
+            detail="URL vượt quá độ dài tối đa cho phép (2048 ký tự)."
+        )
+
+    try:
+        parsed = urlparse(raw_url)
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Cấu trúc URL không hợp lệ."
+        )
+
+    # 1. Kiểm tra giao thức (Scheme)
+    if parsed.scheme.lower() not in ("http", "https"):
+        raise HTTPException(
+            status_code=400,
+            detail="Giao thức không hợp lệ. Chỉ chấp nhận liên kết http:// hoặc https://"
+        )
+
+    # 2. Chặn userinfo (tránh bypass URL parsing: user:password@attacker.com)
+    if parsed.username or parsed.password:
+        raise HTTPException(
+            status_code=400,
+            detail="URL không được chứa thông tin xác thực tài khoản (username/password)."
+        )
+
+    # 3. Kiểm tra port
+    if parsed.port not in (None, 80, 443):
+        raise HTTPException(
+            status_code=400,
+            detail="Cổng truy cập không hợp lệ. Chỉ chấp nhận cổng HTTP/HTTPS tiêu chuẩn."
+        )
+
+    # 4. Kiểm tra Hostname / Domain
+    hostname = (parsed.hostname or "").lower().strip()
+    if not hostname:
+        raise HTTPException(
+            status_code=400,
+            detail="URL không hợp lệ. Thiếu tên miền máy chủ."
+        )
+
+    # Chặn các ký tự lạ hoặc khoảng trắng trong hostname
+    if re.search(r"[^\w\.-]", hostname):
+        raise HTTPException(
+            status_code=400,
+            detail="Tên miền chứa ký tự không hợp lệ."
+        )
+
+    # Chặn trực tiếp địa chỉ IP (IPv4 / IPv6) trong hostname (chống SSRF trực tiếp)
+    try:
+        ipaddress.ip_address(hostname)
+        raise HTTPException(
+            status_code=400,
+            detail="Hệ thống không chấp nhận truy cập trực tiếp qua địa chỉ IP máy chủ."
+        )
+    except ValueError:
+        pass  # Không phải raw IP, là domain hợp lệ
+
+    is_foody = hostname == "foody.vn" or hostname.endswith(".foody.vn")
+    if not is_foody:
+        raise HTTPException(
+            status_code=400,
+            detail="URL không hợp lệ. Hệ thống chỉ chấp nhận liên kết quán ăn từ Foody (foody.vn)."
+        )
+
+    # 5. Anti-SSRF: Phân giải DNS và kiểm tra địa chỉ IP đích
+    try:
+        addr_info = socket.getaddrinfo(hostname, None)
+        for res in addr_info:
+            ip_str = res[4][0]
+            resolved_ip = ipaddress.ip_address(ip_str)
+            if (
+                resolved_ip.is_private
+                or resolved_ip.is_loopback
+                or resolved_ip.is_link_local
+                or resolved_ip.is_multicast
+                or resolved_ip.is_reserved
+                or resolved_ip.is_unspecified
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Địa chỉ mạng của máy chủ mục tiêu bị chặn vì lý do an toàn (Anti-SSRF)."
+                )
+    except HTTPException:
+        raise
+    except socket.gaierror:
+        raise HTTPException(
+            status_code=400,
+            detail="Không thể phân giải tên miền Foody. Vui lòng kiểm tra lại liên kết."
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Lỗi kiểm tra an toàn URL: {str(e)}"
+        )
+
+    # 6. Kiểm tra Path của quán ăn
+    path = parsed.path.strip()
+    clean_path = path.lower().rstrip("/")
+    if not clean_path or clean_path in BLOCKED_SYSTEM_PATHS:
+        raise HTTPException(
+            status_code=400,
+            detail="Vui lòng cung cấp link chi tiết quán ăn trên Foody (ví dụ: https://www.foody.vn/da-nang/ten-quan)."
+        )
+
+    # Đường dẫn hợp lệ của quán phải có cấu trúc tối thiểu 2 phân đoạn (ví dụ: /da-nang/ten-quan)
+    path_segments = [seg for seg in clean_path.split("/") if seg]
+    if len(path_segments) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="Đường dẫn Foody không đúng định dạng trang quán ăn (ví dụ: https://www.foody.vn/da-nang/ten-quan)."
+        )
+
+    return raw_url
+
+
 @router.post("/analyze-url")
 def analyze_foody_url(req: AnalyzeRequest):
     """
     Tiếp nhận URL Foody mới từ người dùng:
-    1. Cào review qua Selenium Crawler (headless Chromium)
-    2. Lưu nhà hàng & review vào SQLite (kèm fingerprint chống trùng lặp)
-    3. Chạy Gemini NLP phân tích ABSA
-    4. Trả về kết quả phân tích đầy đủ
+    1. Kiểm tra xác thực URL Foody chặt chẽ & phòng chống SSRF
+    2. Cào review qua Fast HTTP / Selenium Crawler
+    3. Lưu nhà hàng & review vào SQLite (kèm fingerprint chống trùng lặp)
+    4. Chạy Gemini NLP phân tích ABSA
+    5. Trả về kết quả phân tích đầy đủ
     """
-    url = req.url.strip()
-    if not url.startswith("http"):
-        raise HTTPException(
-            status_code=400,
-            detail="URL không hợp lệ. Vui lòng nhập link Foody (ví dụ: https://www.foody.vn/da-nang/...)"
-        )
+    url = validate_foody_url(req.url)
 
     try:
         print(f"=== [API] Bắt đầu cào URL: {url} ===")
@@ -72,8 +215,11 @@ def analyze_foody_url(req: AnalyzeRequest):
             max_consecutive_existing=3
         )
         
-        if not crawl_data or not crawl_data.get("name"):
-            raise HTTPException(status_code=400, detail="Không thể trích xuất thông tin quán ăn từ link Foody này.")
+        if not crawl_data or not crawl_data.get("name") or crawl_data.get("not_found"):
+            raise HTTPException(
+                status_code=400,
+                detail="Không thể trích xuất thông tin quán ăn từ link Foody này. Vui lòng đảm bảo link quán còn hoạt động."
+            )
 
         with get_session() as db:
             restaurant = save_and_analyze_reviews(
@@ -183,7 +329,7 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
 
         effective_city = user_selected_city or detected_city or ""
         city_slug = get_foody_city_slug(effective_city) if effective_city else "da-nang"
-        norm_eff_city = remove_accents(effective_city) if effective_city else ""
+        norm_eff_city = remove_accents(effective_city).replace("-", " ").strip() if effective_city else ""
 
         search_keyword = rem_q.strip() if rem_q.strip() else q
         norm_kw = remove_accents(search_keyword)
@@ -198,7 +344,8 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
             for r in all_res:
                 if norm_eff_city:
                     r_city = detect_city(r.address or "", foody_url=r.foody_url, restaurant_name=r.name)
-                    if norm_eff_city != remove_accents(r_city) and norm_eff_city not in remove_accents(r_city):
+                    r_norm_city = remove_accents(r_city).replace("-", " ").strip()
+                    if norm_eff_city != r_norm_city and norm_eff_city not in r_norm_city:
                         continue
                 r_norm = remove_accents(r.name)
                 foody_slug = r.foody_url.split("/")[-1] if r.foody_url else ""
@@ -211,7 +358,8 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                 for r in all_res:
                     if norm_eff_city:
                         r_city = detect_city(r.address or "", foody_url=r.foody_url, restaurant_name=r.name)
-                        if norm_eff_city != remove_accents(r_city) and norm_eff_city not in remove_accents(r_city):
+                        r_norm_city = remove_accents(r_city).replace("-", " ").strip()
+                        if norm_eff_city != r_norm_city and norm_eff_city not in r_norm_city:
                             continue
                     r_full = remove_accents(f"{r.name} {r.address or ''}")
                     if all(t in r_full for t in tokens):

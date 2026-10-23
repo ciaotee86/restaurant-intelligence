@@ -5,7 +5,7 @@ gợi ý tự động và kiểm tra sức khỏe hệ thống (Health Check).
 
 import re
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from urllib.parse import unquote
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -23,6 +23,7 @@ from services.bi_service import (
     VIETNAM_CITIES
 )
 from services.assistant_service import get_quick_questions, ask_assistant
+from services.reply_service import generate_review_reply
 
 router = APIRouter(prefix="/api", tags=["restaurants"])
 
@@ -304,7 +305,7 @@ def get_suggestions(q: str = ""):
 
 class AskAssistantRequest(BaseModel):
     question: str
-    force_ai: bool = Field(False, alias="forceAi")
+    force_ai: bool = Field(True, alias="forceAi")
 
     model_config = {"populate_by_name": True}
 
@@ -321,8 +322,8 @@ def get_restaurant_quick_questions(identifier: str):
 @router.post("/restaurants/{identifier}/ask")
 def ask_restaurant_ai(identifier: str, req: AskAssistantRequest):
     """
-    Trợ lý AI Hỏi-Đáp thông minh về nhà hàng (Hybrid Contextual Synthesis + Gemini AI).
-    Có Semantic Caching tự động để tiết kiệm Quota.
+    Trợ lý AI Hỏi-Đáp thông minh về nhà hàng (100% Gemini AI Pure Generative Engine).
+    Có Semantic Caching tự động để tiết kiệm Quota và tối ưu tốc độ phản hồi.
     """
     q = req.question.strip()
     if not q:
@@ -336,3 +337,53 @@ def ask_restaurant_ai(identifier: str, req: AskAssistantRequest):
         return ask_assistant(restaurant, db, q, force_ai=req.force_ai)
 
 
+class GenerateReplyRequest(BaseModel):
+    restaurant_id: Optional[str] = Field(None, alias="restaurantId")
+    restaurant_name: Optional[str] = Field(None, alias="restaurantName")
+    review_id: Optional[str] = Field(None, alias="reviewId")
+    author: str = Field("Thực khách", description="Tên thực khách đăng bài")
+    rating: float = Field(5.0, description="Điểm đánh giá")
+    overall_sentiment: Optional[str] = Field(None, alias="overallSentiment")
+    review_text: str = Field(..., alias="reviewText", description="Toàn văn bài đánh giá")
+    aspects: Optional[List[Dict[str, Any]]] = None
+    tone: str = Field("apology", description="1 trong 4 tông giọng: apology, voucher, gratitude, clarification")
+    include_voucher: bool = Field(False, alias="includeVoucher")
+    voucher_discount_percent: int = Field(15, alias="voucherDiscountPercent")
+    force_regenerate: bool = Field(False, alias="forceRegenerate")
+
+    model_config = {"populate_by_name": True}
+
+
+@router.post("/restaurants/{identifier}/reply")
+@router.post("/restaurants/{identifier}/generate-reply")
+def generate_restaurant_review_reply(identifier: str, req: GenerateReplyRequest):
+    """
+    Sinh nội dung thư phản hồi thực khách bằng AI (Gemini Pure Generative Engine).
+    Hỗ trợ 4 tông giọng chuyên sâu cho ngành F&B, voucher đền bù và In-Memory Cache.
+    """
+    if not req.review_text or not req.review_text.strip():
+        raise HTTPException(status_code=400, detail="Vui lòng cung cấp nội dung đánh giá của khách hàng (reviewText).")
+
+    with get_session() as db:
+        restaurant = find_restaurant(db, identifier)
+        res_id = req.restaurant_id or (f"res-{restaurant.id}" if restaurant else identifier)
+        res_name = req.restaurant_name or (restaurant.name if restaurant else identifier)
+
+        # Nếu không có tên nhà hàng và không tìm thấy trong database
+        if not restaurant and not req.restaurant_name:
+            raise HTTPException(status_code=404, detail="Không tìm thấy nhà hàng trong cơ sở dữ liệu.")
+
+        return generate_review_reply(
+            restaurant_id=res_id,
+            restaurant_name=res_name,
+            review_id=req.review_id or "",
+            author=req.author,
+            rating=req.rating,
+            overall_sentiment=req.overall_sentiment,
+            review_text=req.review_text,
+            aspects=req.aspects,
+            tone=req.tone,
+            include_voucher=req.include_voucher,
+            voucher_discount_percent=req.voucher_discount_percent,
+            force_regenerate=req.force_regenerate
+        )

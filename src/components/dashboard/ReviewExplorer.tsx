@@ -1,28 +1,83 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { CustomerReview, AspectCategory, SentimentType } from '../../types/restaurant';
 import { AspectPill } from '../common/AspectPill';
 import { SentimentBadge } from '../common/SentimentBadge';
 import { ReviewDetailModal } from './ReviewDetailModal';
-import { Search, Star, Filter, MessageSquare, Maximize2, ShieldCheck } from 'lucide-react';
+import { ReviewReplyModal } from './ReviewReplyModal';
+import { Search, Star, Filter, MessageSquare, Maximize2, ShieldCheck, Zap } from 'lucide-react';
 import { restaurantService } from '../../services/restaurantService';
 import { formatNumber } from '../../utils/sentimentUtils';
+
+/**
+ * Làm sạch tên tác giả một cách an toàn:
+ * - Nếu trống, rỗng hoặc chỉ có khoảng trắng -> hiển thị "Khách Foody"
+ * - Không render bất kỳ chuỗi {{...}} nào (mã template AngularJS)
+ * - Nếu tác giả chứa common_delete, Model. hoặc mã rác -> fallback về "Khách Foody"
+ */
+const getSafeAuthor = (author?: string): string => {
+  if (!author || typeof author !== 'string') return 'Khách Foody';
+  const trimmed = author.trim();
+  if (!trimmed) return 'Khách Foody';
+
+  // Kiểm tra chuỗi chứa template rác hoặc biểu thức AngularJS
+  const lower = trimmed.toLowerCase();
+  if (
+    lower.includes('{{') ||
+    lower.includes('}}') ||
+    lower.includes('model.') ||
+    lower.includes('common_delete')
+  ) {
+    const stripped = trimmed.replace(/\{\{[\s\S]*?\}\}/g, '').trim();
+    if (!stripped || stripped.toLowerCase().includes('model.') || stripped.toLowerCase().includes('common_delete')) {
+      return 'Khách Foody';
+    }
+    return stripped;
+  }
+  return trimmed;
+};
+
+/**
+ * Làm sạch nội dung bài viết:
+ * - Loại bỏ triệt để bất kỳ chuỗi {{...}} nào
+ */
+const getSafeText = (text?: string): string => {
+  if (!text || typeof text !== 'string') return '';
+  return text.replace(/\{\{[\s\S]*?\}\}/g, '').replace(/\{\{|\}\}/g, '').trim();
+};
+
+/**
+ * Hiển thị ngày an toàn, bỏ qua chuỗi template rác
+ */
+const getSafeDateDisplay = (dateDisplay?: string): string => {
+  if (!dateDisplay || typeof dateDisplay !== 'string') return '';
+  if (dateDisplay.includes('{{') || dateDisplay.toLowerCase().includes('model.')) return '';
+  return dateDisplay.trim();
+};
 
 interface ReviewExplorerProps {
   reviews: CustomerReview[];
   initialAspect?: AspectCategory | 'all';
+  restaurantId?: string;
+  restaurantName?: string;
 }
 
 export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
   reviews,
-  initialAspect = 'all'
+  initialAspect = 'all',
+  restaurantId,
+  restaurantName
 }) => {
   const [sentimentFilter, setSentimentFilter] = useState<'all' | SentimentType>('all');
   const [aspectFilter, setAspectFilter] = useState<'all' | AspectCategory>(initialAspect);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedReview, setSelectedReview] = useState<CustomerReview | null>(null);
+  const [replyReview, setReplyReview] = useState<CustomerReview | null>(null);
+
+  // Lọc phòng vệ dữ liệu đầu vào: đảm bảo danh sách review không chứa bài viết rác
+  const cleanReviews = useMemo(() => restaurantService.sanitizeReviews(reviews || []), [reviews]);
 
   const filteredReviews = restaurantService.filterReviews(
-    reviews,
+    cleanReviews,
     sentimentFilter,
     aspectFilter,
     searchKeyword
@@ -50,7 +105,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
         <div className="flex items-center gap-2 text-xs font-mono text-zinc-600 bg-[#FAF9F5] px-3 py-1.5 rounded-lg border border-[#E5E3DE] self-start sm:self-auto font-bold">
           <span>{formatNumber(filteredReviews.length)}</span>
           <span className="text-zinc-400 font-normal">/</span>
-          <span>{formatNumber(reviews.length)} đánh giá</span>
+          <span>{formatNumber(cleanReviews.length)} đánh giá</span>
         </div>
       </div>
 
@@ -165,60 +220,86 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
         </div>
       ) : (
         <div className="space-y-3.5">
-          {filteredReviews.map((rev) => (
-            <div
-              key={rev.id}
-              onClick={() => setSelectedReview(rev)}
-              className="bg-white border border-[#E5E3DE] hover:border-[#18181B] rounded-xl p-5 hover:shadow-craft-sm transition-all cursor-pointer group"
-            >
-              {/* Header thẻ: Tác giả, Điểm sao, Ngày, Cảm xúc tổng thể */}
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1 bg-amber-50 text-amber-950 border border-amber-300 px-2.5 py-0.5 rounded font-black text-xs">
-                    <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                    <span>{rev.rating}.0</span>
+          {filteredReviews.map((rev) => {
+            const safeRev: CustomerReview = {
+              ...rev,
+              author: getSafeAuthor(rev.author),
+              text: getSafeText(rev.text),
+              dateDisplay: getSafeDateDisplay(rev.dateDisplay)
+            };
+
+            return (
+              <div
+                key={rev.id}
+                onClick={() => setSelectedReview(safeRev)}
+                className="bg-white border border-[#E5E3DE] hover:border-[#18181B] rounded-xl p-5 hover:shadow-craft-sm transition-all cursor-pointer group"
+              >
+                {/* Header thẻ: Tác giả, Điểm sao, Ngày, Cảm xúc tổng thể */}
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 bg-amber-50 text-amber-950 border border-amber-300 px-2.5 py-0.5 rounded font-black text-xs">
+                      <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                      <span>{rev.rating}.0</span>
+                    </div>
+
+                    <span className="text-xs font-bold text-[#18181B] flex items-center gap-1">
+                      <span>{getSafeAuthor(rev.author)}</span>
+                      <span title="Khách hàng thật"><ShieldCheck className="w-3.5 h-3.5 text-emerald-600 inline" /></span>
+                    </span>
+
+                    {getSafeDateDisplay(rev.dateDisplay) && (
+                      <span className="text-xs text-[#71717A] font-medium">
+                        {getSafeDateDisplay(rev.dateDisplay)}
+                      </span>
+                    )}
                   </div>
 
-                  <span className="text-xs font-bold text-[#18181B] flex items-center gap-1">
-                    <span>{rev.author}</span>
-                    <span title="Khách hàng thật"><ShieldCheck className="w-3.5 h-3.5 text-emerald-600 inline" /></span>
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <SentimentBadge sentiment={rev.overallSentiment} size="sm" />
 
-                  <span className="text-xs text-[#71717A] font-medium">
-                    {rev.dateDisplay}
-                  </span>
+                    {/* Nút kích hoạt nhanh AI Soạn phản hồi */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReplyReview(safeRev);
+                      }}
+                      title="Soạn thư phản hồi thực khách"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-[#FFF7ED] text-[#C2410C] border border-[#FFEDD5] hover:bg-[#C2410C] hover:text-white transition-all shadow-craft-sm"
+                    >
+                      <Zap className="w-3 h-3" />
+                      <span>Soạn phản hồi</span>
+                    </button>
+
+                    <span className="text-zinc-400 group-hover:text-[#C2410C] transition-colors p-1" title="Xem chi tiết phân tích">
+                      <Maximize2 className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <SentimentBadge sentiment={rev.overallSentiment} size="sm" />
-                  <span className="text-zinc-400 group-hover:text-[#C2410C] transition-colors p-1" title="Xem chi tiết phân tích">
-                    <Maximize2 className="w-3.5 h-3.5" />
-                  </span>
-                </div>
+                {/* Nội dung đánh giá */}
+                <p className="text-xs sm:text-sm text-[#18181B] leading-relaxed mb-3 group-hover:text-black">
+                  "{getSafeText(rev.text)}"
+                </p>
+
+                {/* Tag các khía cạnh trích xuất */}
+                {rev.aspects && rev.aspects.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-2.5 border-t border-[#E5E3DE]">
+                    <span className="text-[11px] font-bold text-zinc-400 mr-1 uppercase font-mono">
+                      Trích xuất:
+                    </span>
+                    {rev.aspects.map((aspectItem, aIdx) => (
+                      <AspectPill
+                        key={aIdx}
+                        aspect={aspectItem.aspect}
+                        sentiment={aspectItem.sentiment}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-
-              {/* Nội dung đánh giá */}
-              <p className="text-xs sm:text-sm text-[#18181B] leading-relaxed mb-3 group-hover:text-black">
-                "{rev.text}"
-              </p>
-
-              {/* Tag các khía cạnh trích xuất */}
-              {rev.aspects && rev.aspects.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 pt-2.5 border-t border-[#E5E3DE]">
-                  <span className="text-[11px] font-bold text-zinc-400 mr-1 uppercase font-mono">
-                    Trích xuất:
-                  </span>
-                  {rev.aspects.map((aspectItem, aIdx) => (
-                    <AspectPill
-                      key={aIdx}
-                      aspect={aspectItem.aspect}
-                      sentiment={aspectItem.sentiment}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -226,6 +307,25 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
       <ReviewDetailModal
         review={selectedReview}
         onClose={() => setSelectedReview(null)}
+        onOpenReplyModal={(rev) => setReplyReview({
+          ...rev,
+          author: getSafeAuthor(rev.author),
+          text: getSafeText(rev.text),
+          dateDisplay: getSafeDateDisplay(rev.dateDisplay)
+        })}
+      />
+
+      {/* Modal AI Soạn phản hồi thực khách */}
+      <ReviewReplyModal
+        review={replyReview}
+        isOpen={!!replyReview}
+        onClose={() => setReplyReview(null)}
+        restaurantId={restaurantId || replyReview?.restaurantId || ''}
+        restaurantName={
+          restaurantName ||
+          restaurantService.getCachedRestaurants().find((r) => r.id === replyReview?.restaurantId)?.name ||
+          'Nhà hàng'
+        }
       />
     </div>
   );

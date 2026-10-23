@@ -5,10 +5,8 @@ import {
   Send,
   Sparkles,
   RotateCcw,
-  CheckCircle2,
   Zap,
   Lightbulb,
-  Clock,
   ShieldCheck
 } from 'lucide-react';
 
@@ -20,7 +18,7 @@ interface Message {
   id: string;
   sender: 'user' | 'assistant';
   text: string;
-  source?: 'local_bi' | 'cache' | 'gemini_ai';
+  source?: 'cache' | 'gemini_ai';
   timestamp: string;
   latencyMs?: number;
 }
@@ -31,7 +29,6 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputQuestion, setInputQuestion] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [forceAi, setForceAi] = useState(false);
   const [quickQuestions, setQuickQuestions] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const msgCounter = useRef(0);
@@ -54,8 +51,8 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
           {
             id: 'welcome',
             sender: 'assistant',
-            text: `Xin chào! Tôi là Trợ lý Thông tin của nền tảng **Restaurant Intelligence**. Tôi cung cấp góc nhìn tổng hợp độc lập, khách quan dựa trên **${restaurant.totalReviews} nhận xét thực tế** của thực khách tại **${restaurant.name}**. Bạn cần tra cứu món ngon, tiêu chí phục vụ, giá cả hay không gian quán?`,
-            source: 'local_bi',
+            text: `Xin chào! Tôi là Trợ lý Thông tin của nền tảng **Restaurant Intelligence**. Tôi cung cấp góc nhìn phân tích độc lập, khách quan dựa trên **${restaurant.totalReviews} nhận xét thực tế** của thực khách tại **${restaurant.name}**. Bạn cần tra cứu món ngon, tiêu chí phục vụ, giá cả hay không gian quán?`,
+            source: 'gemini_ai',
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             latencyMs: 15
           }
@@ -93,7 +90,7 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
     const startTs = getNow();
 
     try {
-      const result = await restaurantService.askAssistant(restaurant.id, q, forceAi);
+      const result = await restaurantService.askAssistant(restaurant.id, q);
       const endTs = getNow();
       const latencyMs = Math.max(1, endTs - startTs);
 
@@ -113,8 +110,8 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
         {
           id: createMsgId('ai-err'),
           sender: 'assistant',
-          text: 'Xin lỗi, hiện tại tôi chưa thể kết nối đến máy chủ phân tích. Vui lòng thử lại sau giây lát.',
-          source: 'local_bi',
+          text: '> [!WARNING]\n> *Hiện tại hệ thống chưa thể kết nối đến máy chủ phân tích. Vui lòng thử lại sau giây lát.*',
+          source: 'gemini_ai',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           latencyMs: Math.max(1, endTs - startTs)
         }
@@ -131,8 +128,8 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
       {
         id: createMsgId('welcome'),
         sender: 'assistant',
-        text: `Đã làm mới phiên phân tích. Tôi là Trợ lý Dữ liệu của nền tảng **Restaurant Intelligence**, sẵn sàng giải đáp và phân tích dữ liệu đánh giá thực tế của **${restaurant.name}**!`,
-        source: 'local_bi',
+        text: `Đã làm mới phiên trò chuyện. Tôi là Trợ lý Thông tin của nền tảng **Restaurant Intelligence**, sẵn sàng giải đáp và phân tích dữ liệu đánh giá thực tế của **${restaurant.name}**!`,
+        source: 'gemini_ai',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         latencyMs: 10
       }
@@ -288,7 +285,7 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-base font-black text-[#18181B] tracking-tight">
-                Trợ lý Thông tin Nền tảng (Platform Intelligence)
+                Trợ lý Thông tin Nền tảng
               </h3>
               <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
                 <ShieldCheck className="w-2.5 h-2.5" />
@@ -296,31 +293,17 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
               </span>
             </div>
             <p className="text-xs text-zinc-500">
-              Phân tích trung lập dựa trên {restaurant.totalReviews} đánh giá thực tế · Phản hồi tức thì
+              Phân tích khách quan dựa trên {restaurant.totalReviews} đánh giá thực tế
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 self-end sm:self-auto">
-          {/* Nút bật/tắt phân tích sâu */}
-          <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-zinc-600 bg-white border border-[#E5E3DE] rounded-lg px-2.5 py-1 hover:bg-zinc-50 transition-colors shadow-2xs">
-            <input
-              type="checkbox"
-              checked={forceAi}
-              onChange={(e) => setForceAi(e.target.checked)}
-              className="rounded text-[#C2410C] focus:ring-0 w-3.5 h-3.5 accent-[#C2410C]"
-            />
-            <span className="flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-amber-500" />
-              Phân tích chuyên sâu
-            </span>
-          </label>
-
           {/* TC29: Nút làm mới */}
           <button
             onClick={handleClearHistory}
             title="Làm mới cuộc trò chuyện"
-            className="p-1.5 rounded-lg border border-[#E5E3DE] bg-white text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50 transition-colors shadow-2xs"
+            className="p-1.5 rounded-lg border border-[#E5E3DE] bg-white text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50 transition-colors shadow-2xs cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
@@ -348,33 +331,19 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
               )}
             </div>
 
-            {/* TC30: Badge nguồn thông tin & Thời gian phản hồi (Latency) */}
+            {/* TC30: Huy hiệu nguồn thông tin */}
             {msg.sender === 'assistant' && (
               <div className="flex flex-wrap items-center gap-2 mt-1.5 ml-1 text-[11px] text-zinc-400">
-                {/* Đo lường thời gian phản hồi */}
-                {typeof msg.latencyMs === 'number' && (
-                  <span className="flex items-center gap-0.5 text-zinc-500 font-mono font-semibold bg-zinc-100 px-1.5 py-0.5 rounded border border-zinc-200">
-                    <Clock className="w-2.5 h-2.5 text-zinc-400" />
-                    {(msg.latencyMs / 1000).toFixed(2)}s
-                  </span>
-                )}
-
-                {msg.source === 'local_bi' && (
-                  <span className="flex items-center gap-1 text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                    <CheckCircle2 className="w-2.5 h-2.5" />
-                    Dữ liệu thực tế đã xác thực
-                  </span>
-                )}
                 {msg.source === 'cache' && (
-                  <span className="flex items-center gap-1 text-blue-700 font-semibold bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                  <span className="flex items-center gap-1 text-blue-700 font-semibold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                     <Zap className="w-2.5 h-2.5" />
                     Phản hồi tức thì
                   </span>
                 )}
                 {msg.source === 'gemini_ai' && (
-                  <span className="flex items-center gap-1 text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-100">
+                  <span className="flex items-center gap-1 text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                     <Sparkles className="w-2.5 h-2.5" />
-                    Tổng hợp chuyên sâu
+                    Trợ lý AI
                   </span>
                 )}
                 <span>{msg.timestamp}</span>
@@ -386,7 +355,7 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
         {isLoading && (
           <div className="flex items-center gap-2.5 text-xs text-zinc-500 bg-white border border-[#E5E3DE] rounded-xl px-4 py-3 w-fit shadow-2xs">
             <div className="w-3.5 h-3.5 border-2 border-[#C2410C] border-t-transparent rounded-full animate-spin" />
-            <span>Trợ lý Nền tảng đang tổng hợp ý kiến thực khách...</span>
+            <span>Đang tổng hợp ý kiến thực khách...</span>
           </div>
         )}
 

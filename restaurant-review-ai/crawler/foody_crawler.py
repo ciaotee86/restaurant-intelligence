@@ -112,6 +112,34 @@ def _safe_text(el, selector, default=""):
         return default
 
 
+def is_template_or_garbage_review(text: str = "", author: str = "", date: str = "") -> bool:
+    """
+    Lọc bỏ triệt để các phần tử template AngularJS chưa hydrate hoặc rác dummy từ Foody:
+    - Loại bỏ nếu author, text, hoặc date chứa '{{' hoặc '}}'.
+    - Loại bỏ nếu chứa 'Model.' (ví dụ: Model.AvgRating, Model.Owner.DisplayName, Model.CreatedDate).
+    - Loại bỏ nếu text chứa 'common_delete', 'Sửacommon_delete', hoặc text rỗng / độ dài text sạch < 5 ký tự.
+    """
+    t = (text or "").strip()
+    a = (author or "").strip()
+    d = (date or "").strip()
+
+    # 1. Text rỗng hoặc độ dài text sạch < 5 ký tự
+    if not t or len(t) < 5:
+        return True
+
+    # 2. Kiểm tra ký tự binding template {{ hoặc }} hoặc Model.
+    fields = [t, a, d]
+    for field in fields:
+        if "{{" in field or "}}" in field:
+            return True
+        if "model." in field.lower():
+            return True
+        if "common_delete" in field.lower() or "sửacommon_delete" in field.lower() or "suacommon_delete" in field.lower():
+            return True
+
+    return False
+
+
 def _extract_review_text(block):
     """Trích xuất nội dung bài đánh giá chính từ block của Foody"""
     # 1. Thử mở rộng nếu văn bản bị thu gọn
@@ -129,7 +157,7 @@ def _extract_review_text(block):
             els = block.find_elements(By.CSS_SELECTOR, sel)
             for el in els:
                 t = el.text.strip()
-                if t and len(t) > 5:
+                if t and len(t) >= 5 and not is_template_or_garbage_review(t):
                     return t
         except Exception:
             continue
@@ -139,7 +167,7 @@ def _extract_review_text(block):
         paragraphs = block.find_elements(By.TAG_NAME, "p")
         for p in paragraphs:
             t = p.text.strip()
-            if len(t) > 15 and not any(skip in t.lower() for skip in ["thích", "thảo luận", "báo lỗi"]):
+            if len(t) > 15 and not any(skip in t.lower() for skip in ["thích", "thảo luận", "báo lỗi"]) and not is_template_or_garbage_review(t):
                 return t
     except Exception:
         pass
@@ -256,6 +284,71 @@ def is_spam_review(text: str) -> bool:
     return res["is_spam"]
 
 
+INVALID_RESTAURANT_NAMES = {
+    "đăng nhập", "dang nhap", "login", "sign in", "sign up", "đăng ký",
+    "dang ky", "trang chủ", "home", "google", "gmail", "facebook",
+    "404", "error", "not found", "access denied", "trang không tồn tại",
+    "hệ thống không tìm thấy", "chọn địa điểm", "tài khoản", "account",
+    "bảo mật", "security", "privacy", "điều khoản", "terms", "chính sách"
+}
+
+
+def is_foody_domain(url: str) -> bool:
+    """Kiểm tra URL có thuộc domain foody.vn hoặc subdomain *.foody.vn hay không"""
+    if not url:
+        return False
+    try:
+        p = urllib.parse.urlparse(url.strip())
+        host = (p.hostname or "").lower()
+        return host == "foody.vn" or host.endswith(".foody.vn")
+    except Exception:
+        return False
+
+
+def is_valid_foody_restaurant_page(url: str, soup=None, driver=None, name: str = "") -> bool:
+    """
+    Sanity check cấu trúc trang quán ăn Foody:
+    1. URL phải thuộc foody.vn
+    2. Tên quán không rỗng, không thuộc danh sách đen (login, sign-in, error,...)
+    3. Trang có cấu trúc/marker nhận diện nhà hàng Foody hợp lệ
+    """
+    if not is_foody_domain(url):
+        return False
+
+    clean_name = (name or "").strip().lower()
+    if not clean_name or len(clean_name) < 2 or len(clean_name) > 200:
+        return False
+
+    if clean_name in INVALID_RESTAURANT_NAMES or any(b == clean_name for b in INVALID_RESTAURANT_NAMES):
+        return False
+
+    if soup:
+        has_marker = bool(
+            soup.select_one('.res-common-pos, .res-common-add, .microsite-top-points, .main-info-title, .foody-box-review, .res-summary-point, .detail-restaurant')
+        )
+        if not has_marker:
+            title = (soup.title.string or "").lower() if soup.title else ""
+            html_sample = (soup.text[:2000] if soup.text else "").lower()
+            has_marker = "foody.vn" in html_sample or "foody" in title
+        return has_marker
+
+    if driver:
+        if not is_foody_domain(driver.current_url):
+            return False
+        has_marker = False
+        try:
+            markers = driver.find_elements(By.CSS_SELECTOR, ".res-common-pos, .res-common-add, .microsite-top-points, .main-info-title, .foody-box-review, .res-summary-point, .detail-restaurant")
+            has_marker = len(markers) > 0
+        except Exception:
+            pass
+        if not has_marker:
+            title = (driver.title or "").lower()
+            has_marker = "foody" in title
+        return has_marker
+
+    return True
+
+
 def inspect_foody_via_http(url: str, timeout: int = 8) -> Optional[Dict[str, Any]]:
     """
     Kiểm tra siêu tốc thông tin quán ăn và số lượng đánh giá qua HTTP request (< 1 giây)
@@ -263,6 +356,10 @@ def inspect_foody_via_http(url: str, timeout: int = 8) -> Optional[Dict[str, Any
     Nếu quán không tồn tại hoặc đã xác nhận 0 bài đánh giá (0 review),
     trả về kết quả ngay lập tức để giải quyết triệt để lỗi timeout 120s.
     """
+    if not is_foody_domain(url):
+        print(f"-> [Fast HTTP Inspector] Từ chối URL không thuộc foody.vn: {url}")
+        return None
+
     try:
         import requests
         from bs4 import BeautifulSoup
@@ -275,7 +372,10 @@ def inspect_foody_via_http(url: str, timeout: int = 8) -> Optional[Dict[str, Any
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'vi,en;q=0.9',
         }
-        resp = requests.get(url, headers=headers, timeout=timeout)
+        resp = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+        if not is_foody_domain(resp.url):
+            print(f"-> [Fast HTTP Inspector] Bị chuyển hướng ra ngoài foody.vn: {resp.url}")
+            return None
         if resp.status_code == 404 or "không tìm thấy dữ liệu" in resp.text.lower():
             return {
                 "url": url,
@@ -302,6 +402,11 @@ def inspect_foody_via_http(url: str, timeout: int = 8) -> Optional[Dict[str, Any
                 "skipped_existing_count": 0,
                 "stopped_early": True
             }
+
+        # Sanity check: Tên quán và cấu trúc trang Foody
+        if not is_valid_foody_restaurant_page(resp.url, soup=soup, name=name):
+            print(f"-> [Fast HTTP Inspector] Trang không đạt tiêu chuẩn cấu trúc quán ăn Foody: '{name}'")
+            return None
 
         addr_el = soup.select_one('.res-common-pos, .res-common-add, [itemprop="address"], .res-address')
         address = addr_el.text.strip() if addr_el else ""
@@ -368,6 +473,8 @@ def fetch_reviews_via_http(
         "skipped_existing_count": 0,
         "stopped_early": False
     }
+    if not is_foody_domain(url):
+        return result
     known_fps = set(known_fingerprints or [])
     seen_fingerprints_this_run = set()
     consecutive_existing_count = 0
@@ -405,6 +512,18 @@ def fetch_reviews_via_http(
 
             early_stopped = False
             for block in items:
+                # 1. Kiểm tra class ẩn hoặc style display:none
+                style = (block.get('style') or '').lower().replace(' ', '')
+                classes = block.get('class', [])
+                class_str = " ".join(classes).lower() if isinstance(classes, list) else str(classes).lower()
+                if 'display:none' in style or 'ng-hide' in class_str or 'hidden' in classes:
+                    continue
+
+                # 2. Kiểm tra template binding trên block
+                block_raw = str(block).lower()
+                if '{{model.' in block_raw or 'common_delete' in block_raw or 'sửacommon_delete' in block_raw:
+                    continue
+
                 des_el = block.select_one('.rd-des, [ng-bind-html*="Description"], .review-des, p.rd-des')
                 text = des_el.get_text(strip=True) if des_el else ""
                 if not text or len(text) < 5:
@@ -432,6 +551,10 @@ def fetch_reviews_via_http(
                 time_el = block.select_one('.ru-time, .time-ago, span[ng-bind*="CreatedDate"]')
                 date_raw = time_el.get_text(strip=True) if time_el else "Gần đây"
                 date = date_raw.rstrip(',').strip()
+
+                # 3. Lọc bỏ triệt để review template hoặc rác
+                if is_template_or_garbage_review(text=text, author=author, date=date):
+                    continue
 
                 foody_id = block.get('data-review-id', '')
 
@@ -490,7 +613,7 @@ def crawl_restaurant(
     headless: bool = True,
     known_fingerprints: Optional[Set[str]] = None,
     max_consecutive_existing: int = 3
-) -> Dict[str, Any]:
+) -> Optional[Dict[str, Any]]:
     """
     Cào bài đánh giá của 1 nhà hàng từ URL Foody.
     Hỗ trợ quy trình 3 lớp tối ưu hóa hiệu năng:
@@ -499,12 +622,19 @@ def crawl_restaurant(
        tiết kiệm 95% RAM (chống OOM 512MB trên Render) và chống 502 Gateway Timeout.
     3. Lớp 3 (Incremental Chrome Crawler): Fallback dự phòng bằng Selenium chỉ khi thật sự cần.
     """
+    if not is_foody_domain(url):
+        print(f"-> [Crawler Cảnh báo] Từ chối cào URL không thuộc foody.vn: {url}")
+        return None
+
     # 1. Fast HTTP Pre-check
     http_meta = inspect_foody_via_http(url, timeout=8)
     if http_meta:
         if http_meta.get("not_found"):
             print(f"-> [Fast HTTP Inspector] Trang quán không tồn tại trên Foody (404): {url}")
             return http_meta
+        if not is_valid_foody_restaurant_page(url, name=http_meta.get("name", "")):
+            print(f"-> [Fast HTTP Inspector] Tên quán không hợp lệ hoặc trang không phải quán ăn Foody: '{http_meta.get('name')}'")
+            return None
         if http_meta.get("is_zero_reviews"):
             print(f"-> [Fast HTTP Inspector] Quán '{http_meta.get('name')}' xác nhận 0 bài đánh giá. Hoàn tất cào trong < 1s (bỏ qua Selenium).")
             return http_meta
@@ -545,6 +675,10 @@ def crawl_restaurant(
     try:
         print(f"-> [Crawler] Đang mở trang: {url}")
         driver.get(url)
+        if not is_foody_domain(driver.current_url):
+            print(f"  [Crawler Cảnh báo] Trình duyệt chuyển hướng ra ngoài foody.vn: {driver.current_url}")
+            return None
+
         WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, SELECTOR_RESTAURANT_NAME))
         )
@@ -566,6 +700,11 @@ def crawl_restaurant(
                 result["overall_rating"] = None
 
         print(f"  Tên: {result['name']} | Điểm: {result['overall_rating']} | Địa chỉ: {result['address']}")
+
+        # Sanity check trang và tên quán
+        if not is_valid_foody_restaurant_page(driver.current_url, driver=driver, name=result["name"]):
+            print(f"  [Crawler Cảnh báo] Trang không đạt tiêu chuẩn quán ăn Foody: '{result.get('name')}'")
+            return None
 
         # Kiểm tra nếu trang 404 không tồn tại trên Foody
         if "không tìm thấy dữ liệu" in result["name"].lower() or "hệ thống không tìm thấy" in driver.title.lower():
@@ -615,6 +754,27 @@ def crawl_restaurant(
 
             early_stopped = False
             for block in new_blocks:
+                # 1. Kiểm tra block ẩn (not is_displayed(), display:none, hoặc ng-hide)
+                try:
+                    if not block.is_displayed():
+                        continue
+                    style = (block.get_attribute("style") or "").lower().replace(" ", "")
+                    if "display:none" in style:
+                        continue
+                    cls = (block.get_attribute("class") or "").lower()
+                    if "ng-hide" in cls:
+                        continue
+                except Exception:
+                    continue
+
+                # 2. Kiểm tra nếu block chứa template binding AngularJS {{ chưa hydrate
+                try:
+                    outer_html = (block.get_attribute("outerHTML") or "").lower()
+                    if "{{" in outer_html and ("model." in outer_html or "common_delete" in outer_html):
+                        continue
+                except Exception:
+                    pass
+
                 text = _extract_review_text(block)
                 if not text or not text.strip():
                     continue
@@ -623,6 +783,10 @@ def crawl_restaurant(
                 author = _extract_author(block)
                 rating = _extract_rating(block)
                 date = _safe_text(block, SELECTOR_REVIEW_DATE, default="Gần đây")
+
+                # 3. Lọc bỏ triệt để review template AngularJS hoặc rác dummy
+                if is_template_or_garbage_review(text=text, author=author, date=date):
+                    continue
 
                 fp = compute_review_fingerprint(url, author, date, text, foody_id)
 
