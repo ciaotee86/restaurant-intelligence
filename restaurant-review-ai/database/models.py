@@ -23,10 +23,16 @@ class Restaurant(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)
-    foody_url = Column(String(500), unique=True, nullable=False)
+    foody_url = Column(String(500), unique=True, nullable=True)        # Cho phép null nếu quán chỉ có link Google Maps
+    google_maps_url = Column(String(1000), unique=True, nullable=True) # Link định danh Google Maps
+    google_place_id = Column(String(255), index=True, nullable=True)   # Mã Place ID độc nhất của Google
     address = Column(String(500))
-    overall_rating = Column(Float)          # điểm Foody hiển thị (thang 10 hoặc 5 tùy trang)
+    city = Column(String(100), nullable=True)                          # Tỉnh/Thành phố
+    overall_rating = Column(Float)                                      # điểm hiển thị (thang 10 hoặc 5 tùy trang)
     review_count = Column(Integer, default=0)
+    foody_review_count = Column(Integer, default=0)
+    google_review_count = Column(Integer, default=0)
+    credibility_score = Column(Float, default=0.0)                     # Chỉ số độ tin cậy mẫu (0.0 -> 1.0)
     crawled_at = Column(DateTime, default=datetime.utcnow)
 
     reviews = relationship("Review", back_populates="restaurant", cascade="all, delete-orphan")
@@ -48,6 +54,8 @@ class Review(Base):
     spam_reason = Column(Text, default="[]")  # Danh sách lý do dưới dạng JSON: ["phone_number", "email", ...]
     foody_review_id = Column(String(100), index=True, nullable=True)  # ID định danh từ Foody (nếu trích xuất được)
     fingerprint = Column(String(64), index=True, nullable=True)      # Mã băm SHA-256 duy nhất chống trùng lặp
+    source = Column(String(50), default="Foody")                      # 'Foody' | 'GoogleMaps'
+    google_review_id = Column(String(255), index=True, nullable=True) # ID bài đánh giá trên Google (nếu có)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     restaurant = relationship("Restaurant", back_populates="reviews")
@@ -162,18 +170,60 @@ def init_db(db_path: str = None):
             except Exception:
                 pass
 
-        for col, col_type in [
-            ("is_spam", "INTEGER DEFAULT 0"),
-            ("spam_score", "FLOAT DEFAULT 0.0"),
-            ("spam_category", "VARCHAR(50) DEFAULT 'normal'"),
-            ("spam_reason", "TEXT DEFAULT '[]'"),
-            ("foody_review_id", "VARCHAR(100)"),
-            ("fingerprint", "VARCHAR(64)")
-        ]:
-            try:
-                conn.execute(text(f"ALTER TABLE reviews ADD COLUMN {col} {col_type}"))
-                conn.commit()
-            except Exception:
-                pass
+            def _get_existing_columns(table_name: str) -> set:
+                try:
+                    res = conn.execute(text(f"PRAGMA table_info({table_name});"))
+                    return {row[1] for row in res.fetchall()}
+                except Exception:
+                    return set()
+
+            # Nâng cấp bảng reviews
+            review_cols = _get_existing_columns("reviews")
+            for col, col_type in [
+                ("is_spam", "INTEGER DEFAULT 0"),
+                ("spam_score", "FLOAT DEFAULT 0.0"),
+                ("spam_category", "VARCHAR(50) DEFAULT 'normal'"),
+                ("spam_reason", "TEXT DEFAULT '[]'"),
+                ("foody_review_id", "VARCHAR(100)"),
+                ("fingerprint", "VARCHAR(64)"),
+                ("source", "VARCHAR(50) DEFAULT 'Foody'"),
+                ("google_review_id", "VARCHAR(255)")
+            ]:
+                if col not in review_cols:
+                    try:
+                        conn.execute(text(f"ALTER TABLE reviews ADD COLUMN {col} {col_type};"))
+                        conn.commit()
+                    except Exception:
+                        pass
+
+            # Nâng cấp bảng restaurants
+            restaurant_cols = _get_existing_columns("restaurants")
+            for col, col_type in [
+                ("city", "VARCHAR(100)"),
+                ("google_maps_url", "VARCHAR(1000)"),
+                ("google_place_id", "VARCHAR(255)"),
+                ("foody_review_count", "INTEGER DEFAULT 0"),
+                ("google_review_count", "INTEGER DEFAULT 0"),
+                ("credibility_score", "FLOAT DEFAULT 0.0")
+            ]:
+                if col not in restaurant_cols:
+                    try:
+                        conn.execute(text(f"ALTER TABLE restaurants ADD COLUMN {col} {col_type};"))
+                        conn.commit()
+                    except Exception:
+                        pass
+
+            # Đảm bảo các chỉ mục hỗ trợ truy vấn nhanh
+            for idx_sql in [
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_restaurants_google_maps_url ON restaurants(google_maps_url) WHERE google_maps_url IS NOT NULL;",
+                "CREATE INDEX IF NOT EXISTS idx_restaurants_google_place_id ON restaurants(google_place_id);",
+                "CREATE INDEX IF NOT EXISTS idx_reviews_google_review_id ON reviews(google_review_id);",
+                "CREATE INDEX IF NOT EXISTS idx_reviews_source ON reviews(source);"
+            ]:
+                try:
+                    conn.execute(text(idx_sql))
+                    conn.commit()
+                except Exception:
+                    pass
 
     return engine

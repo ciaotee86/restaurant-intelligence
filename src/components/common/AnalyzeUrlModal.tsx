@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Link2, ArrowRight, Loader2, CheckCircle2, AlertCircle, Sparkles, Search, Zap } from 'lucide-react';
+import { X, Link2, ArrowRight, Loader2, CheckCircle2, AlertCircle, Sparkles, Search, Zap, Store, MapPin } from 'lucide-react';
 import { restaurantService } from '../../services/restaurantService';
 import { VIETNAM_CITIES, getCitySlug } from '../../utils/cityUtils';
 
@@ -74,10 +74,88 @@ const isValidFoodyUrl = (urlString: string): boolean => {
   }
 };
 
+/**
+ * Kiểm tra tính hợp lệ của liên kết quán ăn từ Google Maps:
+ * - Giao thức http:// hoặc https://
+ * - Hostname thuộc các domain Google Maps hợp lệ:
+ *   - google.com, google.com.vn, google.vn
+ *   - maps.google.com, maps.google.com.vn
+ *   - goo.gl, maps.app.goo.gl
+ * - Path:
+ *   - Nếu goo.gl hoặc maps.app.goo.gl: path không được rỗng
+ *   - Nếu google.com/google.com.vn/google.vn (không bắt đầu bằng maps.): path phải bắt đầu với /maps, /place, /search
+ *   - Nếu maps.google.*: chấp nhận path hoặc search query
+ * - Không chứa userinfo (username:password)
+ */
+const isValidGoogleMapsUrl = (urlString: string): boolean => {
+  const trimmed = urlString.trim();
+  if (!trimmed || trimmed.length > 4096) return false;
+
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const protocol = parsed.protocol.toLowerCase();
+    if (protocol !== 'http:' && protocol !== 'https:') {
+      return false;
+    }
+
+    if (parsed.username || parsed.password) {
+      return false;
+    }
+
+    const hostname = parsed.hostname.toLowerCase();
+    if (!hostname || /[^\w.-]/.test(hostname)) {
+      return false;
+    }
+
+    const validSuffixes = ['google.com', 'google.com.vn', 'google.vn', 'goo.gl'];
+    const isGoogleDomain = validSuffixes.some((d) => hostname === d || hostname.endsWith('.' + d));
+    if (!isGoogleDomain) {
+      return false;
+    }
+
+    const path = parsed.pathname.toLowerCase();
+
+    // Rút gọn link: goo.gl/maps/... hoặc maps.app.goo.gl/...
+    if (hostname === 'goo.gl' || hostname === 'maps.app.goo.gl' || hostname.endsWith('.goo.gl')) {
+      const cleanPath = path.replace(/^\/+|\/+$/g, '');
+      return cleanPath.length > 0;
+    }
+
+    // Subdomain maps.google.*
+    if (hostname.startsWith('maps.')) {
+      return true;
+    }
+
+    // Domain google.com, google.com.vn, google.vn
+    const validPaths = ['/maps', '/place', '/search'];
+    if (validPaths.some((p) => path.startsWith(p))) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Nhận diện nguồn dữ liệu của URL: 'foody' | 'google_maps' | null
+ */
+const detectUrlSource = (urlString: string): 'foody' | 'google_maps' | null => {
+  if (isValidFoodyUrl(urlString)) return 'foody';
+  if (isValidGoogleMapsUrl(urlString)) return 'google_maps';
+  return null;
+};
+
 export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [tab, setTab] = useState<'keyword' | 'url'>('keyword');
   const [keyword, setKeyword] = useState('');
   const [city, setCity] = useState('da-nang');
+  const [searchSource, setSearchSource] = useState<'auto' | 'foody' | 'google_maps'>('auto');
   const [url, setUrl] = useState('');
   const [maxReviews, setMaxReviews] = useState(15);
   const [status, setStatus] = useState<'idle' | 'crawling' | 'analyzing' | 'success' | 'error'>('idle');
@@ -112,16 +190,22 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
     };
   }, []);
 
+  // Xác thực nguồn URL
+  const detectedUrlSource = detectUrlSource(url);
+  const isUrlValid = detectedUrlSource !== null;
+  const isMaxReviewsValid = Boolean(maxReviews && maxReviews > 0);
+
   // Xác thực các trường dữ liệu bắt buộc để kích hoạt nút hành động
   const isKeywordValid = keyword.trim().length >= 2;
   const isCityValid = Boolean(city && city.trim());
-  const isMaxReviewsValid = Boolean(maxReviews && maxReviews > 0);
   const isKeywordFormValid = isKeywordValid && isCityValid && isMaxReviewsValid;
-
-  const isUrlValid = isValidFoodyUrl(url);
   const isUrlFormValid = isUrlValid && isMaxReviewsValid;
 
   const isFormValid = tab === 'keyword' ? isKeywordFormValid : isUrlFormValid;
+
+  // Xác định nguồn đang chạy để hiển thị các bước Stepper tương ứng
+  const activeStepSource: 'auto' | 'foody' | 'google_maps' =
+    tab === 'url' ? (detectedUrlSource || 'google_maps') : searchSource;
 
   useEffect(() => {
     let interval: any;
@@ -169,7 +253,12 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
     try {
       if (tab === 'keyword') {
         if (!keyword.trim()) return;
-        const res = await restaurantService.searchAndCrawlFoody(keyword.trim(), city, maxReviews);
+        const res = await restaurantService.searchAndCrawlFoody(
+          keyword.trim(),
+          city,
+          maxReviews,
+          searchSource
+        );
         
         if (res.success && res.restaurant) {
           setStatus('success');
@@ -181,7 +270,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
           }, 800);
         } else {
           setStatus('error');
-          setErrorMessage(res.message || 'Không tìm thấy quán nào trên Foody.');
+          setErrorMessage(res.message || 'Không tìm thấy quán nào theo từ khóa này.');
         }
       } else {
         if (!url.trim() || !isUrlValid) return;
@@ -197,7 +286,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
           }, 800);
         } else {
           setStatus('error');
-          setErrorMessage(res.message || 'Không thể xử lý URL này.');
+          setErrorMessage(res.message || 'Không thể xử lý liên kết này.');
         }
       }
     } catch (err: any) {
@@ -221,14 +310,14 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                 Tổng hợp đánh giá quán ăn mới
               </h3>
               <p className="text-[11px] text-[#71717A]">
-                Tra cứu thông tin hoặc tổng hợp nhận xét quán ăn mới từ thực khách
+                Tra cứu thông tin hoặc tổng hợp nhận xét từ Foody.vn &amp; Google Maps
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             disabled={status === 'crawling'}
-            className="w-7 h-7 rounded-md flex items-center justify-center text-zinc-400 hover:text-[#18181B] hover:bg-zinc-200/60 transition-colors disabled:opacity-40"
+            className="w-7 h-7 rounded-md flex items-center justify-center text-zinc-400 hover:text-[#18181B] hover:bg-zinc-200/60 transition-colors disabled:opacity-40 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -240,7 +329,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
             type="button"
             onClick={() => { setTab('keyword'); setShowSuggestions(false); }}
             disabled={status === 'crawling'}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-md transition-all ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-md transition-all cursor-pointer ${
               tab === 'keyword'
                 ? 'bg-white text-[#C2410C] shadow-xs'
                 : 'text-zinc-600 hover:text-zinc-900'
@@ -253,7 +342,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
             type="button"
             onClick={() => { setTab('url'); setShowSuggestions(false); }}
             disabled={status === 'crawling'}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-md transition-all ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-md transition-all cursor-pointer ${
               tab === 'url'
                 ? 'bg-white text-[#C2410C] shadow-xs'
                 : 'text-zinc-600 hover:text-zinc-900'
@@ -268,6 +357,71 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {tab === 'keyword' ? (
             <>
+              {/* Source Selector */}
+              <div>
+                <label className="block text-xs font-semibold text-[#18181B] mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <span>Nguồn dữ liệu tìm kiếm</span>
+                    <span className="text-red-500 font-bold" title="Trường bắt buộc">*</span>
+                  </span>
+                  <span className="text-[10px] text-zinc-500 font-normal">
+                    Đồng bộ &amp; phân tích ABSA tự động
+                  </span>
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSearchSource('auto')}
+                    disabled={status === 'crawling'}
+                    className={`px-2.5 py-2 rounded-lg border text-left transition-all relative flex flex-col gap-0.5 cursor-pointer ${
+                      searchSource === 'auto'
+                        ? 'bg-orange-50/70 border-[#C2410C] text-[#C2410C] shadow-xs ring-1 ring-[#C2410C]/20'
+                        : 'bg-white border-[#E4E4E7] text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-bold text-xs">
+                      <Sparkles className="w-3.5 h-3.5 shrink-0 text-[#C2410C]" />
+                      <span className="truncate">Tự động (Ưu tiên)</span>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 leading-tight">Foody &amp; Maps</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSearchSource('foody')}
+                    disabled={status === 'crawling'}
+                    className={`px-2.5 py-2 rounded-lg border text-left transition-all relative flex flex-col gap-0.5 cursor-pointer ${
+                      searchSource === 'foody'
+                        ? 'bg-orange-50/70 border-[#C2410C] text-[#C2410C] shadow-xs ring-1 ring-[#C2410C]/20'
+                        : 'bg-white border-[#E4E4E7] text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-bold text-xs">
+                      <Store className="w-3.5 h-3.5 shrink-0 text-[#C2410C]" />
+                      <span className="truncate">Foody.vn</span>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 leading-tight">Chỉ Foody.vn</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSearchSource('google_maps')}
+                    disabled={status === 'crawling'}
+                    className={`px-2.5 py-2 rounded-lg border text-left transition-all relative flex flex-col gap-0.5 cursor-pointer ${
+                      searchSource === 'google_maps'
+                        ? 'bg-blue-50/70 border-blue-600 text-blue-700 shadow-xs ring-1 ring-blue-600/20'
+                        : 'bg-white border-[#E4E4E7] text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-bold text-xs">
+                      <MapPin className="w-3.5 h-3.5 shrink-0 text-blue-600" />
+                      <span className="truncate">Google Maps</span>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 leading-tight">Cào Maps trực tiếp</p>
+                  </button>
+                </div>
+              </div>
+
               <div className="relative">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-semibold text-[#18181B] flex items-center gap-1">
@@ -304,7 +458,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                         setSuggestions([]);
                         setShowSuggestions(false);
                       }}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors cursor-pointer"
                       title="Xóa nội dung nhập"
                       aria-label="Xóa nội dung nhập"
                     >
@@ -329,7 +483,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                             e.stopPropagation();
                             setShowSuggestions(false);
                           }}
-                          className="p-1 rounded text-zinc-400 hover:text-zinc-800 hover:bg-zinc-200/70 transition-colors"
+                          className="p-1 rounded text-zinc-400 hover:text-zinc-800 hover:bg-zinc-200/70 transition-colors cursor-pointer"
                           title="Tắt danh sách gợi ý (hoặc nhấn ESC)"
                           aria-label="Đóng danh sách gợi ý"
                         >
@@ -341,7 +495,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                           key={item.id}
                           type="button"
                           onClick={() => handleSelectSuggestion(item.id)}
-                          className="w-full px-3.5 py-2 text-left hover:bg-orange-50/60 flex items-center justify-between transition-colors group"
+                          className="w-full px-3.5 py-2 text-left hover:bg-orange-50/60 flex items-center justify-between transition-colors group cursor-pointer"
                         >
                           <div>
                             <p className="text-xs font-bold text-zinc-900 group-hover:text-[#C2410C] transition-colors">
@@ -361,7 +515,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                 </div>
 
                 <p className="text-[11px] text-[#71717A] mt-1">
-                  Nếu quán chưa có trong hệ thống, hệ thống sẽ tự động tìm kiếm và tổng hợp đánh giá từ thực khách.
+                  Nếu quán chưa có trong hệ thống, hệ thống sẽ tự động tìm kiếm và tổng hợp đánh giá thực tế.
                 </p>
               </div>
 
@@ -374,7 +528,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   disabled={status === 'crawling'}
-                  className="w-full text-xs px-3 py-2 bg-zinc-50 border border-[#D4D4D8] rounded-md focus:outline-none focus:ring-1 focus:ring-zinc-800 text-[#18181B]"
+                  className="w-full text-xs px-3 py-2 bg-zinc-50 border border-[#D4D4D8] rounded-md focus:outline-none focus:ring-1 focus:ring-zinc-800 text-[#18181B] cursor-pointer"
                 >
                   <optgroup label="🌟 Thành phố trọng điểm ẩm thực">
                     <option value="da-nang">Đà Nẵng</option>
@@ -402,22 +556,41 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
             </>
           ) : (
             <div>
-              <label className="block text-xs font-semibold text-[#18181B] mb-1.5 flex items-center gap-1">
-                <span>Đường dẫn trang quán ăn</span>
-                <span className="text-red-500 font-bold" title="Trường bắt buộc">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-[#18181B] flex items-center gap-1">
+                  <span>Đường dẫn trang quán ăn</span>
+                  <span className="text-red-500 font-bold" title="Trường bắt buộc">*</span>
+                </label>
+                {/* Badge nhận diện nguồn thông minh */}
+                {detectedUrlSource === 'foody' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-50 text-[#C2410C] border border-orange-200/80 text-[10px] font-bold rounded-md animate-in fade-in">
+                    <Store className="w-3 h-3 text-[#C2410C]" />
+                    Nguồn: Foody.vn
+                  </span>
+                )}
+                {detectedUrlSource === 'google_maps' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold rounded-md animate-in fade-in">
+                    <MapPin className="w-3 h-3 text-blue-600" />
+                    Nguồn: Google Maps
+                  </span>
+                )}
+              </div>
               <div className="relative">
                 <input
                   type="url"
                   required
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://www.foody.vn/da-nang/banh-trang-tien-tien"
+                  placeholder="Dán liên kết từ Foody.vn hoặc Google Maps..."
                   disabled={status === 'crawling'}
                   aria-invalid={url.trim().length > 0 && !isUrlValid}
                   className={`w-full text-xs sm:text-sm pl-3.5 pr-9 py-2.5 bg-white border rounded-lg focus:outline-none focus:ring-2 transition-all text-[#18181B] ${
                     url.trim().length > 0 && !isUrlValid
                       ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20 bg-red-50/10'
+                      : detectedUrlSource === 'google_maps'
+                      ? 'border-blue-400 focus:border-blue-500 focus:ring-blue-500/20'
+                      : detectedUrlSource === 'foody'
+                      ? 'border-orange-400 focus:border-[#C2410C] focus:ring-[#C2410C]/20'
                       : 'border-[#D4D4D8] focus:border-[#C2410C] focus:ring-[#C2410C]/20'
                   }`}
                 />
@@ -425,7 +598,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                   <button
                     type="button"
                     onClick={() => setUrl('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors cursor-pointer"
                     title="Xóa đường dẫn"
                     aria-label="Xóa đường dẫn"
                   >
@@ -436,11 +609,21 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
               {url.trim().length > 0 && !isUrlValid ? (
                 <div className="flex items-center gap-1.5 text-[11px] text-red-600 mt-1.5 font-medium animate-in fade-in duration-150">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-500" />
-                  <span>Chỉ hỗ trợ liên kết quán ăn từ Foody.vn (Ví dụ: https://www.foody.vn/da-nang/...)</span>
+                  <span>Hỗ trợ liên kết quán ăn từ Foody.vn hoặc Google Maps (Ví dụ: https://www.foody.vn/... hoặc https://www.google.com/maps/place/...)</span>
+                </div>
+              ) : detectedUrlSource === 'google_maps' ? (
+                <div className="flex items-center gap-1.5 text-[11px] text-blue-700 mt-1.5 font-medium animate-in fade-in duration-150">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  <span>Đã nhận diện liên kết Google Maps hợp lệ. Sẵn sàng cào qua Playwright và phân tích ABSA!</span>
+                </div>
+              ) : detectedUrlSource === 'foody' ? (
+                <div className="flex items-center gap-1.5 text-[11px] text-orange-700 mt-1.5 font-medium animate-in fade-in duration-150">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#C2410C] shrink-0" />
+                  <span>Đã nhận diện liên kết Foody.vn hợp lệ. Sẵn sàng tổng hợp và phân tích ABSA!</span>
                 </div>
               ) : (
-                <p className="text-[11px] text-[#71717A] mt-1">
-                  Dán liên kết trang quán ăn để xem đánh giá tổng hợp từ thực khách.
+                <p className="text-[11px] text-[#71717A] mt-1.5">
+                  Hỗ trợ liên kết quán ăn từ Foody.vn hoặc Google Maps (Ví dụ: https://www.foody.vn/... hoặc https://www.google.com/maps/place/...)
                 </p>
               )}
             </div>
@@ -455,7 +638,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
               value={maxReviews}
               onChange={(e) => setMaxReviews(Number(e.target.value))}
               disabled={status === 'crawling'}
-              className="w-full text-xs px-3 py-2 bg-zinc-50 border border-[#D4D4D8] rounded-md focus:outline-none focus:ring-1 focus:ring-zinc-800 text-[#18181B]"
+              className="w-full text-xs px-3 py-2 bg-zinc-50 border border-[#D4D4D8] rounded-md focus:outline-none focus:ring-1 focus:ring-zinc-800 text-[#18181B] cursor-pointer"
             >
               <option value={15}>15 đánh giá (Siêu tốc - ~5-8 giây)</option>
               <option value={25}>25 đánh giá (Tiêu chuẩn - ~12-15 giây)</option>
@@ -463,24 +646,37 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
             </select>
           </div>
 
-          {/* Tiến trình đang tổng hợp dữ liệu */}
+          {/* Tiến trình đang tổng hợp dữ liệu (Stepper thích ứng theo nguồn) */}
           {status === 'crawling' && (
-            <div className="p-3.5 bg-orange-50/80 border border-orange-200/80 rounded-xl space-y-2.5 animate-in fade-in">
+            <div className={`p-3.5 rounded-xl space-y-2.5 animate-in fade-in border ${
+              activeStepSource === 'google_maps'
+                ? 'bg-blue-50/80 border-blue-200/80'
+                : 'bg-orange-50/80 border-orange-200/80'
+            }`}>
               <div className="flex items-center justify-between text-xs font-bold text-[#18181B]">
                 <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 text-[#C2410C] animate-spin" />
+                  <Loader2 className={`w-4 h-4 animate-spin ${
+                    activeStepSource === 'google_maps' ? 'text-blue-600' : 'text-[#C2410C]'
+                  }`} />
                   <span>Đang tổng hợp dữ liệu ({elapsedSeconds}s)</span>
                 </div>
-                <span className="text-[10px] text-[#C2410C] font-semibold bg-white px-2 py-0.5 rounded border border-orange-200">
+                <span className={`text-[10px] font-semibold bg-white px-2 py-0.5 rounded border ${
+                  activeStepSource === 'google_maps'
+                    ? 'text-blue-700 border-blue-200'
+                    : 'text-[#C2410C] border-orange-200'
+                }`}>
                   Bước {currentStep}/3
                 </span>
               </div>
 
               {/* 3-Step Timeline */}
               <div className="space-y-1.5 text-xs">
+                {/* Step 1 */}
                 <div className={`flex items-center gap-2 p-1.5 rounded-md transition-colors ${
                   currentStep === 1
-                    ? 'bg-white shadow-xs font-semibold text-[#C2410C]'
+                    ? activeStepSource === 'google_maps'
+                      ? 'bg-white shadow-xs font-semibold text-blue-700'
+                      : 'bg-white shadow-xs font-semibold text-[#C2410C]'
                     : currentStep > 1
                     ? 'text-emerald-700 bg-emerald-50/60'
                     : 'text-zinc-400'
@@ -488,16 +684,27 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                   {currentStep > 1 ? (
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   ) : currentStep === 1 ? (
-                    <Loader2 className="w-3.5 h-3.5 text-[#C2410C] animate-spin shrink-0" />
+                    <Loader2 className={`w-3.5 h-3.5 animate-spin shrink-0 ${
+                      activeStepSource === 'google_maps' ? 'text-blue-600' : 'text-[#C2410C]'
+                    }`} />
                   ) : (
                     <span className="w-3.5 h-3.5 rounded-full border border-zinc-300 flex items-center justify-center text-[9px] shrink-0">1</span>
                   )}
-                  <span>1. Tra cứu thông tin địa điểm quán ăn</span>
+                  <span>
+                    {activeStepSource === 'google_maps'
+                      ? '1. Khởi tạo Playwright ẩn danh & kết nối Google Maps'
+                      : activeStepSource === 'auto'
+                      ? '1. Tra cứu thông tin quán (Foody & Google Maps)'
+                      : '1. Tra cứu thông tin địa điểm quán ăn trên Foody.vn'}
+                  </span>
                 </div>
 
+                {/* Step 2 */}
                 <div className={`flex items-center gap-2 p-1.5 rounded-md transition-colors ${
                   currentStep === 2
-                    ? 'bg-white shadow-xs font-semibold text-[#C2410C]'
+                    ? activeStepSource === 'google_maps'
+                      ? 'bg-white shadow-xs font-semibold text-blue-700'
+                      : 'bg-white shadow-xs font-semibold text-[#C2410C]'
                     : currentStep > 2
                     ? 'text-emerald-700 bg-emerald-50/60'
                     : 'text-zinc-400'
@@ -505,31 +712,44 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                   {currentStep > 2 ? (
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   ) : currentStep === 2 ? (
-                    <Loader2 className="w-3.5 h-3.5 text-[#C2410C] animate-spin shrink-0" />
+                    <Loader2 className={`w-3.5 h-3.5 animate-spin shrink-0 ${
+                      activeStepSource === 'google_maps' ? 'text-blue-600' : 'text-[#C2410C]'
+                    }`} />
                   ) : (
                     <span className="w-3.5 h-3.5 rounded-full border border-zinc-300 flex items-center justify-center text-[9px] shrink-0">2</span>
                   )}
-                  <span>2. Tổng hợp {maxReviews} đánh giá thực tế gần nhất</span>
+                  <span>
+                    {activeStepSource === 'google_maps'
+                      ? `2. Cuộn container đánh giá & lọc trùng lặp SHA-256 (${maxReviews} đánh giá)`
+                      : activeStepSource === 'auto'
+                      ? `2. Thu thập & lọc trùng lặp ${maxReviews} đánh giá thực tế`
+                      : `2. Tổng hợp ${maxReviews} đánh giá thực tế gần nhất`}
+                  </span>
                 </div>
 
+                {/* Step 3 */}
                 <div className={`flex items-center gap-2 p-1.5 rounded-md transition-colors ${
                   currentStep === 3
-                    ? 'bg-white shadow-xs font-semibold text-[#C2410C]'
+                    ? activeStepSource === 'google_maps'
+                      ? 'bg-white shadow-xs font-semibold text-blue-700'
+                      : 'bg-white shadow-xs font-semibold text-[#C2410C]'
                     : 'text-zinc-400'
                 }`}>
                   {currentStep === 3 ? (
-                    <Loader2 className="w-3.5 h-3.5 text-[#C2410C] animate-spin shrink-0" />
+                    <Loader2 className={`w-3.5 h-3.5 animate-spin shrink-0 ${
+                      activeStepSource === 'google_maps' ? 'text-blue-600' : 'text-[#C2410C]'
+                    }`} />
                   ) : (
                     <span className="w-3.5 h-3.5 rounded-full border border-zinc-300 flex items-center justify-center text-[9px] shrink-0">3</span>
                   )}
-                  <span>3. Tổng hợp cảm nhận thực khách theo từng tiêu chí</span>
+                  <span>3. Phân tích 5 khía cạnh trải nghiệm bằng Google Gemini AI</span>
                 </div>
               </div>
             </div>
           )}
 
           {status === 'success' && (
-            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3 text-xs text-emerald-900">
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3 text-xs text-emerald-900 animate-in fade-in">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <div>
                 <p className="font-semibold">Đã hoàn tất tổng hợp!</p>
@@ -539,7 +759,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
           )}
 
           {status === 'error' && (
-            <div className="p-3.5 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3 text-xs text-red-900">
+            <div className="p-3.5 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3 text-xs text-red-900 animate-in fade-in">
               <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold">Không thể tổng hợp đánh giá</p>
@@ -561,7 +781,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                 type="button"
                 onClick={onClose}
                 disabled={status === 'crawling'}
-                className="px-4 py-2 text-xs font-medium text-[#71717A] hover:text-[#18181B] transition-colors"
+                className="px-4 py-2 text-xs font-medium text-[#71717A] hover:text-[#18181B] transition-colors cursor-pointer"
               >
                 Hủy
               </button>
@@ -570,13 +790,27 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                 disabled={status === 'crawling' || !isFormValid}
                 className={`inline-flex items-center gap-1.5 px-4.5 py-2 rounded-lg text-xs font-bold transition-all ${
                   isFormValid && status !== 'crawling'
-                    ? 'bg-[#C2410C] hover:bg-[#9A3412] text-white shadow-md shadow-orange-900/20 cursor-pointer active:scale-[0.98]'
+                    ? activeStepSource === 'google_maps'
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-900/20 cursor-pointer active:scale-[0.98]'
+                      : 'bg-[#C2410C] hover:bg-[#9A3412] text-white shadow-md shadow-orange-900/20 cursor-pointer active:scale-[0.98]'
                     : 'bg-zinc-200 text-zinc-400 cursor-not-allowed border border-zinc-300/60 shadow-none'
                 }`}
                 title={!isFormValid ? (tab === 'keyword' ? 'Vui lòng nhập tên quán/món ăn (tối thiểu 2 ký tự) để kích hoạt' : 'Vui lòng nhập liên kết quán ăn hợp lệ để kích hoạt') : undefined}
               >
                 <Sparkles className={`w-3.5 h-3.5 ${isFormValid ? 'text-amber-200' : 'text-zinc-400'}`} />
-                <span>{tab === 'keyword' ? 'Xem báo cáo đánh giá' : 'Tổng hợp từ liên kết'}</span>
+                <span>
+                  {tab === 'keyword'
+                    ? searchSource === 'google_maps'
+                      ? 'Tổng hợp từ Google Maps'
+                      : searchSource === 'foody'
+                      ? 'Tổng hợp từ Foody.vn'
+                      : 'Xem báo cáo đánh giá'
+                    : detectedUrlSource === 'google_maps'
+                    ? 'Tổng hợp từ Google Maps'
+                    : detectedUrlSource === 'foody'
+                    ? 'Tổng hợp từ Foody.vn'
+                    : 'Tổng hợp từ liên kết'}
+                </span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>

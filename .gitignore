@@ -57,7 +57,11 @@ ENV/
 # Temporary files & test dumps
 tmp_*
 *.tmp
+temp_*
+*.png
 scratch/
+restaurant-review-ai/database/restaurants.db
+
 
 
 

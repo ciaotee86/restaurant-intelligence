@@ -33,6 +33,10 @@ def get_or_create_restaurant(db, name: str, foody_url: str, address: str = "", o
         foody_url=foody_url,
         address=address,
         overall_rating=overall_rating,
+        review_count=0,
+        foody_review_count=0,
+        google_review_count=0,
+        credibility_score=0.0,
     )
     db.add(restaurant)
     db.flush()  # để lấy restaurant.id ngay mà không cần commit

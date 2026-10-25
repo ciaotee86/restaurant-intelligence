@@ -307,28 +307,36 @@ def call_gemini_reply(
         discount_percent=discount_percent
     )
 
+    # Đóng gói nhận xét của thực khách vào thẻ XML phân tách để chống prompt injection [SEC-07]
     user_content = f"""THÔNG TIN ĐÁNH GIÁ CỦA THỰC KHÁCH:
 - Tác giả đánh giá: {author}
 - Điểm đánh giá: {rating}/5.0 (hoặc thang điểm 10 tương ứng)
 - Phân loại cảm xúc: {overall_sentiment or 'Không xác định'}
 - Các khía cạnh nổi bật: {', '.join(aspects_addressed)}
-- Toàn văn nhận xét gốc:
-"{review_text.strip()}"
+- Toàn văn nhận xét gốc của thực khách:
+<review_text>
+{review_text.strip()}
+</review_text>
 
-YÊU CẦU: Hãy soạn thư phản hồi gửi tới {author} theo đúng kim chỉ nam tông giọng đã hướng dẫn."""
-
-    full_prompt = f"{system_instruction}\n\n{user_content}"
+YÊU CẦU: Hãy soạn thư phản hồi gửi tới {author} theo đúng kim chỉ nam tông giọng đã hướng dẫn trong system instruction."""
 
     try:
         from google import genai
+        from google.genai import types
         client = genai.Client(api_key=api_key)
+
+        config = types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            temperature=0.5,
+        )
 
         last_error = None
         for model in CANDIDATE_MODELS:
             try:
                 response = client.models.generate_content(
                     model=model,
-                    contents=full_prompt
+                    contents=user_content,
+                    config=config
                 )
                 if response and response.text and response.text.strip():
                     return response.text.strip(), model

@@ -1,12 +1,27 @@
+# Dependency and cache directories
 node_modules
 dist
+.vite_cache
+.pytest_cache
+
+# Version control
 .git
 .gitignore
+.git*
+
+# Python build artifacts
 __pycache__
 *.pyc
 *.pyo
 *.pyd
-.env
-.env.local
+
+# Secrets & environment variables (prevent secrets leak into docker context - SEC-02)
+**/.env
+**/.env.*
+!**/.env.example
+
+# OS and temporary files
 .DS_Store
 Thumbs.db
+*.tmp
+*.log

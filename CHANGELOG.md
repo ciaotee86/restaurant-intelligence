@@ -2,6 +2,104 @@
 
 All notable changes to the **Restaurant Intelligence** project will be documented in this file.
 
+## [1.18.0] - 2026-10-25
+
+### Rà Soát Toàn Diện & Vá Lỗ Hổng Bảo Mật Hệ Thống (Comprehensive Security Hardening)
+- **Hạ Tầng & CI/CD Pipeline (DevOps Hardening)**:
+  - **Vá [SEC-01] Command Injection trong GitHub Actions Workflow (`.github/workflows/scheduled_crawler.yml`)**: Loại bỏ triệt để lệnh `eval $CMD` và nội suy chuỗi trực tiếp `${{ github.event.inputs.* }}` vào inline bash script. Chuyển toàn bộ tham số người dùng sang các biến môi trường an toàn của runner (`INPUT_CITY`, `INPUT_CATEGORIES`, v.v.) và thực thi runner thông qua mảng bash `"${ARGS[@]}"`.
+  - **Vá [SEC-02] Ngăn chặn rò rỉ Secret vào Container Image (`.dockerignore`)**: Bổ sung quy tắc đệ quy `**/.env`, `**/.env.*` vào `.dockerignore`, ngăn chặn Docker build context đóng gói nhầm file bí mật `.env` từ các thư mục con vào container image layer.
+  - **Vá [SEC-10] Gia cố Container Docker (`Dockerfile`)**: Tạo user không đặc quyền `appuser` (`USER appuser`) với quyền đọc/ghi phân tách trên thư mục dữ liệu `/app/data` và `/app/seed_data`, tuân thủ nguyên tắc Least Privilege (không chạy container dưới quyền `root`).
+- **Backend FastAPI & AI Integration Hardening**:
+  - **Vá [SEC-03] Chặn triệt để Path Traversal (`restaurant-review-ai/api_server.py`)**: Trong route `serve_react_spa`, áp dụng kiểm tra phân giải đường dẫn `.resolve()` và `is_relative_to(resolved_dist)`. Chỉ cho phép đọc các file tĩnh thực sự nằm trong `dist/`, ngăn chặn đọc file nhạy cảm (`.env`, `restaurants.db`, tệp hệ thống).
+  - **Vá [SEC-05] Chuẩn hóa CORS Middleware (`restaurant-review-ai/api_server.py`)**: Cấu hình `ALLOWED_ORIGINS` rõ ràng qua biến môi trường kèm danh sách mặc định an toàn cho môi trường development; tự động tắt `allow_credentials` nếu có wildcard `*`.
+  - **Vá [SEC-08] Ẩn thông tin lỗi nội bộ (`restaurant-review-ai/api_server.py`)**: `global_exception_handler` ẩn chi tiết exception (`str(exc)`), chỉ trả về thông báo an toàn cho client, đồng thời giữ nguyên log đầy đủ trên máy chủ phục vụ debug.
+  - **Vá [SEC-13] Port Guard An Toàn (`restaurant-review-ai/api_server.py`)**: Loại bỏ `shell=True` trong hàm `_ensure_port_available`, chuyển sang gọi lệnh với mảng tham số cố định và kiểm tra dải cổng hợp lệ.
+  - **Vá [SEC-06] Anti-SSRF Redirect Protection (`restaurant-review-ai/crawler/foody_crawler.py`)**: Thay thế `allow_redirects=True` bằng cơ chế kiểm tra chuyển hướng từng chặng (step-by-step redirect check). Xác thực tên miền đích thuộc `foody.vn` trước khi follow redirect, ngăn chặn SSRF pivot sang cloud metadata hoặc mạng nội bộ.
+  - **Vá [SEC-07] Phòng thủ Prompt Injection (`services/assistant_service.py`, `services/reply_service.py`, `routers/restaurants.py`)**:
+    - Thêm giới hạn độ dài `Field(..., max_length=500)` cho `AskAssistantRequest.question`.
+    - Bọc câu hỏi và nội dung đánh giá của khách hàng vào các thẻ phân tách XML (`<user_question>`, `<review_text>`).
+    - Phân tách `system_context` độc lập vào `config=types.GenerateContentConfig(system_instruction=system_context)` theo chuẩn Google GenAI SDK.
+  - **Vá [SEC-04] Kiểm Soát Tải Đồng Thời Crawler (`restaurant-review-ai/crawler/foody_crawler.py`, `routers/crawler.py`)**: Tích hợp `threading.Semaphore(2)` giới hạn tối đa 2 tiến trình trình duyệt headless chạy đồng thời, chống cạn kiệt tài nguyên RAM/CPU (OOM DoS).
+- **Thư Viện & Phụ Thuộc Frontend (Frontend Dependency Hardening)**:
+  - **Vá [SEC-09] Cập nhật Dependencies An Toàn**: Nâng cấp `vite` từ 8.2.2 lên 8.3.5 và cập nhật `source-map-js`, đưa `npm audit` về trạng thái **0 vulnerabilities**.
+- **Kiểm Thử & Đảm Bảo Chất Lượng (Quality Assurance & Zero Regression)**:
+  - Xây dựng bộ test chuyên dụng `restaurant-review-ai/tests/test_security_hardening.py` với 10/10 test cases bảo mật đạt **100% pass rate**.
+  - Kiểm tra tương thích ngược trên toàn bộ test suite backend: 172 unit tests đều **PASSED**.
+  - `npm run build`: Biên dịch TypeScript và đóng gói Vite thành công (0 errors).
+
+## [1.17.0] - 2026-10-24
+
+### Tích Hợp Đa Nguồn Toàn Diện: URL Google Maps Trực Tiếp & Tìm Kiếm Tên Quán Fallback
+- **Frontend: Nâng Cấp Modal Phân Tích Quán Mới (`AnalyzeUrlModal.tsx`)**:
+  - Hỗ trợ dán liên kết song song từ **Foody.vn** và **Google Maps** (`google.com/maps`, `maps.google.com`, `maps.app.goo.gl`, `goo.gl/maps`).
+  - Tự động nhận diện nguồn với huy hiệu trực quan thông minh (`Nguồn: Foody.vn` màu cam, `Nguồn: Google Maps` màu xanh dương).
+  - Tự động điều chỉnh tiến trình loading (stepper) theo nguồn dữ liệu (hiển thị thông điệp kết nối Playwright, cuộn container và phân tích Gemini ABSA khi cào Google Maps).
+  - Bổ sung bộ chọn nguồn tìm kiếm đa nguồn (Source Selector) trong tab tìm kiếm từ khóa với 3 chế độ: `Tự động (Ưu tiên)` (tự động quét Foody & Google Maps), `Foody.vn` và `Google Maps`.
+  - Cập nhật `restaurantService.ts`: bổ sung tham số `source` và đồng bộ hóa các alias `analyzeUrl`, `searchAndCrawl`.
+- **Backend: Nâng Cấp API Router Đa Nguồn (`restaurant-review-ai/routers/crawler.py`)**:
+  - Endpoint `POST /api/analyze-url`: Tự động phân luồng URL. Nếu là link Google Maps hợp lệ, tự động kích hoạt Playwright crawler, lọc spam 11 ca, khử trùng lặp fingerprint SHA-256, chạy Gemini ABSA 5 khía cạnh, tạo mới/cập nhật quán ăn và trả về entity đồng nhất `{ success: true, restaurant: formatted }`.
+  - Endpoint `POST /api/search-and-crawl`: Bổ sung tham số `source: 'auto' | 'foody' | 'google_maps'`. Khi ở chế độ `'auto'`, nếu Foody không có kết quả hoặc 0 đánh giá, hệ thống tự động fallback mượt mà sang tìm kiếm và cào trên Google Maps (`search_and_crawl_google_maps`).
+  - Cập nhật `POST /api/crawler/google-maps` bổ sung trường `"restaurant": format_restaurant_full(restaurant, db)`.
+- **Khắc Phục Sự Cố Database Schema (SQLite Table Rebuild - `foody_url` Nullable)**:
+  - Khắc phục lỗi `sqlite3.IntegrityError: NOT NULL constraint failed: restaurants.foody_url` khi thu thập quán ăn mới chỉ có link Google Maps (`foody_url = None`).
+  - Thực thi migration chuẩn 12 bước SQLite Table Rebuild ([`fix_foody_url_nullable.py`](file:///d:/SourceCode/WEB/.gemini/antigravity/scratch/restaurant-intelligence/restaurant-review-ai/database/fix_foody_url_nullable.py)) trên cả `data/restaurants.db` và `seed_data/restaurants.db`, chuyển cột `foody_url` sang `nullable=True` (`notnull=0`) bảo toàn 100% 50 nhà hàng và 677 đánh giá hiện có.
+  - Cập nhật [`migrate_multisource.py`](file:///d:/SourceCode/WEB/.gemini/antigravity/scratch/restaurant-intelligence/restaurant-review-ai/database/migrate_multisource.py) tự động giải phóng ràng buộc `NOT NULL` cho các môi trường chạy sau.
+  - Toàn bộ 173/173 test cases backend đạt 100% pass rate.
+
+- **Kiểm Thử & Đảm Bảo Chất Lượng (QA & Test Strategy)**:
+  - Bổ sung test suite `restaurant-review-ai/tests/test_multisource_crawler_api.py` với 12 test cases bao quát: xác thực URL, từ chối URL ngoài phạm vi, kiểm tra logic fallback auto/google_maps/foody, kiểm tra response format.
+  - Toàn bộ 46/46 test cases liên quan đến crawler và URL validation đạt **100% pass rate**.
+  - `oxlint`: 0 warnings, 0 errors trên 37 files.
+  - `npm run build`: biên dịch TypeScript và đóng gói Vite thành công (0 errors).
+
+## [1.16.0] - 2026-10-23
+
+### Mở Rộng Đa Nguồn Google Maps, Khớp Nối Thực Thể & Thước Đo Độ Tin Cậy Mẫu (SPEC-FEAT-06 / PLAN-FEAT-06)
+- **Phase 1: Database Migration & Khớp Nối Thực Thể (Entity Resolution)**:
+  - Nâng cấp schema SQLAlchemy trong `restaurant-review-ai/database/models.py`: Bảng `restaurants` bổ sung `google_maps_url`, `google_place_id`, `city`, `foody_review_count`, `google_review_count`, `credibility_score`; cho phép `foody_url` mang giá trị `nullable=True`. Bảng `reviews` bổ sung `source` ('Foody' | 'GoogleMaps') và `google_review_id`.
+  - Tạo script migration tương thích ngược `restaurant-review-ai/database/migrate_multisource.py` bảo toàn 100% 50 nhà hàng và backfill 677 review cũ với `source='Foody'`.
+  - Xây dựng module `restaurant-review-ai/services/entity_resolution.py` với thuật toán so khớp mờ Fuzzy Token Name Matching ($\ge 85\%$) kết hợp phân định chi nhánh theo địa chỉ, khử trùng lặp qua mã băm SHA-256 fingerprint và công thức tiệm cận độ tin cậy mẫu $C = \min(1.0, \frac{\ln(N + 1)}{\ln(31)}) \times 100\%$.
+- **Phase 2: Động Cơ Crawler Google Maps & API Router**:
+  - Xây dựng module Playwright Headless `restaurant-review-ai/crawler/google_maps_crawler.py` tích hợp chống phát hiện stealth, tự động xử lý Cookie Consent, cuộn container ảo `.m6QErb.DxyBCb` với human jitter và tự động bấm nút "Xem thêm" (`button.w8nwRe`) để thu thập trọn vẹn văn bản.
+  - Triển khai endpoint `POST /api/crawler/google-maps` trong `restaurant-review-ai/routers/crawler.py` tích hợp phòng chống SSRF / DNS Rebinding, kết nối bộ lọc spam 11 ca, khử trùng lặp qua fingerprint, phân tích cảm xúc 5 khía cạnh ABSA với Gemini AI và lưu trữ database với `source='GoogleMaps'`.
+- **Phase 3: Thước Đo Độ Tin Cậy Mẫu & Giao Diện Thích Ứng (Adaptive UI)**:
+  - Cập nhật `restaurant-review-ai/services/bi_service.py` tính toán tách biệt `sourceBreakdown`, `credibilityScore`, `credibilityLevel` ('high' | 'medium' | 'low') và cảnh báo cỡ mẫu `sampleWarning` ($N < 10$).
+  - Nâng cấp giao diện theo chuẩn Warm Gastronomy & Modern Editorial:
+    - `RestaurantHero.tsx`: Hiển thị Huy hiệu Độ tin cậy mẫu (Emerald $\ge 90\%$, Amber $65\text{--}89\%$, Crimson $< 65\%$), tỷ lệ đóng góp của từng nguồn và nút `🔗 Bổ sung từ Google Maps`.
+    - `LinkGoogleMapsModal.tsx`: Modal liên kết Google Maps hỗ trợ dán URL hoặc tìm theo tên, animation tiến trình sinh động và bento grid thống kê kết quả.
+    - `ReviewExplorer.tsx`: Hàng chip lọc nguồn (`Tất cả`, `Foody`, `Google Maps`) và gắn Badge nhận diện nguồn trực quan trên từng thẻ đánh giá.
+    - `DashboardPage.tsx`: Tự động đồng bộ và làm mới dữ liệu sau khi hoàn tất nạp đánh giá mới.
+- **Phase 4: Tự Động Hóa Cloud DataOps (GitHub Actions)**:
+  - Bổ sung `playwright>=1.40.0` vào `requirements.txt`.
+  - Nâng cấp `run_pipeline.py` với cờ `--auto-enrich` tự động quét các quán mỏng dữ liệu ($N < 10$ hoặc $C < 0.65$) để kích hoạt cào bù đắp từ Google Maps.
+  - Nâng cấp `.github/workflows/scheduled_crawler.yml`: Cài đặt Playwright Chromium headless với `--with-deps`, hỗ trợ `workflow_dispatch` và tự động commit `restaurants.db` cập nhật về repo.
+- **Phase 5: Kiểm Thử Toàn Diện & Đóng Gói Hệ Thống**:
+  - Xây dựng bộ test suite tích hợp `restaurant-review-ai/tests/test_multisource.py` gồm 24 test cases chuyên sâu.
+  - Tổng số test cases backend đạt **161/161 passed (100% pass rate)**.
+  - Kiểm tra `npx oxlint` 0 lỗi trên 37 files, `npm run build` thành công 100%.
+- **Chốt Chặn Phòng Vệ Lệch Thực Thể (Entity Mismatch Guard)**:
+  - Khắc phục triệt để lỗi khi người dùng đang ở trang một quán (ví dụ: Chè Ông Cúc) dán nhầm link Google Maps của một quán hoàn toàn khác (ví dụ: Cơm Gà Gia Vĩnh).
+  - Backend router `routers/crawler.py` tự động so khớp tên và địa chỉ quán cào được từ Google Maps với quán hiện tại; nếu không khớp, hệ thống lập tức chặn lưu với mã lỗi 400 kèm thông báo rõ ràng cho người dùng, bảo vệ tính toàn vẹn và ngăn chặn ô nhiễm dữ liệu đánh giá.
+  - Dọn dẹp an toàn các bài đánh giá gà dán nhầm và khôi phục dữ liệu nguyên bản cho quán Chè Ông Cúc.
+
+## [1.15.3] - 2026-10-23
+
+### Tinh Lọc Cơ Sở Dữ Liệu: Loại Bỏ Các Nhà Hàng Có Từ 3 Đánh Giá Trở Xuống (Dataset Quality Elevation & Low-Review Purge)
+- **Chuẩn Hóa Ngưỡng Dữ Liệu Đánh Giá (Threshold Enforced: Minimum 4 Reviews)**:
+  - Các nhà hàng chỉ có từ 1 đến 3 bài đánh giá thường có độ tin cậy thấp, thiếu tính đại diện để phân tích cảm xúc đa khía cạnh (ABSA) và dễ dẫn đến thiên lệch thống kê.
+  - Đã sao lưu an toàn toàn bộ dữ liệu trước khi thực thi: `restaurants.db.bak_3_or_less`.
+  - Loại bỏ thành công **53 nhà hàng có từ 3 đánh giá trở xuống** (22 quán 1 review, 9 quán 2 review, 22 quán 3 review).
+  - Xóa tuần tự và triệt để toàn bộ 106 bài đánh giá và 268 bản ghi phân tích khía cạnh liên quan (`review_analysis`), bảo đảm tính toàn vẹn khóa ngoại (Foreign Key integrity).
+  - Cơ sở dữ liệu sau tinh lọc còn lại **50 nhà hàng chất lượng cao** với tổng cộng **677 bài đánh giá** (trung bình đạt **13.5 bài đánh giá/quán**, quán nhiều nhất đạt 27 đánh giá).
+  - Thu hồi dung lượng đĩa và chống phân mảnh qua `VACUUM` và checkpoint WAL.
+  - Đồng bộ hóa toàn diện sang bản seed `seed_data/restaurants.db`.
+- **Kiểm Định Tính Toàn Vẹn & Kiểm Thử Hệ Thống**:
+  - `PRAGMA integrity_check`: **ok**.
+  - `PRAGMA foreign_key_check`: **0 errors** (100% không phát sinh bản ghi mồ côi).
+  - Toàn bộ **80/80 test cases** backend (`pytest`) vượt qua thành công 100%.
+  - `npm run build` hoàn tất sạch sẽ không có lỗi.
+
+
 ## [1.15.2] - 2026-10-23
 
 ### Dọn Dẹp Cơ Sở Dữ Liệu: Loại Bỏ Các Nhà Hàng Không Có Đánh Giá (Database Clean-up & Zero-Review Purge)

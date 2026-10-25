@@ -11,6 +11,8 @@ import { KeyFindings } from '../components/dashboard/KeyFindings';
 import { OperationalAdvice } from '../components/dashboard/OperationalAdvice';
 import { ReviewExplorer } from '../components/dashboard/ReviewExplorer';
 import { AiAssistantWidget } from '../components/dashboard/AiAssistantWidget';
+import { LinkGoogleMapsModal } from '../components/dashboard/LinkGoogleMapsModal';
+import { NewBadge } from '../components/common/NewBadge';
 import { restaurantService } from '../services/restaurantService';
 import { Utensils, Store, MessageSquare, ArrowRight, Sparkles } from 'lucide-react';
 
@@ -27,6 +29,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [loading, setLoading] = useState(true);
   const [selectedAspect, setSelectedAspect] = useState<AspectCategory | 'all'>('all');
   const [activeTab, setActiveTab] = useState<'diner' | 'owner' | 'assistant' | 'reviews'>('diner');
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+
+  const refreshRestaurant = async () => {
+    try {
+      const res = await restaurantService.getRestaurantByIdOrSlug(restaurantId);
+      if (res) {
+        setRestaurant(res);
+      }
+    } catch (e) {
+      console.warn('Lỗi khi nạp lại dữ liệu nhà hàng:', e);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -88,6 +102,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       <RestaurantHero
         restaurant={restaurant}
         onBack={onBackToExplore}
+        onOpenLinkGoogleMaps={() => setIsLinkModalOpen(true)}
       />
 
       {/* 2. TAB SELECTOR: BỘ CHUYỂN ĐỔI 3 GÓC NHÌN */}
@@ -130,9 +145,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           >
             <Sparkles className="w-4 h-4 text-[#D97706]" />
             <span>Trợ lý Thông tin Nền tảng (Hỏi - Đáp)</span>
-            <span className="px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E] text-[10px] font-bold uppercase tracking-wider">
-              Mới
-            </span>
+            <NewBadge
+              featureId="ai-assistant-tab"
+              releaseDate="2026-10-24"
+              durationDays={15}
+            />
           </button>
 
           <button
@@ -251,11 +268,27 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <ReviewExplorer
               reviews={restaurant.reviews}
               initialAspect={selectedAspect}
+              restaurantId={restaurant.id}
+              restaurantName={restaurant.name}
             />
           </div>
         )}
 
       </div>
+
+      {/* 5. Modal Liên kết & Cào dữ liệu từ Google Maps (MOD-03) */}
+      <LinkGoogleMapsModal
+        isOpen={isLinkModalOpen}
+        onClose={() => setIsLinkModalOpen(false)}
+        restaurant={restaurant}
+        onSuccess={(result) => {
+          if (result.restaurant) {
+            setRestaurant(result.restaurant);
+          } else {
+            refreshRestaurant();
+          }
+        }}
+      />
     </div>
   );
 };

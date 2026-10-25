@@ -11,6 +11,7 @@ from database.models import (
     Review as DBReview
 )
 from database.db import get_or_create_restaurant, save_review, save_analysis
+from services.entity_resolution import update_restaurant_counts_and_credibility
 from analysis.gemini_analyzer import analyze_batch
 
 
@@ -96,7 +97,8 @@ def save_and_analyze_reviews(
             if rev_obj:
                 rev_obj.is_analyzed = 1
 
-    # Cập nhật số lượng review thực tế cho quán
-    restaurant.review_count = db.query(DBReview).filter_by(restaurant_id=restaurant.id).count()
+    # Cập nhật số lượng review thực tế và tính toán lại credibility_score chuẩn xác
+    update_restaurant_counts_and_credibility(db, restaurant.id)
     db.commit()
+    db.refresh(restaurant)
     return restaurant

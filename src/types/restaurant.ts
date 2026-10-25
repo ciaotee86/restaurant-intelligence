@@ -39,7 +39,8 @@ export interface CustomerReview {
   aspects: ExtractedAspect[];
   highlightSpans: HighlightSpan[];
   sourceUrl?: string;
-  source: 'Foody';
+  source: 'Foody' | 'GoogleMaps' | string;
+  googleReviewId?: string;
   verifiedVisit?: boolean;
 }
 
@@ -93,8 +94,19 @@ export interface Restaurant {
   rating: number; // e.g. 4.5
   totalReviews: number; // e.g. 3284
   lastAnalyzedDate: string; // e.g. "24/08/2026"
-  dataSource: string; // "Foody"
+  dataSource: string; // "Foody" | "Google Maps" | "Foody + Google Maps"
   
+  // Đa nguồn dữ liệu & Độ tin cậy mẫu (MOD-03 & SPEC-FEAT-06)
+  googleMapsUrl?: string;
+  foodyUrl?: string;
+  sourceBreakdown?: {
+    total: number;
+    foody: number;
+    googleMaps: number;
+  };
+  credibilityScore?: number; // 0..100 (%)
+  credibilityLevel?: 'high' | 'medium' | 'low';
+  sampleWarning?: string | null;
   // Tổng hợp cảm xúc
   sentimentDistribution: {
     positive: number; // 76%
@@ -172,5 +184,28 @@ export interface GenerateReplyResponse {
   generatedVoucherCode?: string;
   aspectsAddressed: string[];
   modelName: string;
+}
+
+/** Yêu cầu cào và phân tích đánh giá từ Google Maps */
+export interface CrawlGoogleMapsRequest {
+  restaurantId?: string;
+  googleMapsUrl?: string;
+  queryName?: string;
+  maxReviews?: number;
+}
+
+/** Kết quả trả về sau khi cào và phân tích đánh giá Google Maps */
+export interface CrawlGoogleMapsResponse {
+  success: boolean;
+  restaurantId: string;
+  restaurantName: string;
+  source: 'google_maps' | 'GoogleMaps' | string;
+  newReviewsCount: number;
+  duplicateReviewsSkipped: number;
+  totalReviewsNow: number;
+  credibilityScore?: number;
+  elapsedSeconds?: number;
+  message?: string;
+  restaurant?: Restaurant;
 }
 

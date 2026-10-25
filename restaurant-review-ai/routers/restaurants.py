@@ -304,7 +304,7 @@ def get_suggestions(q: str = ""):
 
 
 class AskAssistantRequest(BaseModel):
-    question: str
+    question: str = Field(..., max_length=500, description="Câu hỏi gửi tới trợ lý AI (tối đa 500 ký tự)")
     force_ai: bool = Field(True, alias="forceAi")
 
     model_config = {"populate_by_name": True}

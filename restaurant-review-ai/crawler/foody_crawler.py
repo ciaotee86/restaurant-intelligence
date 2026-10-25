@@ -13,7 +13,11 @@ import csv
 import os
 import re
 import sys
+import threading
 import urllib.parse
+
+# Giới hạn tối đa 2 tác vụ crawl headless đồng thời nhằm bảo vệ tài nguyên máy chủ [SEC-04]
+CRAWLER_SEMAPHORE = threading.Semaphore(2)
 
 # Đảm bảo UTF-8 console output
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
@@ -372,9 +376,27 @@ def inspect_foody_via_http(url: str, timeout: int = 8) -> Optional[Dict[str, Any
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'vi,en;q=0.9',
         }
-        resp = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
-        if not is_foody_domain(resp.url):
-            print(f"-> [Fast HTTP Inspector] Bị chuyển hướng ra ngoài foody.vn: {resp.url}")
+        # Chống SSRF bằng cách kiểm tra nghiêm ngặt từng bước chuyển hướng (Redirects) [SEC-06]
+        current_url = url
+        max_redirects = 5
+        resp = None
+
+        for _ in range(max_redirects):
+            resp = requests.get(current_url, headers=headers, timeout=timeout, allow_redirects=False)
+            if resp.is_redirect or resp.status_code in (301, 302, 303, 307, 308):
+                location = resp.headers.get('Location')
+                if not location:
+                    break
+                next_url = urllib.parse.urljoin(current_url, location)
+                if not is_foody_domain(next_url):
+                    print(f"-> [Fast HTTP Inspector] Bị chuyển hướng ra ngoài foody.vn: {next_url}")
+                    return None
+                current_url = next_url
+            else:
+                break
+
+        if resp is None or not is_foody_domain(resp.url):
+            print(f"-> [Fast HTTP Inspector] Bị chuyển hướng ra ngoài foody.vn: {resp.url if resp else current_url}")
             return None
         if resp.status_code == 404 or "không tìm thấy dữ liệu" in resp.text.lower():
             return {
@@ -662,17 +684,19 @@ def crawl_restaurant(
         print(f"-> [Fast HTTP Crawler] Thu thập thành công {len(result['reviews'])} đánh giá trong < 2s (Không mở Selenium Chrome)!")
         return result
 
-    # 3. Fallback: Selenium Chrome Crawler
-    driver = build_driver(headless=headless)
-    result = {
-        "url": url,
-        "reviews": [],
-        "skipped_existing_count": 0,
-        "stopped_early": False
-    }
-    known_fps = set(known_fingerprints or [])
-
+    # 3. Fallback: Selenium Chrome Crawler (Giới hạn tối đa 2 instances đồng thời [SEC-04])
+    CRAWLER_SEMAPHORE.acquire()
+    driver = None
     try:
+        driver = build_driver(headless=headless)
+        result = {
+            "url": url,
+            "reviews": [],
+            "skipped_existing_count": 0,
+            "stopped_early": False
+        }
+        known_fps = set(known_fingerprints or [])
+
         print(f"-> [Crawler] Đang mở trang: {url}")
         driver.get(url)
         if not is_foody_domain(driver.current_url):
@@ -850,7 +874,12 @@ def crawl_restaurant(
     except Exception as e:
         print(f"[Crawler Lỗi] {e}")
     finally:
-        driver.quit()
+        if driver:
+            try:
+                driver.quit()
+            except Exception:
+                pass
+        CRAWLER_SEMAPHORE.release()
 
     return result
 

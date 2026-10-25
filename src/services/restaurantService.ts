@@ -5,7 +5,9 @@ import type {
   AspectCategory,
   SentimentType,
   GenerateReplyRequest,
-  GenerateReplyResponse
+  GenerateReplyResponse,
+  CrawlGoogleMapsRequest,
+  CrawlGoogleMapsResponse
 } from '../types/restaurant';
 import { parseSearchQuery, isRestaurantInCity, matchesRestaurantKeyword, removeVietnameseAccents } from '../utils/cityUtils';
 
@@ -229,27 +231,34 @@ class RestaurantService {
   }
 
   /**
-   * Tự động tìm kiếm quán ăn trên Foody theo từ khóa, cào đánh giá và phân tích ABSA
+   * Alias cho analyzeFoodyUrl: endpoint /api/analyze-url hỗ trợ cả Foody.vn lẫn Google Maps
+   */
+  public analyzeUrl = this.analyzeFoodyUrl.bind(this);
+
+  /**
+   * Tự động tìm kiếm quán ăn trên Foody / Google Maps theo từ khóa, cào đánh giá và phân tích ABSA
+   * Hỗ trợ chọn nguồn: 'auto' (mặc định), 'foody', hoặc 'google_maps'.
    * Nếu quán đã tồn tại trong DB, trả về ngay từ DB.
    */
   public async searchAndCrawlFoody(
     query: string,
     city: string = 'da-nang',
-    maxReviews: number = 25
-  ): Promise<{ success: boolean; source: 'database' | 'crawled_and_analyzed' | 'foody'; message: string; restaurant?: Restaurant }> {
+    maxReviews: number = 25,
+    source: 'auto' | 'foody' | 'google_maps' = 'auto'
+  ): Promise<{ success: boolean; source: 'database' | 'crawled_and_analyzed' | 'foody' | 'google_maps' | string; message: string; restaurant?: Restaurant }> {
     try {
       const baseUrl = getApiBaseUrl();
       const response = await fetch(`${baseUrl}/search-and-crawl`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: query.trim(), city, max_reviews: maxReviews })
+        body: JSON.stringify({ query: query.trim(), city, max_reviews: maxReviews, source })
       });
 
       const parsed = await this.parseResponseSafe<any>(response);
       if (!parsed.ok || !parsed.data) {
         return {
           success: false,
-          source: 'foody',
+          source,
           message: parsed.errorMsg || 'Không tìm thấy hoặc không thể xử lý từ khóa này.'
         };
       }
@@ -270,11 +279,16 @@ class RestaurantService {
     } catch (e: any) {
       return {
         success: false,
-        source: 'foody',
+        source,
         message: e?.message || 'Không thể kết nối đến máy chủ dữ liệu để tìm kiếm & tổng hợp.'
       };
     }
   }
+
+  /**
+   * Alias đa nguồn cho searchAndCrawlFoody
+   */
+  public searchAndCrawl = this.searchAndCrawlFoody.bind(this);
 
   public sanitizeReviews(reviews: CustomerReview[]): CustomerReview[] {
     return sanitizeReviews(reviews);
@@ -517,7 +531,8 @@ class RestaurantService {
     reviews: CustomerReview[],
     sentimentFilter: 'all' | SentimentType,
     aspectFilter: 'all' | AspectCategory,
-    searchKeyword: string
+    searchKeyword: string,
+    sourceFilter: 'all' | 'Foody' | 'GoogleMaps' | string = 'all'
   ): CustomerReview[] {
     const cleanReviews = sanitizeReviews(reviews || []);
     return cleanReviews.filter((rev) => {
@@ -527,6 +542,19 @@ class RestaurantService {
       if (aspectFilter !== 'all') {
         const hasAspect = rev.aspects?.some((a) => a.aspect === aspectFilter);
         if (!hasAspect) return false;
+      }
+      if (sourceFilter !== 'all') {
+        const normFilter = sourceFilter.toLowerCase().replace(/[^a-z]/g, '');
+        const normRevSource = (rev.source || 'Foody').toLowerCase().replace(/[^a-z]/g, '');
+        if (normFilter === 'foody' && normRevSource !== 'foody') {
+          return false;
+        }
+        if (normFilter === 'googlemaps' && normRevSource !== 'googlemaps') {
+          return false;
+        }
+        if (normFilter !== 'foody' && normFilter !== 'googlemaps' && normRevSource !== normFilter) {
+          return false;
+        }
       }
       if (searchKeyword && searchKeyword.trim() !== '') {
         const normKw = removeVietnameseAccents(searchKeyword);
@@ -540,6 +568,82 @@ class RestaurantService {
       }
       return true;
     });
+  }
+
+  /**
+   * Gọi API thu thập đánh giá đa nguồn từ Google Maps (Playwright Headless + Gemini ABSA)
+   * Tuyến đường: POST /api/crawler/google-maps
+   */
+  public async crawlGoogleMaps(
+    payload: CrawlGoogleMapsRequest
+  ): Promise<CrawlGoogleMapsResponse> {
+    const baseUrl = getApiBaseUrl();
+    const controller = new AbortController();
+    // Google Maps Playwright crawling + Gemini ABSA có thể mất tới 90s cho 30-50 reviews
+    const timeoutId = setTimeout(() => controller.abort(), 95000);
+
+    try {
+      const response = await fetch(`${baseUrl}/crawler/google-maps`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          restaurantId: payload.restaurantId,
+          googleMapsUrl: payload.googleMapsUrl,
+          queryName: payload.queryName,
+          maxReviews: payload.maxReviews || 30
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      const parsed = await this.parseResponseSafe<CrawlGoogleMapsResponse>(response);
+      if (!parsed.ok || !parsed.data) {
+        return {
+          success: false,
+          restaurantId: payload.restaurantId || '',
+          restaurantName: payload.queryName || '',
+          source: 'GoogleMaps',
+          newReviewsCount: 0,
+          duplicateReviewsSkipped: 0,
+          totalReviewsNow: 0,
+          message: parsed.errorMsg || 'Không thể thu thập dữ liệu từ Google Maps.'
+        };
+      }
+
+      const data = parsed.data;
+      if (data.restaurant) {
+        const sanitized = sanitizeRestaurant(data.restaurant);
+        data.restaurant = sanitized;
+        const existingIdx = this.cachedRestaurants.findIndex(
+          (r) => r.id === sanitized.id || r.slug === sanitized.slug
+        );
+        if (existingIdx >= 0) {
+          this.cachedRestaurants[existingIdx] = sanitized;
+        } else {
+          this.cachedRestaurants.unshift(sanitized);
+        }
+      }
+
+      return data;
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      console.warn('[RestaurantService] Lỗi khi cào Google Maps:', err?.message || err);
+      return {
+        success: false,
+        restaurantId: payload.restaurantId || '',
+        restaurantName: payload.queryName || '',
+        source: 'GoogleMaps',
+        newReviewsCount: 0,
+        duplicateReviewsSkipped: 0,
+        totalReviewsNow: 0,
+        message:
+          err?.name === 'AbortError'
+            ? 'Quá trình cào dữ liệu Google Maps kéo dài quá thời gian cho phép (timeout). Vui lòng thử lại với số lượng review ít hơn.'
+            : (err?.message || 'Không thể kết nối đến máy chủ cào dữ liệu.')
+      };
+    }
   }
 
   /**

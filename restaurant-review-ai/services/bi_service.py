@@ -16,6 +16,7 @@ from database.models import (
     ReviewAnalysis as DBAnalysis
 )
 from crawler.review_filter import classify_review
+from services.entity_resolution import calculate_credibility_score
 
 
 def remove_accents(text: str) -> str:
@@ -293,10 +294,14 @@ def format_restaurant_full(restaurant: DBRestaurant, db) -> dict:
         if r.rating is not None:
             display_rv_rating = round(r.rating / 2, 1) if r.rating > 5 else round(r.rating, 1)
 
+        r_source = getattr(r, 'source', None) or "Foody"
+        g_rev_id = getattr(r, 'google_review_id', None)
+        author_default = "Người dùng Google" if r_source == "GoogleMaps" else "Khách hàng Foody"
+
         formatted_reviews.append({
             "id": f"rev-db-{r.id}",
             "restaurantId": str(restaurant.id),
-            "author": r.author or "Khách hàng Foody",
+            "author": r.author or author_default,
             "rating": display_rv_rating,
             "date": r.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if r.created_at else "2026-08-24T00:00:00Z",
             "dateDisplay": r.review_date or "Gần đây",
@@ -304,7 +309,8 @@ def format_restaurant_full(restaurant: DBRestaurant, db) -> dict:
             "overallSentiment": overall_sentiment,
             "aspects": extracted_aspects,  # KHÔNG BỊA ĐẶT KHÍA CẠNH ẢO CHO REVIEW KHÔNG CÓ ASPECT
             "highlightSpans": highlight_spans,
-            "source": "Foody",
+            "source": r_source,
+            "googleReviewId": g_rev_id,
             "verifiedVisit": True,
             "isUrgent": is_r_urgent
         })
@@ -596,6 +602,35 @@ def format_restaurant_full(restaurant: DBRestaurant, db) -> dict:
         cuisine_cat = "Việt Nam"
         price_range = "35.000₫ - 120.000₫"
 
+    # ==================== THỐNG KÊ ĐA NGUỒN & ĐỘ TIN CẬY MẪU ====================
+    foody_count = sum(1 for r in reviews if getattr(r, 'source', None) not in ("GoogleMaps", "google_maps", "Google Maps"))
+    google_count = total_reviews - foody_count
+
+    expected_cred = calculate_credibility_score(total_reviews)
+    stored_cred = getattr(restaurant, "credibility_score", None)
+    if stored_cred is None or abs(float(stored_cred) - expected_cred) > 0.05:
+        raw_cred = expected_cred
+    else:
+        raw_cred = float(stored_cred)
+
+    cred = round(float(raw_cred) * 100, 1) if float(raw_cred) <= 1.0 else round(float(raw_cred), 1)
+    # Quy tắc phân cấp độ tin cậy mẫu: < 10 review bắt buộc là 'low'
+    cred_level = "low" if total_reviews < 10 else ("high" if (cred >= 90 and total_reviews >= 20) else ("medium" if cred >= 65 else "low"))
+    sample_warning = (
+        "Quán có ít hơn 10 đánh giá. Hãy liên kết thêm đánh giá từ Google Maps để tăng độ tin cậy phân tích."
+        if total_reviews < 10 else None
+    )
+
+    if foody_count > 0 and google_count > 0:
+        data_source = "Foody, Google Maps & Gemini AI"
+        summary_source = "tổng hợp từ Foody & Google Maps"
+    elif google_count > 0:
+        data_source = "Google Maps & Gemini AI"
+        summary_source = "từ Google Maps"
+    else:
+        data_source = "Foody & Gemini AI"
+        summary_source = "cào từ Foody"
+
     return {
         "id": str(restaurant.id),
         "slug": f"res-{restaurant.id}",
@@ -605,19 +640,29 @@ def format_restaurant_full(restaurant: DBRestaurant, db) -> dict:
         "cuisineCategory": cuisine_cat,
         "city": city,
         "address": restaurant.address or "Đang cập nhật địa chỉ",
+        "googleMapsUrl": getattr(restaurant, "google_maps_url", None),
+        "foodyUrl": getattr(restaurant, "foody_url", None),
+        "sourceBreakdown": {
+            "total": total_reviews,
+            "foody": foody_count,
+            "googleMaps": google_count
+        },
+        "credibilityScore": cred,
+        "credibilityLevel": cred_level,
+        "sampleWarning": sample_warning,
         "priceRange": price_range,
         "priceLevel": "$$",
         "rating": display_rating,
         "totalReviews": total_reviews,
         "urgentAlertCount": urgent_count,
         "lastAnalyzedDate": restaurant.crawled_at.strftime("%d/%m/%Y") if restaurant.crawled_at else "08/09/2026",
-        "dataSource": "Foody & Gemini AI",
+        "dataSource": data_source,
         "sentimentDistribution": {
             "positive": pos_pct,
             "neutral": neu_pct,
             "negative": neg_pct
         },
-        "sentimentSummarySentence": f"Dựa trên {total_reviews} đánh giá cào từ Foody, quán có tỷ lệ khách hàng hài lòng {pos_pct}%, với {neg_pct}% phản hồi cần cải thiện về {worst_aspect.lower()}.",
+        "sentimentSummarySentence": f"Dựa trên {total_reviews} đánh giá {summary_source}, quán có tỷ lệ khách hàng hài lòng {pos_pct}%, với {neg_pct}% phản hồi cần cải thiện về {worst_aspect.lower()}.",
         "aspects": aspect_list,
         "trendData": {
             "3m": [

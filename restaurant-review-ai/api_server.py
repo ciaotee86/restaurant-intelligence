@@ -59,11 +59,36 @@ app = FastAPI(
     version="1.3.0"
 )
 
+# Cấu hình danh sách Allowed Origins an toàn cho CORS [SEC-05]
+DEFAULT_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+    "http://localhost:4173",
+    "http://127.0.0.1:4173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://localhost:10000",
+    "http://127.0.0.1:10000",
+]
+
+env_allowed_origins = os.getenv("ALLOWED_ORIGINS")
+if env_allowed_origins:
+    allowed_origins = [o.strip() for o in env_allowed_origins.split(",") if o.strip()]
+else:
+    allowed_origins = DEFAULT_ALLOWED_ORIGINS
+
+# Tuyệt đối không sử dụng allow_origins=["*"] đi kèm allow_credentials=True [SEC-05]
+allow_credentials = "*" not in allowed_origins
+
 # Thiết lập CORS Middleware cho phép kết nối từ Frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -87,9 +112,10 @@ async def global_exception_handler(request: Request, exc: Exception):
     print(f"[Global Server Error] {request.method} {request.url}: {exc}")
     import traceback
     traceback.print_exc()
+    # Ẩn chi tiết exception khỏi client để chống rò rỉ thông tin máy chủ [SEC-08]
     return JSONResponse(
         status_code=500,
-        content={"detail": f"Lỗi máy chủ nội bộ: {str(exc)}"}
+        content={"detail": "Đã xảy ra lỗi máy chủ nội bộ. Vui lòng thử lại sau."}
     )
 
 
@@ -110,11 +136,22 @@ if DIST_PATH.exists():
         if full_path.startswith("api"):
             raise HTTPException(status_code=404, detail="API endpoint không tồn tại")
         
-        file_path = DIST_PATH / full_path
-        if file_path.exists() and file_path.is_file():
-            return FileResponse(file_path)
+        resolved_dist = DIST_PATH.resolve()
+        resolved_file = (resolved_dist / full_path).resolve()
+
+        # Kiểm tra nghiêm ngặt chống Path Traversal (chỉ cho phép truy cập file nằm trong dist/) [SEC-03]
+        try:
+            is_safe = resolved_file.is_relative_to(resolved_dist)
+        except (ValueError, AttributeError):
+            is_safe = resolved_dist in resolved_file.parents or resolved_file == resolved_dist
+
+        if is_safe and resolved_file.is_file():
+            return FileResponse(resolved_file)
         
-        return FileResponse(DIST_PATH / "index.html")
+        index_file = resolved_dist / "index.html"
+        if index_file.is_file():
+            return FileResponse(index_file)
+        raise HTTPException(status_code=404, detail="Trang không tồn tại")
 else:
     print(f"-> [Web Server] Chưa tìm thấy thư mục 'dist/'. Chạy 'npm run build' để tạo bản build React.")
 
@@ -124,7 +161,11 @@ def _ensure_port_available(target_port: int):
     """
     Tự động kiểm tra và giải phóng cổng nếu có tiến trình Python mồ côi từ phiên trước đang chiếm giữ.
     Giúp chống triệt để lỗi Errno 10048 (Address already in use) trên Windows khi chạy dev server.
+    Sử dụng danh sách tham số trực tiếp không qua shell để chống command injection [SEC-13].
     """
+    if not isinstance(target_port, int) or not (1 <= target_port <= 65535):
+        return
+
     import socket
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -139,15 +180,21 @@ def _ensure_port_available(target_port: int):
         try:
             import subprocess
             import time
-            res = subprocess.run(f"netstat -ano | findstr :{target_port}", shell=True, capture_output=True, text=True)
+            res = subprocess.run(["netstat", "-ano"], capture_output=True, text=True, check=False)
             current_pid = os.getpid()
+            target_suffix = f":{target_port}"
             for line in res.stdout.strip().splitlines():
-                if "LISTENING" in line:
-                    parts = line.strip().split()
-                    pid = int(parts[-1])
-                    if pid != current_pid and pid > 0:
-                        print(f"-> [Port Guard] Phát hiện tiến trình cũ (PID {pid}) đang chiếm cổng {target_port}. Đang thu hồi cổng...")
-                        subprocess.run(f"taskkill /F /PID {pid}", shell=True, capture_output=True)
+                parts = line.strip().split()
+                if len(parts) >= 5 and "LISTENING" in parts:
+                    local_address = parts[1]
+                    if local_address.endswith(target_suffix):
+                        try:
+                            pid = int(parts[-1])
+                            if pid != current_pid and pid > 0:
+                                print(f"-> [Port Guard] Phát hiện tiến trình cũ (PID {pid}) đang chiếm cổng {target_port}. Đang thu hồi cổng...")
+                                subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True, check=False)
+                        except (ValueError, IndexError):
+                            pass
             time.sleep(1)
         except Exception:
             pass

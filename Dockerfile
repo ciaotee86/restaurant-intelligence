@@ -43,10 +43,17 @@ COPY restaurant-review-ai/ ./
 # Copy bản build frontend tĩnh từ STAGE 1 vào thư mục dist/
 COPY --from=frontend-builder /app/dist /app/dist
 
-# Tạo thư mục data để lưu SQLite DB, seed_data và symlink tương thích môi trường chạy
+# Tạo user không đặc quyền appuser (non-root) để tăng cường bảo mật container (SEC-10)
+RUN groupadd -r appuser && useradd -r -g appuser -m -d /home/appuser -s /usr/sbin/nologin appuser
+
+# Tạo thư mục data để lưu SQLite DB, seed_data, symlink tương thích và phân quyền cho appuser
 RUN mkdir -p /app/data /app/seed_data && \
     (cp /app/data/restaurants.db /app/seed_data/restaurants.db 2>/dev/null || true) && \
-    ln -s /app /app/restaurant-review-ai
+    ln -s /app /app/restaurant-review-ai && \
+    chown -R appuser:appuser /app /home/appuser && \
+    chmod -R 775 /app/data /app/seed_data
+
+USER appuser
 
 EXPOSE 10000
 

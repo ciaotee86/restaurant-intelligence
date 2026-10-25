@@ -1,12 +1,17 @@
-name: Scheduled Foody AI Crawler
+name: Scheduled Multi-Source Restaurant AI Crawler & Auto-Enrich
 
-on:
+"on":
   schedule:
-    # Chạy tự động định kỳ mỗi 15 phút một lần
-    - cron: '*/15 * * * *'
+    # Chạy tự động mỗi đêm lúc 02:00 AM UTC+7 (19:00 UTC)
+    - cron: '0 19 * * *'
   workflow_dispatch:
     # Cho phép bấm nút "Run workflow" thủ công trên giao diện web GitHub
     inputs:
+      auto_enrich:
+        description: 'Tự động quét và bù đắp đánh giá từ Google Maps cho các quán có ít đánh giá (<10 reviews hoặc độ tin cậy < 0.65)'
+        required: false
+        type: boolean
+        default: false
       city:
         description: 'Thành phố cần cào (để trống để tự động xoay tua khắp toàn quốc, hoặc nhập da-nang, ho-chi-minh, ha-noi, lam-dong, all...)'
         required: false
@@ -16,7 +21,7 @@ on:
         required: false
         default: ''
       max_places:
-        description: 'Số quán tối đa mỗi danh mục'
+        description: 'Số quán tối đa mỗi danh mục hoặc số quán cần auto-enrich'
         required: false
         default: '2'
       max_reviews:
@@ -41,33 +46,56 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Cài đặt Chrome & Dependencies
+      - name: Cài đặt Chrome, Playwright & Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
           pip install -r restaurant-review-ai/requirements.txt
+          playwright install chromium --with-deps
 
       - name: Chạy Pipeline cào & phân tích AI
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_AUTO_ENRICH: ${{ github.event.inputs.auto_enrich }}
+          INPUT_CITY: ${{ github.event.inputs.city }}
+          INPUT_CATEGORIES: ${{ github.event.inputs.categories }}
+          INPUT_MAX_PLACES: ${{ github.event.inputs.max_places }}
+          INPUT_MAX_REVIEWS: ${{ github.event.inputs.max_reviews }}
         run: |
-          CITY="${{ github.event.inputs.city || '' }}"
-          CATEGORIES="${{ github.event.inputs.categories || '' }}"
-          MAX_PLACES="${{ github.event.inputs.max_places || '2' }}"
-          MAX_REVIEWS="${{ github.event.inputs.max_reviews || '25' }}"
-          
-          CMD="python restaurant-review-ai/run_pipeline.py --max-places $MAX_PLACES --max-reviews $MAX_REVIEWS"
-          if [ -n "$CITY" ]; then
-            CMD="$CMD --cities \"$CITY\""
+          AUTO_ENRICH="${INPUT_AUTO_ENRICH:-false}"
+          CITY="${INPUT_CITY:-}"
+          CATEGORIES="${INPUT_CATEGORIES:-}"
+          MAX_PLACES="${INPUT_MAX_PLACES:-2}"
+          MAX_REVIEWS="${INPUT_MAX_REVIEWS:-25}"
+          EVENT="${EVENT_NAME:-$GITHUB_EVENT_NAME}"
+
+          if [ "$EVENT" = "schedule" ]; then
+            echo "⏰ Chạy cron định kỳ ban đêm: Bù đắp dữ liệu Google Maps & cào xoay tua..."
+            python restaurant-review-ai/run_pipeline.py --auto-enrich --max-places 5 --max-reviews 30 || true
+            python restaurant-review-ai/run_pipeline.py --max-places 2 --max-reviews 25
+          elif [ "$AUTO_ENRICH" = "true" ]; then
+            ARGS=("--auto-enrich" "--max-reviews" "$MAX_REVIEWS")
+            if [ -n "$MAX_PLACES" ]; then
+              ARGS+=("--max-places" "$MAX_PLACES")
+            fi
+            echo "Thực thi: python restaurant-review-ai/run_pipeline.py" "${ARGS[@]}"
+            python restaurant-review-ai/run_pipeline.py "${ARGS[@]}"
+          else
+            ARGS=("--max-places" "$MAX_PLACES" "--max-reviews" "$MAX_REVIEWS")
+            if [ -n "$CITY" ]; then
+              ARGS+=("--cities" "$CITY")
+            fi
+            if [ -n "$CATEGORIES" ]; then
+              ARGS+=("--categories" "$CATEGORIES")
+            fi
+            echo "Thực thi: python restaurant-review-ai/run_pipeline.py" "${ARGS[@]}"
+            python restaurant-review-ai/run_pipeline.py "${ARGS[@]}"
           fi
-          if [ -n "$CATEGORIES" ]; then
-            CMD="$CMD --categories \"$CATEGORIES\""
-          fi
-          
-          echo "Thực thi: $CMD"
-          eval $CMD
 
       - name: Commit & Push Database mới về Repository
+        env:
+          REF_NAME: ${{ github.ref }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -75,6 +103,6 @@ jobs:
           if git diff-index --quiet HEAD --; then
             echo "Database không có thay đổi mới. Bỏ qua commit."
           else
-            git commit -m "chore(data): tự động cập nhật database đánh giá quán ăn [skip ci]"
-            git push origin HEAD:${{ github.ref }}
+            git commit -m "chore(data): tự động cập nhật database đánh giá quán ăn đa nguồn [skip ci]"
+            git push origin HEAD:"${REF_NAME:-$GITHUB_REF}"
           fi

@@ -800,14 +800,29 @@ QUY TẮC PHÂN TÍCH & GUARDRAILS ĐỘC LẬP CỦA NỀN TẢNG (BẮT BUỘC
 
     try:
         from google import genai
+        from google.genai import types
         client = genai.Client(api_key=api_key)
+
+        # Bọc câu hỏi người dùng vào thẻ phân tách XML để chống prompt injection [SEC-07]
+        user_contents = f"""Dưới đây là câu hỏi từ người dùng cần bạn phân tích:
+<user_question>
+{question.strip()}
+</user_question>
+
+Hãy phân tích câu hỏi trên dựa trên dữ liệu đánh giá thực tế và tuân thủ các quy tắc trong system instruction."""
+
+        config = types.GenerateContentConfig(
+            system_instruction=system_context,
+            temperature=0.4,
+        )
 
         last_error = None
         for model in CANDIDATE_MODELS:
             try:
                 response = client.models.generate_content(
                     model=model,
-                    contents=f"{system_context}\n\nCâu hỏi cần phân tích từ người dùng: {question}"
+                    contents=user_contents,
+                    config=config
                 )
                 if response and response.text:
                     return response.text.strip()

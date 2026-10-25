@@ -4,20 +4,21 @@ import { AspectPill } from '../common/AspectPill';
 import { SentimentBadge } from '../common/SentimentBadge';
 import { ReviewDetailModal } from './ReviewDetailModal';
 import { ReviewReplyModal } from './ReviewReplyModal';
-import { Search, Star, Filter, MessageSquare, Maximize2, ShieldCheck, Zap } from 'lucide-react';
+import { Search, Star, Filter, MessageSquare, Maximize2, ShieldCheck, Zap, Layers, MapPin } from 'lucide-react';
 import { restaurantService } from '../../services/restaurantService';
 import { formatNumber } from '../../utils/sentimentUtils';
 
 /**
  * Làm sạch tên tác giả một cách an toàn:
- * - Nếu trống, rỗng hoặc chỉ có khoảng trắng -> hiển thị "Khách Foody"
+ * - Nếu trống, rỗng hoặc chỉ có khoảng trắng -> hiển thị "Khách đánh giá"
  * - Không render bất kỳ chuỗi {{...}} nào (mã template AngularJS)
- * - Nếu tác giả chứa common_delete, Model. hoặc mã rác -> fallback về "Khách Foody"
+ * - Nếu tác giả chứa common_delete, Model. hoặc mã rác -> fallback về "Khách đánh giá"
  */
-const getSafeAuthor = (author?: string): string => {
-  if (!author || typeof author !== 'string') return 'Khách Foody';
+const getSafeAuthor = (author?: string, source?: string): string => {
+  const defaultName = (source || '').toLowerCase().includes('google') ? 'Khách Google' : 'Khách Foody';
+  if (!author || typeof author !== 'string') return defaultName;
   const trimmed = author.trim();
-  if (!trimmed) return 'Khách Foody';
+  if (!trimmed) return defaultName;
 
   // Kiểm tra chuỗi chứa template rác hoặc biểu thức AngularJS
   const lower = trimmed.toLowerCase();
@@ -29,7 +30,7 @@ const getSafeAuthor = (author?: string): string => {
   ) {
     const stripped = trimmed.replace(/\{\{[\s\S]*?\}\}/g, '').trim();
     if (!stripped || stripped.toLowerCase().includes('model.') || stripped.toLowerCase().includes('common_delete')) {
-      return 'Khách Foody';
+      return defaultName;
     }
     return stripped;
   }
@@ -69,6 +70,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
 }) => {
   const [sentimentFilter, setSentimentFilter] = useState<'all' | SentimentType>('all');
   const [aspectFilter, setAspectFilter] = useState<'all' | AspectCategory>(initialAspect);
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'Foody' | 'GoogleMaps'>('all');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedReview, setSelectedReview] = useState<CustomerReview | null>(null);
   const [replyReview, setReplyReview] = useState<CustomerReview | null>(null);
@@ -76,11 +78,27 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
   // Lọc phòng vệ dữ liệu đầu vào: đảm bảo danh sách review không chứa bài viết rác
   const cleanReviews = useMemo(() => restaurantService.sanitizeReviews(reviews || []), [reviews]);
 
+  // Đếm số lượng review theo từng nguồn
+  const sourceCounts = useMemo(() => {
+    let foody = 0;
+    let googleMaps = 0;
+    for (const r of cleanReviews) {
+      const s = (r.source || '').toLowerCase();
+      if (s.includes('google')) {
+        googleMaps++;
+      } else {
+        foody++;
+      }
+    }
+    return { all: cleanReviews.length, foody, googleMaps };
+  }, [cleanReviews]);
+
   const filteredReviews = restaurantService.filterReviews(
     cleanReviews,
     sentimentFilter,
     aspectFilter,
-    searchKeyword
+    searchKeyword,
+    sourceFilter
   );
 
   const aspectsList: AspectCategory[] = ['Món ăn', 'Dịch vụ', 'Giá cả', 'Không gian', 'Vị trí'];
@@ -98,7 +116,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
             Đánh giá từ thực khách
           </h2>
           <p className="text-xs text-[#71717A] mt-0.5">
-            Đọc từng nhận xét chân thực của thực khách theo từng tiêu chí cụ thể
+            Đọc từng nhận xét chân thực của thực khách theo từng tiêu chí cụ thể và nguồn thu thập
           </p>
         </div>
 
@@ -109,12 +127,11 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
         </div>
       </div>
 
-      {/* Thanh bộ lọc */}
+      {/* Thanh bộ lọc đa chiều (MOD-03) */}
       <div className="space-y-3.5 bg-[#FAF9F5] p-4 sm:p-5 rounded-xl border border-[#E5E3DE]">
         
-        {/* Ô tìm kiếm & Chọn cảm xúc */}
+        {/* Hàng 1: Ô tìm kiếm & Chọn cảm xúc */}
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
-          
           {/* Tìm từ khóa */}
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
@@ -150,7 +167,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
                 <button
                   key={s.id}
                   onClick={() => setSentimentFilter(s.id)}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
+                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
                     isActive
                       ? activeColor
                       : 'text-[#52525B] hover:text-[#18181B] hover:bg-zinc-100'
@@ -163,8 +180,54 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
           </div>
         </div>
 
-        {/* Nút lọc tiêu chí */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+        {/* Hàng 2: Nút lọc nguồn dữ liệu (MOD-03: Foody & Google Maps) */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[#E5E3DE]/70">
+          <span className="text-xs font-bold text-zinc-500 mr-1 flex items-center gap-1">
+            <Layers className="w-3.5 h-3.5 text-zinc-400" />
+            Nguồn đánh giá:
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setSourceFilter('all')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              sourceFilter === 'all'
+                ? 'bg-[#18181B] text-white shadow-craft-sm'
+                : 'bg-white text-zinc-700 border border-[#E5E3DE] hover:border-zinc-500'
+            }`}
+          >
+            Tất cả ({sourceCounts.all})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSourceFilter('Foody')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all inline-flex items-center gap-1.5 cursor-pointer ${
+              sourceFilter === 'Foody'
+                ? 'bg-[#EA580C] text-white border-[#EA580C] shadow-craft-sm'
+                : 'bg-white text-zinc-700 border-[#E5E3DE] hover:border-[#EA580C]'
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${sourceFilter === 'Foody' ? 'bg-white' : 'bg-[#EA580C]'}`} />
+            <span>Foody ({sourceCounts.foody})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSourceFilter('GoogleMaps')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all inline-flex items-center gap-1.5 cursor-pointer ${
+              sourceFilter === 'GoogleMaps'
+                ? 'bg-[#2563EB] text-white border-[#2563EB] shadow-craft-sm'
+                : 'bg-white text-zinc-700 border-[#E5E3DE] hover:border-[#2563EB]'
+            }`}
+          >
+            <MapPin className="w-3.5 h-3.5" />
+            <span>Google Maps ({sourceCounts.googleMaps})</span>
+          </button>
+        </div>
+
+        {/* Hàng 3: Nút lọc tiêu chí khía cạnh */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[#E5E3DE]/70">
           <span className="text-xs font-bold text-zinc-500 mr-1 flex items-center gap-1">
             <Filter className="w-3.5 h-3.5 text-zinc-400" />
             Tiêu chí:
@@ -172,7 +235,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
 
           <button
             onClick={() => setAspectFilter('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               aspectFilter === 'all'
                 ? 'bg-[#18181B] text-white shadow-craft-sm'
                 : 'bg-white text-zinc-700 border border-[#E5E3DE] hover:border-zinc-500'
@@ -187,7 +250,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
               <button
                 key={aspect}
                 onClick={() => setAspectFilter(aspect)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
                   isActive
                     ? 'bg-[#C2410C] text-white border-[#C2410C] shadow-craft-sm'
                     : 'bg-white text-zinc-700 border-[#E5E3DE] hover:border-zinc-500'
@@ -211,9 +274,10 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
             onClick={() => {
               setSentimentFilter('all');
               setAspectFilter('all');
+              setSourceFilter('all');
               setSearchKeyword('');
             }}
-            className="mt-3.5 px-4 py-2 bg-white border border-[#18181B] text-xs font-bold rounded-lg hover:bg-zinc-100 text-zinc-900 shadow-craft-sm transition-all"
+            className="mt-3.5 px-4 py-2 bg-white border border-[#18181B] text-xs font-bold rounded-lg hover:bg-zinc-100 text-zinc-900 shadow-craft-sm transition-all cursor-pointer"
           >
             Đặt lại tất cả bộ lọc
           </button>
@@ -221,9 +285,10 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
       ) : (
         <div className="space-y-3.5">
           {filteredReviews.map((rev) => {
+            const isGoogleReview = (rev.source || '').toLowerCase().includes('google') || !!rev.googleReviewId;
             const safeRev: CustomerReview = {
               ...rev,
-              author: getSafeAuthor(rev.author),
+              author: getSafeAuthor(rev.author, rev.source),
               text: getSafeText(rev.text),
               dateDisplay: getSafeDateDisplay(rev.dateDisplay)
             };
@@ -234,22 +299,37 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
                 onClick={() => setSelectedReview(safeRev)}
                 className="bg-white border border-[#E5E3DE] hover:border-[#18181B] rounded-xl p-5 hover:shadow-craft-sm transition-all cursor-pointer group"
               >
-                {/* Header thẻ: Tác giả, Điểm sao, Ngày, Cảm xúc tổng thể */}
+                {/* Header thẻ: Tác giả, Nguồn (Badge), Điểm sao, Ngày, Cảm xúc tổng thể */}
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
+                    {/* Điểm sao */}
                     <div className="flex items-center gap-1 bg-amber-50 text-amber-950 border border-amber-300 px-2.5 py-0.5 rounded font-black text-xs">
                       <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
                       <span>{rev.rating}.0</span>
                     </div>
 
-                    <span className="text-xs font-bold text-[#18181B] flex items-center gap-1">
-                      <span>{getSafeAuthor(rev.author)}</span>
+                    {/* Tác giả */}
+                    <span className="text-xs font-bold text-[#1C1917] flex items-center gap-1">
+                      <span>{safeRev.author}</span>
                       <span title="Khách hàng thật"><ShieldCheck className="w-3.5 h-3.5 text-emerald-600 inline" /></span>
                     </span>
 
-                    {getSafeDateDisplay(rev.dateDisplay) && (
+                    {/* Badge nhận diện nguồn trực quan (Foody: Cam, Google Maps: Xanh dương) */}
+                    {isGoogleReview ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]">
+                        <MapPin className="w-3 h-3 text-[#2563EB]" />
+                        <span>Google Maps</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-[#FFF7ED] text-[#C2410C] border border-[#FFEDD5]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#EA580C]" />
+                        <span>Foody</span>
+                      </span>
+                    )}
+
+                    {safeRev.dateDisplay && (
                       <span className="text-xs text-[#71717A] font-medium">
-                        {getSafeDateDisplay(rev.dateDisplay)}
+                        {safeRev.dateDisplay}
                       </span>
                     )}
                   </div>
@@ -265,7 +345,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
                         setReplyReview(safeRev);
                       }}
                       title="Soạn thư phản hồi thực khách"
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-[#FFF7ED] text-[#C2410C] border border-[#FFEDD5] hover:bg-[#C2410C] hover:text-white transition-all shadow-craft-sm"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-[#FFF7ED] text-[#C2410C] border border-[#FFEDD5] hover:bg-[#C2410C] hover:text-white transition-all shadow-craft-sm cursor-pointer"
                     >
                       <Zap className="w-3 h-3" />
                       <span>Soạn phản hồi</span>
@@ -279,7 +359,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
 
                 {/* Nội dung đánh giá */}
                 <p className="text-xs sm:text-sm text-[#18181B] leading-relaxed mb-3 group-hover:text-black">
-                  "{getSafeText(rev.text)}"
+                  "{safeRev.text}"
                 </p>
 
                 {/* Tag các khía cạnh trích xuất */}
@@ -309,7 +389,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
         onClose={() => setSelectedReview(null)}
         onOpenReplyModal={(rev) => setReplyReview({
           ...rev,
-          author: getSafeAuthor(rev.author),
+          author: getSafeAuthor(rev.author, rev.source),
           text: getSafeText(rev.text),
           dateDisplay: getSafeDateDisplay(rev.dateDisplay)
         })}

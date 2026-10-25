@@ -8,6 +8,7 @@
     "dev:frontend": "vite",
     "dev:backend": "python restaurant-review-ai/api_server.py",
     "build": "tsc -b && vite build",
+    "test": "node --test tests/**/*.test.ts",
     "lint": "oxlint",
     "preview": "vite preview"
   },
