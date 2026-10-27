@@ -1,0 +1,346 @@
+\chapter{Phân tích và Thiết kế Hệ thống}
+
+\section{Kiến trúc Hệ thống Tổng thể (3 Tầng)}
+Hình~\ref{fig:arch_3layer} minh họa kiến trúc phân tầng của hệ thống gồm Tầng Trình diễn (React 19), Tầng Nghiệp vụ (FastAPI) và Tầng Dữ liệu \& AI (SQLite WAL + Gemini API).
+
+\begin{figure}[H]
+\centering
+\resizebox{0.95\textwidth}{!}{%
+\begin{tikzpicture}[
+    layerbox/.style={draw=blue!75, fill=blue!3, dashed, thick, rounded corners=8pt, inner sep=14pt},
+    comp/.style={draw=blue!85, fill=white, thick, rounded corners=5pt, minimum height=1.35cm, text width=5.6cm, align=center, font=\footnotesize},
+    arrow/.style={-{Stealth[scale=0.95]}, thick, draw=gray!80!black}
+]
+    \node[comp] (react) at (-3.9, 0) {\textbf{React 19 Client Dashboard}\\(TypeScript, Recharts, Dual-View)};
+    \node[comp] (aiwidget) at (3.9, 0) {\textbf{AI Assistant \& Modals}\\(Chatbot, Review Responder, URL Input)};
+    
+    \node[comp] (api) at (-3.9, -4.4) {\textbf{FastAPI Gateway \& Services}\\(REST API, BI Engine, Entity Match)};
+    \node[comp] (crawler) at (3.9, -4.4) {\textbf{Multi-Source Crawler \& Filter}\\(Foody + Google Maps, Spam Filter)};
+
+    \node[comp] (db) at (-3.9, -8.8) {\textbf{SQLite Database (WAL Mode)}\\(4 Bảng: Restaurants, Reviews, ABSA)};
+    \node[comp] (gemini) at (3.9, -8.8) {\textbf{Google Gemini API Engine}\\(ABSA Batch, Q\&A, Auto-Reply)};
+
+    \begin{scope}[on background layer]
+        \node[layerbox, fit={(react) (aiwidget)}, label={[font=\bfseries\small, text=blue!80!black, yshift=2pt]above:Presentation Layer (Frontend SPA)}] (boxClient) {};
+        \node[layerbox, fit={(api) (crawler)}, label={[font=\bfseries\small, text=blue!80!black, yshift=2pt]above:Business \& Processing Layer (FastAPI Backend)}] (boxBackend) {};
+        \node[layerbox, fit={(db) (gemini)}, label={[font=\bfseries\small, text=blue!80!black, yshift=-2pt]below:Data \& Intelligence Layer}] (boxData) {};
+    \end{scope}
+
+    \draw[arrow] (react.south) -- node[left=4pt, pos=0.42, font=\scriptsize, align=right]{HTTP / JSON\\Request} (api.north);
+    \draw[arrow] (aiwidget.south) -- ++(0, -1.05) -| ([xshift=1.4cm]api.north) node[pos=0.25, above, font=\scriptsize, fill=white, inner sep=1.5pt]{Ask / Reply / Analyze URL};
+    \draw[arrow] (api.south) -- node[left=4pt, pos=0.45, font=\scriptsize]{SQLAlchemy ORM} (db.north);
+    \draw[arrow] (crawler.south) -- node[right=4pt, pos=0.45, font=\scriptsize, align=left]{Batch Valid\\Reviews} (gemini.north);
+    \draw[arrow] ([xshift=-1.4cm]crawler.south) -- ++(0, -0.95) -| ([xshift=1.2cm]db.north) node[pos=0.25, above, font=\scriptsize, fill=white, inner sep=1.5pt]{Lưu Reviews \& Cờ Spam / SHA-256};
+    \draw[arrow] ([xshift=1.4cm]api.south) -- ++(0, -1.65) -| ([xshift=-1.4cm]gemini.north) node[pos=0.25, below, font=\scriptsize, fill=white, inner sep=1.5pt]{Rich Context Prompt};
+    \draw[arrow] (gemini.west) -- node[above=2pt, font=\scriptsize]{Aspects / Sentiments} (db.east);
+\end{tikzpicture}%
+}
+\caption{Kiến trúc tổng thể 3 tầng của hệ thống Restaurant Intelligence}
+\label{fig:arch_3layer}
+\end{figure}
+
+\section{Sơ đồ Trường hợp Sử dụng (Use Case Diagram)}
+Hình~\ref{fig:usecase_diagram} thể hiện sơ đồ Use Case chuẩn UML phân rã 4 tác nhân theo 2 cột chức năng đối xứng, triệt tiêu hoàn toàn lỗi chồng lấn đồ họa.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.96\textwidth}{!}{%
+\begin{tikzpicture}[
+    uc/.style={ellipse, draw=blue!80, fill=blue!6, thick, minimum height=1.0cm, text width=3.8cm, align=center, font=\scriptsize, inner sep=2pt},
+    uc_sub/.style={ellipse, draw=teal!80, fill=teal!6, thick, minimum height=0.9cm, text width=3.4cm, align=center, font=\tiny, inner sep=1.5pt},
+    sysbox/.style={draw=gray!70, dashed, thick, inner sep=14pt, rounded corners=8pt},
+    actor/.style={font=\bfseries\scriptsize, align=center},
+    rel/.style={-{Stealth[scale=0.85]}, thick},
+    dep/.style={-{Stealth[scale=0.8]}, dashed, thick, draw=blue!75!black, font=\tiny}
+]
+    % --- ACTORS TRÁI ---
+    \node[actor] (dinerLabel) at (-7.0, 3.2) {Thực khách\\(Diner)};
+    \draw[thick] (-7.0, 2.5) circle (0.3cm);
+    \draw[thick] (-7.0, 2.2) -- (-7.0, 1.4);
+    \draw[thick] (-7.5, 1.85) -- (-6.5, 1.85);
+    \draw[thick] (-7.0, 1.4) -- (-7.4, 0.7);
+    \draw[thick] (-7.0, 1.4) -- (-6.6, 0.7);
+    \coordinate (diner) at (-6.3, 1.85);
+
+    \node[actor] (ownerLabel) at (-7.0, -1.8) {Chủ nhà hàng\\(Owner)};
+    \draw[thick] (-7.0, -2.5) circle (0.3cm);
+    \draw[thick] (-7.0, -2.8) -- (-7.0, -3.6);
+    \draw[thick] (-7.5, -3.15) -- (-6.5, -3.15);
+    \draw[thick] (-7.0, -3.6) -- (-7.4, -4.3);
+    \draw[thick] (-7.0, -3.6) -- (-6.6, -4.3);
+    \coordinate (owner) at (-6.3, -3.15);
+
+    % --- CỘT 1: THỰC KHÁCH (x = -2.1) ---
+    \node[uc] (uc1) at (-2.1, 4.0) {1. Tìm kiếm \& Lọc quán\\(63 tỉnh thành)};
+    \node[uc] (uc2) at (-2.1, 2.2) {2. Xem Dashboard phân tích\\(Góc nhìn Thực khách)};
+    \node[uc] (uc3) at (-2.1, 0.4) {3. So sánh đối đầu\\(2 nhà hàng trực diện)};
+    \node[uc] (uc4) at (-2.1, -1.4) {4. Lọc đánh giá theo\\5 khía cạnh \& nhãn Spam};
+    \node[uc] (uc5) at (-2.1, -3.2) {5. Hỏi đáp Trợ lý AI Chatbot\\(4 tầng Guardrails)};
+
+    % --- CỘT 2: VẬN HÀNH & HỆ THỐNG (x = 2.4) ---
+    \node[uc] (uc6) at (2.4, 4.0) {6. Xem Dashboard Chuyên sâu\\(SWOT, Độ tin cậy $C(N)$)};
+    \node[uc] (uc7) at (2.4, 2.2) {7. Xem Checklist Vận hành\\\& Cảnh báo \texttt{is\_urgent}};
+    \node[uc] (uc8) at (2.4, 0.4) {8. Soạn thư phản hồi AI\\(4 tông giọng)};
+    \node[uc_sub] (uc8_ext) at (2.4, -1.2) {8.1. Đính kèm mã Voucher\\(\texttt{CARE-*})};
+    \node[uc] (uc9) at (2.4, -2.8) {9. Yêu cầu phân tích URL mới\\(Live Foody / Maps)};
+    \node[uc_sub] (uc_crawl) at (2.4, -4.4) {10. Pipeline cào đa nguồn,\\Lọc Spam 11 ca \& ABSA};
+
+    % --- ACTORS PHẢI ---
+    \node[draw=purple!80, fill=purple!8, thick, rounded corners=4pt, font=\scriptsize\bfseries, align=center, text width=2.4cm] (gemini) at (6.8, -0.4) {Google Gemini\\API Engine\\(LLM Cloud)};
+
+    \node[actor] (cronLabel) at (6.8, -3.6) {Hệ thống tự động\\(Auto-Enrich Cron)};
+    \draw[thick] (6.8, -4.2) circle (0.3cm);
+    \draw[thick] (6.8, -4.5) -- (6.8, -5.3);
+    \draw[thick] (6.3, -4.85) -- (7.3, -4.85);
+    \draw[thick] (6.8, -5.3) -- (6.4, -6.0);
+    \draw[thick] (6.8, -5.3) -- (7.2, -6.0);
+    \coordinate (cron) at (6.3, -4.85);
+
+    % --- SYSTEM BOUNDARY ---
+    \node[sysbox, fit={(uc1) (uc5) (uc6) (uc_crawl)}, label={[font=\bfseries\small, text=blue!85!black, yshift=4pt]above:Hệ thống Restaurant Intelligence}] (sysContainer) {};
+
+    % --- LIÊN KẾT TÁC NHÂN ---
+    \draw[rel] (diner) -- (uc1.west);
+    \draw[rel] (diner) -- (uc2.west);
+    \draw[rel] (diner) -- (uc3.west);
+    \draw[rel] (diner) -- (uc4.west);
+    \draw[rel] (diner) -- (uc5.west);
+
+    \draw[rel] (owner) -- (uc2.south west);
+    \draw[rel] (owner) -- (uc6.west);
+    \draw[rel] (owner) -- (uc7.west);
+    \draw[rel] (owner) -- (uc8.west);
+    \draw[rel] (owner) -- (uc9.west);
+
+    \draw[rel] (cron) -- (uc_crawl.east);
+
+    % --- INCLUDE & EXTEND ---
+    \draw[dep] (uc8) -- node[right=1pt, font=\tiny]{\textit{<<extend>>}} (uc8_ext);
+    \draw[dep] (uc9) -- node[right=1pt, font=\tiny]{\textit{<<include>>}} (uc_crawl);
+
+    \draw[dep] (uc5.east) -- node[above, font=\tiny, sloped]{\textit{<<include>>}} (gemini.west);
+    \draw[dep] (uc8.east) -- node[above, font=\tiny, sloped]{\textit{<<include>>}} (gemini.west);
+    \draw[dep] (uc_crawl.north east) -- node[below, font=\tiny, sloped]{\textit{<<include>>}} (gemini.south);
+\end{tikzpicture}%
+}
+\caption{Sơ đồ Use Case tổng thể được phân rã theo 4 tác nhân và 2 cột chức năng đối xứng}
+\label{fig:usecase_diagram}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Đặc tả phân quyền và vai trò của các Use Case trọng tâm}
+\label{tab:usecase_spec}
+\vspace{0.15cm}
+\footnotesize
+\begin{tabularx}{\textwidth}{l l l X}
+\toprule
+\rowcolor{blue!8}
+\textbf{Mã UC} & \textbf{Tên Use Case} & \textbf{Tác nhân chính} & \textbf{Mô tả luồng nghiệp vụ và giá trị đầu ra} \\
+\midrule
+\textbf{UC-01} & Tìm kiếm \& Lọc quán & Thực khách / Chủ quán & Lọc 50 nhà hàng theo 63 tỉnh/thành, loại hình ẩm thực và khoảng giá. \\
+\textbf{UC-02} & Dashboard Thực khách & Thực khách & Xem tổng quan điểm 5 khía cạnh, món ăn được khen/chê và trích dẫn nổi bật. \\
+\textbf{UC-03} & So sánh đối đầu 2 quán & Thực khách & Đặt 2 quán cạnh nhau so sánh chi tiết điểm số, tỷ lệ spam và thế mạnh. \\
+\textbf{UC-05} & Hỏi đáp Trợ lý AI & Thực khách & Chatbot giải đáp thắc mắc dựa trên dữ liệu thật qua 4 tầng rào chắn Guardrails. \\
+\textbf{UC-06} & Dashboard Chuyên sâu & Chủ nhà hàng & Đánh giá xu hướng thời gian, phân tích SWOT và độ tin cậy mẫu thống kê $C(N)$. \\
+\textbf{UC-07} & Checklist \& Cảnh báo & Chủ nhà hàng & Theo dõi các đầu việc vận hành cần sửa chữa và phát hiện các bài đánh giá \texttt{is\_urgent}. \\
+\textbf{UC-08} & Soạn thư phản hồi AI & Chủ nhà hàng & Chọn tông giọng; AI soạn thư xin lỗi/cảm ơn kèm mở rộng (\textit{<<extend>>}) cấp mã \texttt{CARE-*}. \\
+\textbf{UC-09} & Phân tích URL Mới & Chủ nhà hàng & Dán link Foody/Maps; tự động gọi (\textit{<<include>>}) pipeline cào, lọc spam và phân tích ngay. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Sơ đồ Luồng Hoạt động (Activity Diagram)}
+Hình~\ref{fig:activity_diagram} mô tả quy trình thu thập, lọc rác, gom lô batch 20 và phân tích ABSA.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.78\textwidth}{!}{%
+\begin{tikzpicture}[
+    node distance=0.65cm,
+    startstop/.style={draw, circle, fill=black, inner sep=4pt},
+    endnode/.style={draw, double, circle, fill=black, inner sep=3.2pt},
+    action/.style={draw=blue!80, fill=blue!8, thick, rounded corners, minimum width=5.6cm, minimum height=0.75cm, align=center, font=\footnotesize},
+    decision/.style={draw=orange!90, fill=orange!10, diamond, aspect=2.2, thick, font=\scriptsize, align=center, inner sep=2pt},
+    arrow/.style={-{Stealth[scale=0.95]}, thick}
+]
+    \node[startstop] (start) {};
+    \node[action, below=of start] (crawl) {Crawl đánh giá từ Foody.vn / Google Maps};
+    \node[action, below=of crawl] (dedup) {Khớp thực thể quán \& Khử trùng lặp SHA-256};
+    \node[action, below=of dedup] (filterSpam) {Kiểm tra \& Đánh dấu Spam 11 ca (\texttt{ReviewFilter})};
+    \node[decision, below=of filterSpam] (isSpam) {Đánh giá là Spam\\hoặc Quá ngắn?};
+    \node[action, right=1.2cm of isSpam, minimum width=4.4cm, text width=4.2cm] (markOnly) {Gán cờ \texttt{is\_spam=1, is\_analyzed=1}\\(Bỏ qua gọi Gemini AI)};
+    \node[action, below=0.85cm of isSpam] (cleanValid) {Đưa vào hàng đợi phân tích hợp lệ};
+    \node[decision, below=of cleanValid] (batchCheck) {Đủ kích thước lô\\(\texttt{BATCH\_SIZE = 20})?};
+    \node[action, below=0.85cm of batchCheck] (callAI) {Gọi Gemini API phân tích 5 khía cạnh \& \texttt{is\_urgent}};
+    \node[action, below=of callAI] (saveDB) {Lưu vào SQLite \& Tính điểm tin cậy mẫu $C(N)$};
+    \node[action, below=of saveDB] (visualize) {Xóa Cache RAM, cập nhật Dashboard \& Trợ lý AI};
+    \node[endnode, below=of visualize] (end) {};
+
+    \draw[arrow] (start) -- (crawl);
+    \draw[arrow] (crawl) -- (dedup);
+    \draw[arrow] (dedup) -- (filterSpam);
+    \draw[arrow] (filterSpam) -- (isSpam);
+    \draw[arrow] (isSpam) -- node[above, font=\scriptsize]{Có} (markOnly);
+    \draw[arrow] (isSpam) -- node[right=2pt, font=\scriptsize]{Không} (cleanValid);
+    \draw[arrow] (markOnly.south) |- (saveDB.east);
+    \draw[arrow] (cleanValid) -- (batchCheck);
+    \draw[arrow] (batchCheck) -- node[right=2pt, font=\scriptsize]{Đủ batch} (callAI);
+    \draw[arrow] (batchCheck.west) -- ++(-1.5,0) |- node[pos=0.25, left, font=\scriptsize]{Gom tiếp} (cleanValid.west);
+    \draw[arrow] (callAI) -- (saveDB);
+    \draw[arrow] (saveDB) -- (visualize);
+    \draw[arrow] (visualize) -- (end);
+\end{tikzpicture}%
+}
+\caption{Sơ đồ Activity thể hiện luồng xử lý dữ liệu và tối ưu hóa chi phí gọi AI}
+\label{fig:activity_diagram}
+\end{figure}
+
+\section{Sơ đồ Tuần tự (Sequence Diagram)}
+Hình~\ref{fig:sequence_diagram} minh họa thông điệp trao đổi giữa User/React UI, FastAPI, Gemini API và SQLite DB.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.95\textwidth}{!}{%
+\begin{tikzpicture}[
+    lifeline/.style={draw=gray!60, dashed, thick},
+    obj/.style={draw=blue!70, fill=blue!10, thick, rounded corners, minimum width=2.5cm, minimum height=0.85cm, font=\footnotesize\bfseries, align=center},
+    msg/.style={-{Stealth[scale=0.9]}, thick, font=\scriptsize},
+    returnmsg/.style={-{Stealth[scale=0.9]}, dashed, thick, font=\scriptsize}
+]
+    \node[obj] (client) at (0,0) {User / React UI};
+    \node[obj] (api) at (4.3,0) {FastAPI Backend};
+    \node[obj] (ai) at (8.6,0) {Gemini API};
+    \node[obj] (db) at (12.9,0) {SQLite DB};
+
+    \draw[lifeline] (client) -- ++(0, -10.6);
+    \draw[lifeline] (api) -- ++(0, -10.6);
+    \draw[lifeline] (ai) -- ++(0, -10.6);
+    \draw[lifeline] (db) -- ++(0, -10.6);
+
+    \draw[msg] (0, -1.0) -- node[above, fill=white, inner sep=1pt]{1. Yêu cầu Dashboard nhà hàng} (4.3, -1.0);
+    \draw[msg] (4.3, -1.8) -- node[above, fill=white, inner sep=1pt]{2. Truy vấn thống kê, khía cạnh \& đánh giá} (12.9, -1.8);
+    \draw[returnmsg] (12.9, -2.6) -- node[above, fill=white, inner sep=1pt]{3. Trả về reviews (kèm nhãn Spam \& ABSA)} (4.3, -2.6);
+    \draw[returnmsg] (4.3, -3.4) -- node[above, fill=white, inner sep=1pt]{4. Tổng hợp SWOT, Checklist \& hiển thị UI} (0, -3.4);
+
+    \draw[msg] (0, -4.5) -- node[above, fill=white, inner sep=1pt]{5. Gửi câu hỏi Chatbot / Yêu cầu soạn Reply} (4.3, -4.5);
+    \draw[msg] (4.3, -5.3) -- node[above, fill=white, inner sep=1pt]{6. Truy xuất ngữ cảnh 5 khía cạnh \& 12 trích dẫn} (12.9, -5.3);
+    \draw[returnmsg] (12.9, -6.1) -- node[above, fill=white, inner sep=1pt]{7. Dữ liệu ngữ cảnh nhà hàng thực tế} (4.3, -6.1);
+    \draw[msg] (4.3, -7.0) -- node[above, fill=white, inner sep=1pt]{8. Gửi System Instruction + XML Prompt} (8.6, -7.0);
+    \draw[returnmsg] (8.6, -7.9) -- node[above, fill=white, inner sep=1pt]{9. Trả lời phân tích / Thư phản hồi + Mã Voucher} (4.3, -7.9);
+    \draw[msg] (4.3, -8.6) -- ++(1.2, 0) -- ++(0, -0.55) -- node[right=1.2cm, pos=0.5, font=\scriptsize, fill=white, inner sep=1pt]{10. Lưu In-Memory Cache (0ms lần sau)} (4.3, -9.15);
+    \draw[returnmsg] (4.3, -9.9) -- node[above, fill=white, inner sep=1pt]{11. Hiển thị câu trả lời AI / Bản thảo thư} (0, -9.9);
+\end{tikzpicture}%
+}
+\caption{Sơ đồ tuần tự luồng tải Dashboard, hỏi đáp AI Chatbot và soạn thư phản hồi}
+\label{fig:sequence_diagram}
+\end{figure}
+
+\section{Sơ đồ Thực thể Liên kết (ERD) và Luồng Dữ liệu (DFD)}
+Cấu trúc cơ sở dữ liệu quan hệ được mô tả tại Hình~\ref{fig:erd_diagram}, trong khi luồng thông tin DFD Mức 0 và Mức 1 được minh họa tại Hình~\ref{fig:dfd_level0} và Hình~\ref{fig:dfd_level1}.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.95\textwidth}{!}{%
+\begin{tikzpicture}[
+    entity/.style={draw=blue!80, fill=blue!10, rectangle, thick, minimum width=2.9cm, minimum height=0.95cm, align=center, font=\small\bfseries},
+    attr/.style={draw=black!70, fill=white, ellipse, font=\scriptsize, align=center, inner sep=2pt},
+    rel/.style={draw=orange!80, fill=orange!10, diamond, aspect=1.8, thick, font=\scriptsize\bfseries, align=center}
+]
+    \node[entity] (rest) at (0, 0) {Restaurant};
+    \node[rel] (has) at (4.4, 0) {Has};
+    \node[entity] (rev) at (8.8, 0) {Review};
+    \node[rel] (produces) at (8.8, -3.2) {Produces};
+    \node[entity] (aspect) at (8.8, -6.4) {ReviewAnalysis};
+    \node[entity] (queue) at (0, -5.4) {CrawlRequest};
+
+    \draw[thick] (rest) -- node[above, font=\small]{1} (has);
+    \draw[thick] (has) -- node[above, font=\small]{N} (rev);
+    \draw[thick] (rev) -- node[right, font=\small]{1} (produces);
+    \draw[thick] (produces) -- node[right, font=\small]{N} (aspect);
+
+    \node[attr] (r_id) at (-2.7, 1.5) {\underline{id}};
+    \node[attr] (r_name) at (-0.6, 2.0) {name};
+    \node[attr] (r_city) at (1.8, 1.6) {city / address};
+    \node[attr] (r_urls) at (-3.1, -0.1) {foody / gmaps\_url};
+    \node[attr] (r_cred) at (-1.8, -1.7) {credibility\_score};
+    \draw (rest) -- (r_id); \draw (rest) -- (r_name); \draw (rest) -- (r_city);
+    \draw (rest) -- (r_urls); \draw (rest) -- (r_cred);
+
+    \node[attr] (rv_id) at (6.5, 1.6) {\underline{id}};
+    \node[attr] (rv_src) at (8.6, 2.0) {source};
+    \node[attr] (rv_text) at (10.9, 1.6) {text / rating};
+    \node[attr] (rv_fp) at (12.1, 0.2) {fingerprint};
+    \node[attr] (rv_spam) at (11.9, -1.3) {\textbf{is\_spam / category}};
+    \draw (rev) -- (rv_id); \draw (rev) -- (rv_src); \draw (rev) -- (rv_text);
+    \draw (rev) -- (rv_fp); \draw (rev) -- (rv_spam);
+
+    \node[attr] (a_id) at (5.6, -5.6) {\underline{id}};
+    \node[attr] (a_cat) at (5.6, -7.0) {aspect};
+    \node[attr] (a_pol) at (7.8, -8.2) {sentiment};
+    \node[attr] (a_conf) at (10.3, -8.2) {confidence};
+    \node[attr] (a_urg) at (12.0, -6.4) {\textbf{is\_urgent}};
+    \draw (aspect) -- (a_id); \draw (aspect) -- (a_cat); \draw (aspect) -- (a_pol);
+    \draw (aspect) -- (a_conf); \draw (aspect) -- (a_urg);
+
+    \node[attr] (q_id) at (-2.7, -4.4) {\underline{id}};
+    \node[attr] (q_query) at (-2.4, -6.4) {query / city};
+    \node[attr] (q_stat) at (0.4, -7.2) {status};
+    \draw (queue) -- (q_id); \draw (queue) -- (q_query); \draw (queue) -- (q_stat);
+\end{tikzpicture}%
+}
+\caption{Sơ đồ Thực thể Liên kết (ERD) của cơ sở dữ liệu Restaurant Intelligence}
+\label{fig:erd_diagram}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\resizebox{0.86\textwidth}{!}{%
+\begin{tikzpicture}[
+    ext/.style={draw=black!80, fill=gray!10, rectangle, thick, minimum width=3.1cm, minimum height=1.2cm, align=center, font=\footnotesize\bfseries},
+    proc/.style={draw=blue!80, fill=blue!10, circle, thick, minimum size=3.0cm, align=center, font=\footnotesize\bfseries},
+    arrow/.style={-{Stealth[scale=0.95]}, thick, font=\scriptsize}
+]
+    \node[proc] (p0) at (0,0) {0.0\\Hệ thống\\Restaurant\\Intelligence};
+    \node[ext] (foody) at (-6.2,0) {Foody.vn \&\\Google Maps};
+    \node[ext] (user) at (6.2,0) {Thực khách /\\Chủ nhà hàng};
+
+    \draw[arrow] (foody.east) -- node[above=3pt, align=center]{Đánh giá \&\\Thông tin quán} (p0.west);
+    \draw[arrow] (user.north west) to[bend right=24] node[above=3pt]{Tìm kiếm, Dán URL \& Hỏi AI} (p0.north east);
+    \draw[arrow] (p0.south east) to[bend right=24] node[below=3pt]{Dashboard, Cảnh báo \& Thư Reply} (user.south west);
+\end{tikzpicture}%
+}
+\caption{Sơ đồ Luồng dữ liệu Mức 0 (DFD Context Diagram)}
+\label{fig:dfd_level0}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\resizebox{0.88\textwidth}{!}{%
+\begin{tikzpicture}[
+    proc/.style={draw=blue!80, fill=blue!10, rounded corners=10pt, thick, text width=3.5cm, minimum height=1.15cm, align=center, font=\scriptsize\bfseries},
+    store/.style={draw=black!80, fill=yellow!10, thick, text width=3.8cm, minimum height=0.9cm, align=center, font=\scriptsize},
+    arrow/.style={-{Stealth[scale=0.95]}, thick, font=\scriptsize}
+]
+    \node[proc] (p1) at (-3.8, 3.6) {1.0 Thu thập đa nguồn\\\& Lọc Spam 11 ca};
+    \node[proc] (p2) at (3.8, 3.6) {2.0 Phân tích ABSA\\(Google Gemini AI)};
+
+    \node[store] (d1) at (-3.8, 0.8) {[D1] Bảng \texttt{restaurants}\\và \texttt{reviews}};
+    \node[proc] (p3) at (3.8, 0.8) {3.0 Tổng hợp BI\\\& Dashboard Kép};
+
+    \node[proc] (p4) at (-3.8, -2.0) {4.0 Trợ lý Chatbot \&\\AI Review Responder};
+    \node[store] (d2) at (3.8, -2.0) {[D2] Bảng kết quả\\\texttt{review\_analysis}};
+
+    \draw[arrow] (p1.south) -- node[left=4pt]{Lưu review \& cờ Spam} (d1.north);
+    \draw[arrow] (d1.east) -- ++(1.3, 0) |- node[pos=0.72, above=2pt]{Review hợp lệ (Batch 20)} (p2.west);
+    \draw[arrow] (p2.south) -- node[right=4pt]{Cập nhật tức thì} (p3.north);
+    \draw[arrow] (p2.east) -- ++(1.1, 0) |- node[pos=0.25, right=3pt, align=left]{Lưu kết quả\\5 khía cạnh} (d2.east);
+    \draw[arrow] (d2.north) -- node[left=4pt]{Đọc 5 khía cạnh} (p3.south);
+    \draw[arrow] (d1.south) -- node[left=4pt]{Trích dẫn mẫu} (p4.north);
+    \draw[arrow] (d2.west) -- node[below=3pt]{Dữ liệu thống kê ABSA} (p4.east);
+    \draw[arrow] ([yshift=8pt]p4.east) -- ++(1.6, 0) |- node[pos=0.22, left=2pt, align=right]{Tư vấn \& Thư trả lời\\kèm Mã Voucher} ([yshift=-8pt]p3.west);
+\end{tikzpicture}%
+}
+\caption{Sơ đồ Luồng dữ liệu Mức 1 (DFD Level 1)}
+\label{fig:dfd_level1}
+\end{figure}

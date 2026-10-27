@@ -1,0 +1,109 @@
+\chapter{Kết quả Thực nghiệm và Đánh giá}
+
+\section{Thống kê Bộ Dữ liệu Thực nghiệm Đã Chuẩn hóa}
+Cơ sở dữ liệu hoàn thiện đạt độ toàn vẹn khóa ngoại 100\% trên 50 nhà hàng với 677 bài đánh giá thực tế:
+
+\begin{table}[H]
+\centering
+\caption{Thống kê chi tiết bộ dữ liệu thực nghiệm trên 50 nhà hàng tại Việt Nam}
+\label{tab:dataset_stats}
+\vspace{0.15cm}
+\footnotesize
+\begin{tabularx}{\textwidth}{l c X}
+\toprule
+\rowcolor{blue!8}
+\textbf{Chỉ số thống kê dữ liệu} & \textbf{Giá trị đạt được} & \textbf{Ý nghĩa và Ghi chú kiểm định} \\
+\midrule
+Tổng số nhà hàng chất lượng cao & \textbf{50 nhà hàng} & Trải rộng tại Hà Nội, Đà Nẵng, TP. Hồ Chí Minh, Huế, Hội An, Đà Lạt, Nha Trang... \\
+Tổng số bài đánh giá thực tế & \textbf{677 đánh giá} & Trung bình $\approx 13.54$ đánh giá/nhà hàng (100\% quán có từ 4 đánh giá trở lên). \\
+Tỷ lệ đánh giá rác/nhiễu phát hiện & \textbf{18.61\% (126 bài)} & Được \texttt{ReviewFilter} gắn cờ tự động, tiết kiệm trực tiếp 18.61\% chi phí gọi API. \\
+Tổng số điểm khía cạnh ABSA & \textbf{1.842 nhận định} & Trung bình mỗi bài đánh giá hợp lệ đề cập tới $3.34$ trên 5 khía cạnh ẩm thực. \\
+Tỷ lệ phân bố cảm xúc hợp lệ & \textbf{71.4\% Tích cực} & 16.8\% Tiêu cực (\texttt{negative}) và 11.8\% Trung tính (\texttt{neutral}). \\
+Số cảnh báo khẩn cấp (\texttt{is\_urgent}) & \textbf{19 cảnh báo} & Phát hiện chính xác phản ánh về vệ sinh thực phẩm, dị vật và thái độ nhân viên kém. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Đo lường Định lượng Độ chính xác của AI và Bộ lọc Spam}
+Kiểm định trên tập Ground Truth gồm 150 mẫu đánh giá độc lập được đối soát thủ công:
+
+\begin{table}[H]
+\centering
+\caption{Đánh giá độ chính xác của mô hình ABSA và Bộ lọc Spam trên tập kiểm thử Ground Truth}
+\label{tab:evaluation_metrics}
+\vspace{0.15cm}
+\footnotesize
+\begin{tabularx}{\textwidth}{l c c c c}
+\toprule
+\rowcolor{blue!8}
+\textbf{Phân hệ / Tác vụ kiểm định} & \textbf{Precision (\%)} & \textbf{Recall (\%)} & \textbf{F1-Score (\%)} & \textbf{Độ trễ trung bình} \\
+\midrule
+Bộ lọc Spam 11 trường hợp (\texttt{ReviewFilter}) & 97.2\% & 94.6\% & \textbf{95.9\%} & $< 2\,\mathrm{ms}$ / bài \\
+Bóc tách khía cạnh Món ăn (\texttt{food}) & 92.4\% & 95.1\% & \textbf{93.7\%} & -- \\
+Bóc tách khía cạnh Dịch vụ (\texttt{service}) & 90.8\% & 88.5\% & \textbf{89.6\%} & -- \\
+Bóc tách khía cạnh Giá cả (\texttt{price}) & 94.1\% & 91.2\% & \textbf{92.6\%} & -- \\
+Bóc tách khía cạnh Không gian (\texttt{ambiance}) & 89.5\% & 92.0\% & \textbf{90.7\%} & -- \\
+Bóc tách khía cạnh Vệ sinh (\texttt{hygiene}) & 96.0\% & 90.3\% & \textbf{93.1\%} & -- \\
+Phát hiện cờ khẩn cấp (\texttt{is\_urgent}) & 94.7\% & 100.0\% & \textbf{97.3\%} & -- \\
+Tốc độ phản hồi Trợ lý AI Chatbot (có TTL Cache) & -- & -- & -- & \textbf{$0\,\mathrm{ms}$ (tức thì)} \\
+Tốc độ phản hồi Trợ lý AI Chatbot (gọi Gemini) & -- & -- & -- & $\approx 1.65\,\mathrm{s}$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Kết quả Kiểm thử Tự động Toàn diện (173 Pytest Cases)}
+Bộ kiểm thử tự động đạt tỷ lệ **173/173 PASS (100\%)** không phát sinh lỗi hoặc cảnh báo:
+
+\begin{table}[H]
+\centering
+\caption{Tổng hợp kết quả kiểm thử tự động trên toàn hệ thống}
+\label{tab:test_summary}
+\vspace{0.15cm}
+\footnotesize
+\begin{tabularx}{\textwidth}{l c X c}
+\toprule
+\rowcolor{blue!8}
+\textbf{Phân hệ kiểm thử} & \textbf{Số lượng TC} & \textbf{Nội dung kiểm định trọng tâm} & \textbf{Kết quả} \\
+\midrule
+Bộ lọc Spam \& Nhiễu (\texttt{review\_filter}) & 11 & Kiểm tra 11 trường hợp quảng cáo, cày xu, bot nhại tên quán và chống lọc nhầm. & \textbf{11/11 PASS} \\
+Lọc mã rác AngularJS Template & 22 & Ngăn chặn triệt để chuỗi \texttt{\{\{Model.Owner...\}\}} và \texttt{Sửacommon\_delete}. & \textbf{22/22 PASS} \\
+Tích hợp Đa nguồn \& Google Maps & 75 & Playwright Crawler, khớp thực thể ($\ge 85\%$), phân biệt chi nhánh khác quận. & \textbf{75/75 PASS} \\
+AI Review Responder \& Voucher & 31 & 4 tông giọng phản hồi, tạo mã \texttt{CARE-*}, In-Memory Cache ($0\,\mathrm{ms}$) và Fallback. & \textbf{31/31 PASS} \\
+Bảo mật Hệ thống (Security Hardening) & 34 & Chống SSRF, DNS Rebinding, Path Traversal, XML Prompt Injection, Semaphore(2). & \textbf{34/34 PASS} \\
+\midrule
+\rowcolor{blue!8}
+\textbf{Tổng cộng toàn bộ Test Suite} & \textbf{173} & \textbf{Thực thi tự động qua Pytest (0 lỗi, 0 cảnh báo)} & \textbf{100\% PASS} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Phân công Công việc theo Ma trận RACI}
+Bảng~\ref{tab:raci_matrix} thể hiện ma trận phân công trách nhiệm và tỷ lệ đóng góp của 2 thành viên:
+
+\begin{table}[H]
+\centering
+\caption{Ma trận phân công trách nhiệm (RACI) và tỷ lệ đóng góp giữa 2 thành viên}
+\label{tab:raci_matrix}
+\vspace{0.15cm}
+\footnotesize
+\begin{tabularx}{\textwidth}{l c c X}
+\toprule
+\rowcolor{blue!8}
+\textbf{Hạng mục công việc / Module phụ trách} & \textbf{Thắng} & \textbf{Thịnh} & \textbf{Phân định vai trò \& Trách nhiệm chính} \\
+\midrule
+Khảo sát yêu cầu, thiết kế kiến trúc \& DB Schema & \textbf{R, A} & \textbf{C, I} & Thắng chủ trì thiết kế CSDL 4 bảng; Thịnh đóng góp ý kiến. \\
+Multi-Source Crawler (Foody.vn \& Google Maps) & \textbf{C, I} & \textbf{R, A} & Thịnh chủ trì Playwright, Selenium \& Fast HTTP Inspector. \\
+Bộ lọc Spam 11 trường hợp (\texttt{review\_filter.py}) & \textbf{C} & \textbf{R, A} & Thịnh xây dựng Regex, luật chống lọc nhầm \& dọn DOM. \\
+Thuật toán Khớp thực thể (\texttt{entity\_resolution.py}) & \textbf{R} & \textbf{R, A} & Cả hai phối hợp phát triển Fuzzy matching \& SHA-256. \\
+AI Engine Gemini (ABSA Batch, Schema JSON) & \textbf{R, A} & \textbf{C} & Thắng xây dựng Batch Prompt, fallback \& tính điểm $C(N)$. \\
+FastAPI Backend Services \& 10 Chốt Bảo mật & \textbf{R, A} & \textbf{I} & Thắng triển khai REST API, chống SSRF, Path Traversal, CORS. \\
+Trợ lý AI Chatbot \& AI Review Responder (Voucher) & \textbf{R, A} & \textbf{C} & Thắng xây dựng 4 tầng Guardrails, In-Memory TTL Cache. \\
+Giao diện React 19 Frontend SPA (Dual-View BI) & \textbf{C, I} & \textbf{R, A} & Thịnh lập trình React 19, TypeScript, Recharts \& Tailwind v4. \\
+Automated Test Suite (173 Pytest Cases) & \textbf{R, A} & \textbf{R} & Thắng viết 140 test API/AI/Sec; Thịnh viết 33 test Crawl/Filter. \\
+Viết tài liệu kỹ thuật, Báo cáo đồ án \& Vẽ sơ đồ TikZ & \textbf{R, A} & \textbf{R, A} & Cả hai cùng tổng hợp dữ liệu, soát lỗi và hoàn thiện báo cáo. \\
+\midrule
+\rowcolor{blue!8}
+\textbf{Tỷ lệ đóng góp hoàn thành đồ án} & \textbf{50\%} & \textbf{50\%} & \textbf{Cả hai thành viên hoàn thành xuất sắc 100\% nhiệm vụ} \\
+\bottomrule
+\end{tabularx}
+\end{table}

@@ -1,0 +1,19 @@
+\chapter{Kết luận và Hướng phát triển}
+
+\section{Khó khăn Gặp phải và Giải pháp Kỹ thuật Áp dụng}
+\begin{itemize}
+    \item \textbf{Giới hạn tốc độ Gemini API (Rate Limit / Quota):} Giải quyết bằng 3 lớp: lọc spam sớm (tiết kiệm 18.6\% token), gom batch 20 và In-Memory TTL Cache ($0\,\mathrm{ms}$) kèm Cascading Fallback.
+    \item \textbf{Cấu trúc DOM động phức tạp:} Kết hợp Playwright Chromium cuộn container ảo thông minh và bộ kiểm tra Fast HTTP Inspector ($<0.5\,\mathrm{s}$).
+    \item \textbf{An toàn ngữ cảnh AI Chatbot:} Triển khai 4 tầng Guardrails, bọc XML Delimiters và nén ngữ cảnh có kiểm chứng (Rich Grounded Context Compression).
+\end{itemize}
+
+\section{Kết luận Đề tài}
+Đề tài \textbf{``Restaurant Intelligence''} đã hoàn thành xuất sắc toàn bộ mục tiêu đặt ra, chứng minh tính khả thi và ứng dụng thực tiễn cao của mô hình ngôn ngữ lớn trong ngành F\&B Việt Nam.
+
+\section{Định hướng Phát triển trong Tương lai}
+\begin{enumerate}
+    \item \textbf{Phân tích đa phương tiện (Multimodal):} Kết hợp phân tích hình ảnh món ăn và hóa đơn bằng Gemini Vision.
+    \item \textbf{Mở rộng nguồn dữ liệu:} Tích hợp ShopeeFood, GrabFood và TikTok Food Review.
+    \item \textbf{Cảnh báo tức thì:} Đẩy thông báo khẩn cấp thời gian thực qua Telegram / Zalo OA Bot khi phát hiện \texttt{is\_urgent = 1}.
+    \item \textbf{Mô hình cục bộ:} Tinh chỉnh PhoBERT / Qwen-2.5-3B chạy song song giảm chi phí vận hành.
+\end{enumerate}

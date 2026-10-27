@@ -36,6 +36,26 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
   );
   const [maxReviews, setMaxReviews] = useState<number>(30);
 
+  const handleQueryNameChange = (val: string) => {
+    const trimmed = val.trim();
+    // Tự động chuyển sang tab URL nếu người dùng nhập hoặc dán đường dẫn Google Maps
+    if (/^https?:\/\//i.test(trimmed)) {
+      setActiveTab('url');
+      setGoogleMapsUrl(trimmed);
+      return;
+    }
+    setQueryName(val);
+  };
+
+  const handleQueryNamePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pastedText = e.clipboardData.getData('text').trim();
+    if (/^https?:\/\//i.test(pastedText)) {
+      e.preventDefault();
+      setActiveTab('url');
+      setGoogleMapsUrl(pastedText);
+    }
+  };
+
   // Trạng thái cào dữ liệu
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
@@ -80,15 +100,23 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
     setErrorMsg(null);
     setCrawlResult(null);
 
-    const payloadUrl = activeTab === 'url' ? googleMapsUrl.trim() : undefined;
-    const payloadQuery = activeTab === 'search' ? queryName.trim() : undefined;
+    let payloadUrl = activeTab === 'url' ? googleMapsUrl.trim() : undefined;
+    let payloadQuery = activeTab === 'search' ? queryName.trim() : undefined;
+
+    // Tự động nhận diện nếu đang ở tab 'search' mà queryName là URL bắt đầu bằng https?://
+    if (activeTab === 'search' && payloadQuery && /^https?:\/\//i.test(payloadQuery)) {
+      payloadUrl = payloadQuery;
+      payloadQuery = undefined;
+      setGoogleMapsUrl(payloadUrl);
+      setActiveTab('url');
+    }
 
     if (activeTab === 'url' && !payloadUrl) {
       setErrorMsg('Vui lòng nhập đường dẫn Google Maps hợp lệ.');
       return;
     }
 
-    if (activeTab === 'search' && !payloadQuery) {
+    if (activeTab === 'search' && !payloadUrl && !payloadQuery) {
       setErrorMsg('Vui lòng nhập tên hoặc từ khóa tìm kiếm quán.');
       return;
     }
@@ -364,7 +392,8 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
                       id="gmaps-query-input"
                       type="text"
                       value={queryName}
-                      onChange={(e) => setQueryName(e.target.value)}
+                      onChange={(e) => handleQueryNameChange(e.target.value)}
+                      onPaste={handleQueryNamePaste}
                       placeholder="VD: Cơm Gà Bà Buội Phan Chu Trinh Hội An"
                       className="w-full bg-white border border-[#E8E4DC] rounded-xl px-4 py-2.5 text-xs sm:text-sm text-[#1C1917] placeholder:text-[#A8A29E] focus:outline-none focus:border-[#991B1B] transition-colors"
                       required

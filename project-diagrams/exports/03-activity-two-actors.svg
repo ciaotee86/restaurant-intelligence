@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1169" height="990" viewBox="0 0 1169 990">
+    
+    <defs>
+      <marker id="arrow_classic" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1 L 10 5 L 0 9 z" fill="#334155" />
+      </marker>
+      <marker id="diamond_filled" viewBox="0 0 14 14" refX="7" refY="7" markerWidth="8" markerHeight="8" orient="auto">
+        <polygon points="7,0 14,7 7,14 0,7" fill="#0f172a" />
+      </marker>
+    </defs>
+    
+    <rect width="1169" height="990" fill="#ffffff" /><rect x="540.0" y="68.0" width="580.0" height="900.0" rx="4" ry="4" fill="#f8fafc" stroke="#64748b" stroke-width="1.5" /><rect x="540.0" y="68.0" width="580.0" height="30.0" rx="4" ry="4" fill="#e2e8f0" stroke="#64748b" stroke-width="1.5" /><foreignObject x="550.0" y="72.0" width="560.0" height="30.0">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 12px; font-weight: bold; color: #0f172a; text-align: center; line-height: 30.0px;">
+                        HỆ THỐNG & AI ENGINE
+                    </div>
+                </foreignObject><rect x="50.0" y="68.0" width="490.0" height="900.0" rx="4" ry="4" fill="#f8fafc" stroke="#64748b" stroke-width="1.5" /><rect x="50.0" y="68.0" width="490.0" height="30.0" rx="4" ry="4" fill="#e2e8f0" stroke="#64748b" stroke-width="1.5" /><foreignObject x="60.0" y="72.0" width="470.0" height="30.0">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 12px; font-weight: bold; color: #0f172a; text-align: center; line-height: 30.0px;">
+                        CHỦ NHÀ HÀNG / QUẢN LÝ
+                    </div>
+                </foreignObject><rect x="40.0" y="15.0" width="1090.0" height="40.0" rx="6" ry="6" fill="#0f172a" stroke="#020617" stroke-width="2"  /><foreignObject x="44.0" y="17.0" width="1082.0" height="36.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; font-weight: bold; color: #ffffff; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>SƠ ĐỒ HOẠT ĐỘNG (SWIMLANE ACTIVITY DIAGRAM)</div>
+                </div>
+            </foreignObject><rect x="690.0" y="675.0" width="280.0" height="48.0" rx="6" ry="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"  /><foreignObject x="694.0" y="677.0" width="272.0" height="44.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: normal; color: #78350f; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Tạo mã Voucher & sinh lại thư</div>
+                </div>
+            </foreignObject><rect x="690.0" y="290.0" width="280.0" height="45.0" rx="6" ry="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"  /><foreignObject x="694.0" y="292.0" width="272.0" height="41.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: normal; color: #78350f; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>4. Trích xuất ngữ cảnh bài đánh giá</div>
+                </div>
+            </foreignObject><rect x="690.0" y="530.0" width="280.0" height="45.0" rx="6" ry="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"  /><foreignObject x="694.0" y="532.0" width="272.0" height="41.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: normal; color: #78350f; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>6. Lưu cache & trả bản thảo về Modal</div>
+                </div>
+            </foreignObject><rect x="160.0" y="160.0" width="270.0" height="45.0" rx="6" ry="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"  /><foreignObject x="164.0" y="162.0" width="262.0" height="41.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: normal; color: #78350f; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>1. Mở Dashboard & xem đánh giá</div>
+                </div>
+            </foreignObject><rect x="160.0" y="225.0" width="270.0" height="45.0" rx="6" ry="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"  /><foreignObject x="164.0" y="227.0" width="262.0" height="41.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: normal; color: #78350f; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>2. Chọn đánh giá tiêu cực (1 sao)</div>
+                </div>
+            </foreignObject><rect x="160.0" y="290.0" width="270.0" height="45.0" rx="6" ry="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"  /><foreignObject x="164.0" y="292.0" width="262.0" height="41.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: normal; color: #78350f; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>3. Bấm 'AI Phản hồi'</div>
+                </div>
+            </foreignObject><rect x="160.0" y="530.0" width="270.0" height="45.0" rx="6" ry="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"  /><foreignObject x="164.0" y="532.0" width="262.0" height="41.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: normal; color: #78350f; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>7. Xem bản thảo phản hồi</div>
+                </div>
+            </foreignObject><rect x="690.0" y="795.0" width="280.0" height="42.0" rx="6" ry="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"  /><foreignObject x="694.0" y="797.0" width="272.0" height="38.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: normal; color: #78350f; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>10. Lưu vào Clipboard & Báo thành công</div>
+                </div>
+            </foreignObject><rect x="160.0" y="795.0" width="270.0" height="42.0" rx="6" ry="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"  /><foreignObject x="164.0" y="797.0" width="262.0" height="38.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: normal; color: #78350f; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>9. Bấm 'Sao chép phản hồi'</div>
+                </div>
+            </foreignObject><rect x="160.0" y="865.0" width="270.0" height="42.0" rx="6" ry="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"  /><foreignObject x="164.0" y="867.0" width="262.0" height="38.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: normal; color: #78350f; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>11. Dán câu trả lời lên Google Maps / Foody</div>
+                </div>
+            </foreignObject><rect x="830.0" y="425.0" width="230.0" height="45.0" rx="6" ry="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"  /><foreignObject x="834.0" y="427.0" width="222.0" height="41.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: normal; color: #78350f; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>5b. Gọi Gemini sinh thư mới</div>
+                </div>
+            </foreignObject><rect x="65.0" y="675.0" width="215.0" height="48.0" rx="6" ry="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"  /><foreignObject x="69.0" y="677.0" width="207.0" height="44.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: normal; color: #78350f; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>8b. Sửa trực tiếp nội dung</div>
+                </div>
+            </foreignObject><rect x="295.0" y="675.0" width="215.0" height="48.0" rx="6" ry="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"  /><foreignObject x="299.0" y="677.0" width="207.0" height="44.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: normal; color: #78350f; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>8a. Chọn tông 'Voucher đền bù'</div>
+                </div>
+            </foreignObject><rect x="560.0" y="425.0" width="200.0" height="45.0" rx="6" ry="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"  /><foreignObject x="564.0" y="427.0" width="192.0" height="41.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: normal; color: #78350f; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>5a. Lấy từ Session Cache</div>
+                </div>
+            </foreignObject><polygon points="830.0,355.0 870.0,379.0 830.0,403.0 790.0,379.0" fill="#fee2e2" stroke="#dc2626" stroke-width="1.5" /><foreignObject x="794.0" y="357.0" width="72.0" height="44.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 9.5px; font-weight: bold; color: #7f1d1d; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Có Cache?</div>
+                </div>
+            </foreignObject><polygon points="295.0,600.0 335.0,624.0 295.0,648.0 255.0,624.0" fill="#fee2e2" stroke="#dc2626" stroke-width="1.5" /><foreignObject x="259.0" y="602.0" width="72.0" height="44.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 9.5px; font-weight: bold; color: #7f1d1d; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Đánh giá<br/>bản thảo?</div>
+                </div>
+            </foreignObject><polygon points="820.0,490.0 845.0,502.5 820.0,515.0 795.0,502.5" fill="#e2e8f0" stroke="#475569" stroke-width="1.5" /><polygon points="185.0,750.0 205.0,762.0 185.0,774.0 165.0,762.0" fill="#e2e8f0" stroke="#475569" stroke-width="1.5" /><ellipse cx="295.0" cy="128.0" rx="13.0" ry="13.0" fill="#0f172a" stroke="none" stroke-width="1.5"  /><circle cx="295.0" cy="948.0" r="11.0" fill="none" stroke="#0f172a" stroke-width="2" /><circle cx="295.0" cy="948.0" r="6.5" fill="#0f172a" stroke="none" /><path d="M 295.0 141.0 L 295.0 160.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><path d="M 295.0 205.0 L 295.0 225.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><path d="M 295.0 270.0 L 295.0 290.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><path d="M 430.0 312.5 L 690.0 312.5" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="517.25" y="302.5" width="85.5" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Gửi yêu cầu
+                </div>
+            </foreignObject><path d="M 830.0 335.0 L 830.0 355.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><path d="M 830.0 403.0 L 830.0 414.0 L 660.0 414.0 L 660.0 425.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="722.5" y="404.0" width="45" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    [Có]
+                </div>
+            </foreignObject><path d="M 830.0 403.0 L 830.0 414.0 L 945.0 414.0 L 945.0 425.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="857.75" y="404.0" width="59.5" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    [Không]
+                </div>
+            </foreignObject><path d="M 660.0 470.0 L 660.0 480.0 L 820.0 480.0 L 820.0 490.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><path d="M 945.0 470.0 L 945.0 480.0 L 820.0 480.0 L 820.0 490.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><path d="M 825.0 515.0 L 825.0 530.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><path d="M 690.0 552.5 L 430.0 552.5" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="527.0" y="542.5" width="66.0" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Bản thảo
+                </div>
+            </foreignObject><path d="M 295.0 575.0 L 295.0 600.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><path d="M 295.0 648.0 L 295.0 661.5 L 172.5 661.5 L 172.5 675.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="174.75" y="651.5" width="118.0" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    [Hài lòng / Sửa]
+                </div>
+            </foreignObject><path d="M 295.0 648.0 L 295.0 661.5 L 402.5 661.5 L 402.5 675.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="299.5" y="651.5" width="98.5" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    [Cần voucher]
+                </div>
+            </foreignObject><path d="M 510.0 699.0 L 690.0 699.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="570.25" y="689.0" width="59.5" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Yêu cầu
+                </div>
+            </foreignObject><path d="M 830.0 723.0 L 830.0 736.5 L 185.0 736.5 L 185.0 750.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="461.5" y="726.5" width="92.0" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Bản thảo mới
+                </div>
+            </foreignObject><path d="M 178.75 723.0 L 178.75 750.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><path d="M 185.0 774.0 L 185.0 784.5 L 295.0 784.5 L 295.0 795.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><path d="M 430.0 816.0 L 690.0 816.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="527.0" y="806.0" width="66.0" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Sao chép
+                </div>
+            </foreignObject><path d="M 830.0 837.0 L 830.0 851.0 L 295.0 851.0 L 295.0 865.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="529.5" y="841.0" width="66.0" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Hoàn tất
+                </div>
+            </foreignObject><path d="M 295.0 907.0 L 295.0 935.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" />
+    </svg>

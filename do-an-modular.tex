@@ -1,0 +1,96 @@
+% !TEX program = xelatex
+% =====================================================================
+%  BÁO CÁO ĐỒ ÁN TRÍ TUỆ NHÂN TẠO, HỌC PHẦN AIP202
+%  Khoa Công nghệ Thông tin, Trường Đại học Kiến trúc Đà Nẵng
+%
+%  Build:  latexmk -xelatex do-an.tex
+%  Overleaf: Menu > Compiler > XeLaTeX, rồi bấm Recompile.
+% =====================================================================
+\documentclass[12pt, a4paper, oneside]{book}
+\input{styles/settings}
+
+% --- CÁC GÓI BỔ TRỢ ĐỒ HOẠ, BẢNG BIỂU & THUẬT TOÁN ---
+\usepackage{adjustbox}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, shapes.multipart, arrows.meta, positioning, calc, fit, backgrounds}
+
+% Cấu hình hiển thị mã nguồn / Prompt
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    backgroundcolor=\color{gray!8},
+    frame=single,
+    rulecolor=\color{gray!40},
+    breaklines=true,
+    postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space},
+    tabsize=2,
+    showstringspaces=false,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    xleftmargin=1.5em,
+    framexleftmargin=1.5em
+}
+
+% =====================================================================
+%  THÔNG TIN ĐỒ ÁN (ĐIỀN CHÍNH THỨC CHO 2 SINH VIÊN)
+% =====================================================================
+\crname{BÁO CÁO ĐỒ ÁN TRÍ TUỆ NHÂN TẠO}
+\cmonhoc{Học phần AIP202 \textperiodcentered{} 2 tín chỉ}
+\ctname{HỆ THỐNG PHÂN TÍCH ĐÁNH GIÁ NHÀ HÀNG\\ỨNG DỤNG TRÍ TUỆ NHÂN TẠO\\(RESTAURANT INTELLIGENCE)}
+
+% Sinh viên thực hiện
+\cstuname{Nguyễn Ngọc Thắng \textendash{} MSSV: 2351220287\\Trần Lê Quốc Thịnh \textendash{} MSSV: 2351220257}
+\cmssv{2351220287 -- 2351220257}
+\clopsv{CNTT 23}
+\csCouncil{Công nghệ thông tin}
+\csSupervise{TS. Đỗ Phúc Hảo}
+\cttime{2025--2026}
+\csdeptname{KHOA CÔNG NGHỆ THÔNG TIN}
+\csplace{Đà Nẵng}
+
+\begin{document}
+
+% Trang bìa trang trọng có khung kép theo quy cách trường
+\coverpage
+
+% =====================================================================
+%  PHẦN ĐẦU: ĐÁNH SỐ TRANG LA MÃ THƯỜNG (i, ii, iii...)
+% =====================================================================
+\frontmatter
+\dauPageStyle
+
+\input{chuong/00-loi-cam-doan}
+\input{chuong/00-loi-cam-on}
+\input{chuong/00-tom-tat}
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+% =====================================================================
+%  THÂN BÁO CÁO: 6 CHƯƠNG CHÍNH QUY (ĐÁNH SỐ Ả RẬP 1, 2, 3...)
+% =====================================================================
+\mainmatter
+\dauPageStyle
+
+\input{chuong/01-mo-dau}
+\input{chuong/02-co-so-ly-thuyet}
+\input{chuong/03-phan-tich-thiet-ke}
+\input{chuong/04-cai-dat}
+\input{chuong/05-ket-qua-danh-gia}
+\input{chuong/06-ket-luan}
+
+% =====================================================================
+%  TÀI LIỆU THAM KHẢO
+% =====================================================================
+\backmatter
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Tài liệu tham khảo}
+\bibliographystyle{plain}
+\bibliography{refs}
+
+\end{document}

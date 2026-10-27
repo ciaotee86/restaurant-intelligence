@@ -19,6 +19,7 @@ import sys
 import time
 import random
 import logging
+import subprocess
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
@@ -126,12 +127,77 @@ def clean_review_text(text: Optional[str]) -> str:
 # QUẢN LÝ BROWSER PLAYWRIGHT HEADLESS & STEALTH
 # ==============================================================================
 
+def resolve_chromium_executable(playwright_instance) -> Optional[str]:
+    """
+    Xác định đường dẫn binary Chromium hợp lệ cho Playwright với cơ chế tự phục hồi (Self-Healing Fallback):
+    1. Kiểm tra Playwright bundled browser tại playwright_instance.chromium.executable_path.
+    2. Nếu chưa có hoặc file không tồn tại, tự động fallback sang Chromium hệ thống (/usr/bin/chromium hoặc CHROME_BIN).
+    3. Nếu cả hai chưa có, thử tự động chạy 'subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"])'.
+    """
+    # 1. Kiểm tra Playwright bundled browser
+    try:
+        bundled_path = playwright_instance.chromium.executable_path
+        if bundled_path and os.path.exists(bundled_path) and os.path.isfile(bundled_path):
+            logger.info(f"Sử dụng Playwright bundled Chromium: {bundled_path}")
+            return bundled_path
+        else:
+            logger.warning(
+                f"Playwright bundled Chromium không tồn tại tại: '{bundled_path}'. "
+                "Bắt đầu kích hoạt cơ chế Fallback..."
+            )
+    except Exception as e:
+        logger.warning(f"Lỗi khi kiểm tra Playwright bundled executable_path: {e}")
+
+    # 2. Fallback sang Chromium hệ thống (CHROME_BIN hoặc /usr/bin/chromium)
+    system_candidates = [
+        os.environ.get("CHROME_BIN"),
+        os.environ.get("CHROMIUM_PATH"),
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
+    ]
+    for candidate in system_candidates:
+        if candidate and os.path.exists(candidate) and os.path.isfile(candidate):
+            logger.info(f"Kích hoạt Fallback thành công: Sử dụng Chromium hệ thống tại '{candidate}'")
+            return candidate
+
+    # 3. Nếu cả hai chưa có, thử tự động chạy subprocess playwright install chromium
+    logger.warning("Không tìm thấy Chromium hệ thống. Đang kích hoạt tự động cài đặt qua Playwright...")
+    try:
+        logger.info("Đang thực thi: python -m playwright install chromium...")
+        install_res = subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        if install_res.returncode == 0:
+            logger.info("Tự động cài đặt Playwright Chromium thành công.")
+            try:
+                bundled_path = playwright_instance.chromium.executable_path
+                if bundled_path and os.path.exists(bundled_path) and os.path.isfile(bundled_path):
+                    return bundled_path
+            except Exception:
+                pass
+        else:
+            logger.error(
+                f"Lệnh cài đặt Playwright Chromium trả về mã lỗi {install_res.returncode}. "
+                f"stderr: {install_res.stderr.strip()[:300]}"
+            )
+    except Exception as inst_err:
+        logger.error(f"Quá trình tự động cài đặt Playwright Chromium gặp ngoại lệ: {inst_err}")
+
+    return None
+
+
 def create_stealth_browser(
     playwright_instance,
     headless: bool = True
 ) -> tuple[Browser, BrowserContext, Page]:
     """
     Khởi tạo phiên bản Chromium với cờ chống bot, giả lập thông số desktop Chrome thật.
+    Tích hợp cơ chế tự phục hồi phòng vệ (Self-Healing Fallback) chống thiếu Browser Executable.
     """
     args = [
         "--disable-blink-features=AutomationControlled",
@@ -142,10 +208,27 @@ def create_stealth_browser(
         "--window-size=1280,800",
     ]
 
-    browser = playwright_instance.chromium.launch(
-        headless=headless,
-        args=args
-    )
+    executable_path = resolve_chromium_executable(playwright_instance)
+
+    launch_kwargs: Dict[str, Any] = {
+        "headless": headless,
+        "args": args
+    }
+    if executable_path:
+        launch_kwargs["executable_path"] = executable_path
+
+    try:
+        browser = playwright_instance.chromium.launch(**launch_kwargs)
+    except Exception as launch_err:
+        logger.error(f"Khởi động Chromium với executable_path='{executable_path}' thất bại: {launch_err}")
+        # Thử fallback chéo sang Chromium hệ thống nếu chưa sử dụng
+        fallback_bin = os.environ.get("CHROME_BIN") or "/usr/bin/chromium"
+        if executable_path != fallback_bin and os.path.exists(fallback_bin) and os.path.isfile(fallback_bin):
+            logger.info(f"Thử khởi động lại bằng Chromium hệ thống tại '{fallback_bin}'...")
+            launch_kwargs["executable_path"] = fallback_bin
+            browser = playwright_instance.chromium.launch(**launch_kwargs)
+        else:
+            raise launch_err
 
     context = browser.new_context(
         viewport={"width": 1280, "height": 800},
@@ -813,6 +896,28 @@ def search_and_crawl_google_maps(
         }
 
     clean_query = query.strip()
+    lower_query = clean_query.lower()
+
+    # Nhận diện nếu query thực chất là liên kết Google Maps URL trực tiếp
+    is_direct_url = (
+        clean_query.startswith("http://")
+        or clean_query.startswith("https://")
+        or "google.com/maps" in lower_query
+        or "goo.gl" in lower_query
+    )
+
+    if is_direct_url:
+        target_url = clean_query
+        if not target_url.startswith("http://") and not target_url.startswith("https://"):
+            target_url = f"https://{target_url}"
+        logger.info(f"Nhận diện query là URL Google Maps trực tiếp: '{target_url}' (Bỏ qua ghép thành phố).")
+        return crawl_google_maps_reviews(
+            url=target_url,
+            max_reviews=max_reviews,
+            timeout_ms=timeout_ms,
+            headless=headless
+        )
+
     clean_city = city.strip() if city else ""
     full_search = f"{clean_query} {clean_city}".strip()
     encoded_query = full_search.replace(" ", "+")

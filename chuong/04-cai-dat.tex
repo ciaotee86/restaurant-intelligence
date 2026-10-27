@@ -1,0 +1,159 @@
+\chapter{Hiện thực và Cài đặt Hệ thống}
+
+\section{Hệ sinh thái Công nghệ Sử dụng}
+Chi tiết các thư viện và công nghệ cốt lõi được liệt kê trong Bảng~\ref{tab:tech_stack}:
+
+\begin{table}[H]
+\centering
+\caption{Đặc tả chi tiết ngăn xếp công nghệ (Technology Stack) của dự án}
+\label{tab:tech_stack}
+\vspace{0.15cm}
+\footnotesize
+\begin{tabularx}{\textwidth}{l l X}
+\toprule
+\rowcolor{blue!8}
+\textbf{Phân hệ} & \textbf{Công nghệ / Thư viện} & \textbf{Vai trò và Lý do lựa chọn trong hệ thống} \\
+\midrule
+\textbf{Multi-Source Crawler} & Playwright (Chromium) & Thu thập Google Maps đa chiều, vượt lazy-loading DOM bằng container ảo. \\
+ & Selenium \& BS4 & Thu thập Foody.vn kết hợp Fast HTTP Inspector ($<0.5\,\mathrm{s}$). \\
+\midrule
+\textbf{NLP \& Tiền xử lý} & Regex \& Unicodedata & Chuẩn hóa Unicode NFKC/NFD, vận hành bộ lọc Spam 11 trường hợp và dọn DOM. \\
+ & Difflib / Entity Matcher & So khớp mờ tên quán và đối chiếu địa chỉ cấp Quận/Huyện ($\ge 85\%$). \\
+\midrule
+\textbf{Trí tuệ nhân tạo (LLM)} & Google GenAI SDK~\cite{google2025} & Kết nối \texttt{gemini-3.5-flash-lite} \& \texttt{gemini-2.5-flash} có Structured JSON Schema. \\
+\midrule
+\textbf{Cơ sở dữ liệu} & SQLite 3 (WAL Mode)~\cite{hipp2024} & Ghi nhật ký trước giúp đọc/ghi đồng thời không khóa bảng (\texttt{database is locked}). \\
+ & SQLAlchemy 2.0 ORM & Quản lý 4 bảng quan hệ, bảo vệ chống SQL Injection tuyệt đối. \\
+\midrule
+\textbf{Backend \& Bảo mật} & FastAPI \& Uvicorn~\cite{ramirez2025} & RESTful API bất đồng bộ (ASGI), Pydantic v2 validation, 10 lớp bảo mật. \\
+\midrule
+\textbf{Frontend SPA} & React 19 \& TypeScript & Dashboard tốc độ cao với Vite, kiểm tra kiểu tĩnh an toàn. \\
+ & Tailwind v4 \& Recharts & Trực quan hóa biểu đồ cột chồng 5 khía cạnh, xu hướng thời gian, thẻ so sánh. \\
+\midrule
+\textbf{Kiểm thử \& DevOps} & Pytest \& Docker & 173 kịch bản kiểm thử tự động, Docker Multi-stage, GitHub Actions CI/CD. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Đặc tả Cơ sở Dữ liệu và RESTful API Endpoints}
+Cơ sở dữ liệu lưu trữ trên SQLite WAL mode gồm bảng \texttt{restaurants}, \texttt{reviews} và \texttt{review\_analysis}. Bảng~\ref{tab:api_endpoints} liệt kê các endpoint chính:
+
+\begin{table}[H]
+\centering
+\caption{Danh mục các RESTful API Endpoints cốt lõi trên FastAPI Backend}
+\label{tab:api_endpoints}
+\vspace{0.15cm}
+\footnotesize
+\begin{tabularx}{\textwidth}{l l X}
+\toprule
+\rowcolor{blue!8}
+\textbf{Phương thức} & \textbf{Đường dẫn Endpoint} & \textbf{Chức năng xử lý và Cơ chế bảo vệ} \\
+\midrule
+\texttt{GET} & \texttt{/api/restaurants} & Danh sách quán có phân trang, tìm kiếm tên, lọc tỉnh thành và sắp xếp. \\
+\texttt{GET} & \texttt{/api/restaurants/\{id\}/dashboard} & Toàn bộ gói Dashboard Kép: 5 khía cạnh, xu hướng, SWOT, Checklist vận hành. \\
+\texttt{GET} & \texttt{/api/restaurants/compare} & Đối đầu trực tiếp 2 quán trên cả 5 khía cạnh và tỷ lệ spam. \\
+\texttt{POST} & \texttt{/api/crawl/analyze-url} & Chống SSRF, cào link thời gian thực (\texttt{Semaphore(2)}), lọc spam và phân tích AI. \\
+\texttt{POST} & \texttt{/api/assistant/ask} & Trợ lý AI Chatbot: Kiểm tra 4 tầng Guardrails, nạp 12 trích dẫn thật vào XML Prompt. \\
+\texttt{POST} & \texttt{/api/reviews/\{id\}/reply} & AI Review Responder: Soạn thư theo 4 tông giọng kèm cấp mã voucher \texttt{CARE-*}. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Bộ lọc Spam Đa tín hiệu 11 Trường hợp (\texttt{ReviewFilter})}
+Bảng~\ref{tab:spam_cases} mô tả 11 kịch bản phát hiện spam và bảo vệ ngữ cảnh ẩm thực:
+
+\begin{table}[H]
+\centering
+\caption{Đặc tả 11 kịch bản nhận diện Spam và Bảo vệ ngữ cảnh trong \texttt{ReviewFilter}}
+\label{tab:spam_cases}
+\vspace{0.15cm}
+\scriptsize
+\begin{tabularx}{\textwidth}{c l l X}
+\toprule
+\rowcolor{blue!8}
+\textbf{STT} & \textbf{Mã kịch bản} & \textbf{Hành động} & \textbf{Quy tắc nhận diện (Regex / Heuristics) \& Ví dụ thực tế} \\
+\midrule
+1 & \texttt{valid\_normal} & Giữ lại (\texttt{is\_spam=0}) & Đánh giá thực khách bình thường có nhận xét cụ thể về món ăn, dịch vụ, không gian. \\
+2 & \texttt{low\_information} & Đánh dấu (\texttt{is\_spam=1}) & Bình luận quá ngắn ($< 10$ ký tự hoặc $< 3$ từ), chỉ chứa biểu tượng cảm xúc (\textit{``ok'', ``...''}). \\
+3 & \texttt{car\_rental\_spam} & Đánh dấu (\texttt{is\_spam=1}) & Quảng cáo dịch vụ xe đưa đón, taxi, xe ghép tuyến (\textit{``xe 4-7-16 chỗ đi Bà Nà, Hội An...''}). \\
+4 & \texttt{contact\_ad\_spam} & Đánh dấu (\texttt{is\_spam=1}) & Chứa số điện thoại rác đi kèm từ khóa mời chào (\textit{``liên hệ Zalo'', ``inbox hotline''}). \\
+5 & \texttt{context\_gia\_re} & \textbf{Bảo vệ (\texttt{is\_spam=0})} & \textbf{Luật chống lọc nhầm:} Cụm từ \textit{``giá rẻ''} đi kèm món ăn (\textit{``hải sản tươi giá rẻ''}). \\
+6 & \texttt{context\_booking\_phone} & \textbf{Bảo vệ (\texttt{is\_spam=0})} & \textbf{Luật chống lọc nhầm:} Bình luận chia sẻ SĐT đặt bàn của quán (\textit{``gọi số quán để đặt trước''}). \\
+7 & \texttt{duplicate\_spam} & Đánh dấu (\texttt{is\_spam=1}) & Bình luận trùng khớp mã băm SHA-256 trên nhiều quán khác nhau. \\
+8 & \texttt{real\_estate\_finance} & Đánh dấu (\texttt{is\_spam=1}) & Rao vặt bán đất nền, căn hộ, vay vốn tín chấp, tuyển cộng tác viên tại nhà. \\
+9 & \texttt{name\_echo\_bot} & Đánh dấu (\texttt{is\_spam=1}) & Bot tự động chỉ copy nguyên văn tên nhà hàng và địa chỉ vào phần bình luận. \\
+10 & \texttt{generic\_template\_bot} & Đánh dấu (\texttt{is\_spam=1}) & Câu văn sáo rỗng hoàn toàn không có danh từ chỉ món ăn hay dịch vụ. \\
+11 & \texttt{coin\_farming} & Đánh dấu (\texttt{is\_spam=1}) & Bình luận cày xu trên app (\textit{``viết cho đủ 50 ký tự để nhận xu thưởng''}) kèm ký tự lặp. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Kiến trúc Gemini AI, 4 Tầng Guardrails và AI Review Responder}
+Hình~\ref{fig:ai_pipeline} minh họa kiến trúc 4 tầng bảo vệ Guardrails ngăn chặn hoàn toàn tấn công Prompt Injection và hiện tượng ảo giác (Zero Hallucination).
+
+\begin{figure}[H]
+\centering
+\resizebox{0.95\textwidth}{!}{%
+\begin{tikzpicture}[
+    guard/.style={draw=teal!80!black, fill=teal!6, thick, rounded corners=4pt, minimum width=11.8cm, minimum height=0.9cm, align=center, font=\footnotesize},
+    model/.style={draw=blue!80, fill=blue!8, thick, rounded corners=5pt, minimum width=3.6cm, minimum height=1.1cm, align=center, font=\scriptsize\bfseries},
+    cache/.style={draw=purple!80, fill=purple!8, thick, rounded corners=5pt, minimum width=4.8cm, minimum height=0.95cm, align=center, font=\footnotesize\bfseries},
+    arrow/.style={-{Stealth[scale=0.95]}, thick}
+]
+    \node[guard] (g1) at (0, 0) {\textbf{Tầng 1 -- Input Sanitization \& Length Guard:} Kiểm tra độ dài ($\le 500$ ký tự), lọc thẻ điều khiển độc hại};
+    \node[guard] (g2) at (0, -1.35) {\textbf{Tầng 2 -- Domain Intent Classifier:} Từ chối câu hỏi ngoài phạm vi ẩm thực / nhà hàng (code, chính trị, toán...)};
+    \node[guard] (g3) at (0, -2.7) {\textbf{Tầng 3 -- XML Delimiter Sandboxing:} Bọc câu hỏi trong thẻ \texttt{<user\_question>...</user\_question>} tách biệt lệnh hệ thống};
+    \node[guard] (g4) at (0, -4.05) {\textbf{Tầng 4 -- Grounded Context Injection:} Chỉ nạp thống kê 5 khía cạnh thật + 12 trích dẫn từ SQLite DB};
+
+    \node[cache] (ttl) at (0, -5.55) {Kiểm tra In-Memory TTL Cache (Trả kết quả $0\,\mathrm{ms}$ nếu trùng khóa)};
+
+    \node[model] (m1) at (-4.2, -7.3) {Mô hình ưu tiên 1:\\\texttt{gemini-3.5-flash-lite}\\(Tốc độ cao, Quota lớn)};
+    \node[model] (m2) at (0, -7.3) {Mô hình dự phòng 2:\\\texttt{gemini-2.5-flash}\\(Khi gặp lỗi 429 / 503)};
+    \node[model, draw=orange!85!black, fill=orange!10] (m3) at (4.2, -7.3) {Dự phòng cuối (Local):\\\textbf{Deterministic Template}\\(100\% Uptime khi mất mạng)};
+
+    \draw[arrow] (g1) -- (g2);
+    \draw[arrow] (g2) -- (g3);
+    \draw[arrow] (g3) -- (g4);
+    \draw[arrow] (g4) -- (ttl);
+    \draw[arrow] (ttl.south) -- ++(0, -0.35) -| (m1.north);
+    \draw[arrow, dashed, draw=red!80!black] (m1.east) -- node[above, font=\tiny]{Lỗi 429/Quota} (m2.west);
+    \draw[arrow, dashed, draw=red!80!black] (m2.east) -- node[above, font=\tiny]{Timeout/Offline} (m3.west);
+\end{tikzpicture}%
+}
+\caption{Kiến trúc 4 tầng bảo vệ Guardrails và cơ chế chuyển đổi dự phòng Cascading Fallback}
+\label{fig:ai_pipeline}
+\end{figure}
+
+Chủ nhà hàng có thể chọn 4 tông giọng: \textit{Chuyên nghiệp (\texttt{professional})}, \textit{Thấu cảm (\texttt{empathetic})}, \textit{Biết ơn (\texttt{grateful})} và \textit{Ngắn gọn (\texttt{concise})}. Khi bật giảm giá ($10\% - 30\%$), mã voucher được sinh tự động theo định dạng: $\texttt{CARE-} + \text{Acronym}(\texttt{Name}) + \texttt{-} + \texttt{Discount}$ (ví dụ: \texttt{CARE-BT-20}).
+
+\section{Gia cố Bảo mật Hệ thống Toàn diện (10-Point Security)}
+Hình~\ref{fig:security_topology} mô tả mô hình phòng thủ theo chiều sâu chống lại OWASP Top 10 và LLM Top 10~\cite{owasp2025}:
+
+\begin{figure}[H]
+\centering
+\resizebox{0.95\textwidth}{!}{%
+\begin{tikzpicture}[
+    secbox/.style={draw=red!75!black, fill=red!4, thick, rounded corners=5pt, text width=4.6cm, minimum height=1.25cm, align=center, font=\scriptsize},
+    core/.style={draw=blue!85!black, fill=blue!12, very thick, rounded corners=8pt, text width=4.2cm, minimum height=1.6cm, align=center, font=\footnotesize\bfseries},
+    arrow/.style={-{Stealth[scale=0.9]}, thick, draw=red!75!black}
+]
+    \node[core] (backend) at (0,0) {FastAPI Core \&\\SQLite WAL Engine};
+
+    \node[secbox] (s1) at (-5.2, 2.3) {\textbf{1. Chống SSRF \& DNS Rebinding}\\Chỉ cho phép domain \texttt{foody.vn} và \texttt{google.com/maps}; chặn mọi IP nội bộ (\texttt{127.0.0.1}, \texttt{10.*}, \texttt{169.254.*}).};
+    \node[secbox] (s2) at (5.2, 2.3) {\textbf{2. Concurrency Semaphore(2)}\\Giới hạn tối đa 2 tiến trình trình duyệt Headless chạy đồng thời, chống tấn công cạn kiệt RAM (DoS).};
+    \node[secbox] (s3) at (-5.2, 0) {\textbf{3. Chống Path Traversal}\\Kiểm tra đường dẫn tuyệt đối bằng \texttt{Path.resolve()}, ngăn chặn truy cập trái phép ngoài thư mục tĩnh.};
+    \node[secbox] (s4) at (5.2, 0) {\textbf{4. XML Prompt Delimiters}\\Cô lập hoàn toàn đầu vào người dùng trong thẻ XML, vô hiệu hóa kỹ thuật Jailbreak / Prompt Injection.};
+    \node[secbox] (s5) at (-5.2, -2.3) {\textbf{5. ORM Parameterized Queries}\\100\% truy vấn qua SQLAlchemy 2.0 ORM và Pydantic v2, miễn nhiễm hoàn toàn với SQL Injection \& XSS.};
+    \node[secbox] (s6) at (5.2, -2.3) {\textbf{6. Bảo vệ API Key \& Rate Limit}\\Ẩn toàn bộ khóa Gemini API ở biến môi trường Server, không lộ xuống Client Bundle.};
+
+    \draw[arrow] (s1.south east) -- (backend.north west);
+    \draw[arrow] (s2.south west) -- (backend.north east);
+    \draw[arrow] (s3.east) -- (backend.west);
+    \draw[arrow] (s4.west) -- (backend.east);
+    \draw[arrow] (s5.north east) -- (backend.south west);
+    \draw[arrow] (s6.north west) -- (backend.south east);
+\end{tikzpicture}%
+}
+\caption{Mô hình phòng thủ đa lớp (Defense-in-Depth) bảo vệ hệ thống}
+\label{fig:security_topology}
+\end{figure}

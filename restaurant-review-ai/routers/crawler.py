@@ -696,6 +696,16 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
         if not q:
             raise HTTPException(status_code=400, detail="Vui lòng nhập từ khóa tìm kiếm.")
 
+        # Tự động nhận diện nếu người dùng dán URL thay vì nhập từ khóa tìm kiếm
+        lower_q = q.lower()
+        if q.startswith("http://") or q.startswith("https://") or "foody.vn" in lower_q or "google.com/maps" in lower_q or "goo.gl" in lower_q:
+            target_url = q if (q.startswith("http://") or q.startswith("https://")) else f"https://{q}"
+            print(f"-> [Search & Crawl] Nhận diện query là URL ('{target_url}'). Chuyển hướng xử lý qua analyze_restaurant_url...")
+            result = analyze_restaurant_url(AnalyzeRequest(url=target_url, max_reviews=req.max_reviews or 30))
+            if isinstance(result, dict) and "source" not in result:
+                result["source"] = "crawled_and_analyzed"
+            return result
+
         norm_q = remove_accents(q)
         from routers.restaurants import extract_city_from_query
         from services.bi_service import detect_city

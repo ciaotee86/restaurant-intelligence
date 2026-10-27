@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1169" height="860" viewBox="0 0 1169 860">
+    
+    <defs>
+      <marker id="arrow_classic" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1 L 10 5 L 0 9 z" fill="#334155" />
+      </marker>
+      <marker id="diamond_filled" viewBox="0 0 14 14" refX="7" refY="7" markerWidth="8" markerHeight="8" orient="auto">
+        <polygon points="7,0 14,7 7,14 0,7" fill="#0f172a" />
+      </marker>
+    </defs>
+    
+    <rect width="1169" height="860" fill="#ffffff" /><rect x="460.0" y="85.0" width="310.0" height="330.0" rx="6" ry="6" fill="#ffffff" stroke="#059669" stroke-width="2"  /><foreignObject x="464.0" y="87.0" width="302.0" height="326.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 9.5px; font-weight: normal; color: #1e293b; text-align: left; padding-top: 6px; padding-left: 8px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start;">
+                    <div><b>TABLE: reviews</b><hr><b>PK</b> id : INTEGER<br><b>FK</b> restaurant_id : INTEGER<br>&nbsp;&nbsp;&nbsp;&nbsp;author : VARCHAR(255)<br>&nbsp;&nbsp;&nbsp;&nbsp;rating : FLOAT<br>&nbsp;&nbsp;&nbsp;&nbsp;text : TEXT<br>&nbsp;&nbsp;&nbsp;&nbsp;review_date : VARCHAR(50)<br>&nbsp;&nbsp;&nbsp;&nbsp;is_analyzed : INTEGER<br>&nbsp;&nbsp;&nbsp;&nbsp;is_spam : INTEGER<br>&nbsp;&nbsp;&nbsp;&nbsp;spam_score : FLOAT<br><b>IDX</b> fingerprint : VARCHAR(64)<br><b>IDX</b> source : VARCHAR(50)<br>&nbsp;&nbsp;&nbsp;&nbsp;created_at : DATETIME</div>
+                </div>
+            </foreignObject><rect x="50.0" y="85.0" width="290.0" height="310.0" rx="6" ry="6" fill="#ffffff" stroke="#059669" stroke-width="2"  /><foreignObject x="54.0" y="87.0" width="282.0" height="306.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 9.5px; font-weight: normal; color: #1e293b; text-align: left; padding-top: 6px; padding-left: 8px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start;">
+                    <div><b>TABLE: restaurants</b><hr><b>PK</b> id : INTEGER<br>&nbsp;&nbsp;&nbsp;&nbsp;name : VARCHAR(255)<br><b>UK</b> foody_url : VARCHAR(500)<br><b>UK</b> google_maps_url : VARCHAR(1000)<br><b>IDX</b> google_place_id : VARCHAR(255)<br>&nbsp;&nbsp;&nbsp;&nbsp;address : VARCHAR(500)<br>&nbsp;&nbsp;&nbsp;&nbsp;city : VARCHAR(100)<br>&nbsp;&nbsp;&nbsp;&nbsp;overall_rating : FLOAT<br>&nbsp;&nbsp;&nbsp;&nbsp;review_count : INTEGER<br>&nbsp;&nbsp;&nbsp;&nbsp;credibility_score : FLOAT<br>&nbsp;&nbsp;&nbsp;&nbsp;crawled_at : DATETIME</div>
+                </div>
+            </foreignObject><rect x="880.0" y="360.0" width="240.0" height="300.0" rx="6" ry="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"  /><foreignObject x="884.0" y="362.0" width="232.0" height="296.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 9.5px; font-weight: normal; color: #334155; text-align: left; padding-top: 6px; padding-left: 8px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start;">
+                    <div><b>QUY ƯỚC & QUAN HỆ (RELATIONSHIPS):</b><hr>• <b>PK</b>: Khóa chính &nbsp;|&nbsp; <b>FK</b>: Khóa ngoại<br>• <b>UK</b>: Khóa duy nhất &nbsp;|&nbsp; <b>IDX</b>: Chỉ mục<br><br>1. <b>restaurants ||--o{ reviews</b><br>&nbsp;&nbsp;&nbsp;&nbsp;Một quán ăn có nhiều bài đánh giá (1 : N).<br><br>2. <b>reviews ||--o{ review_analysis</b><br>&nbsp;&nbsp;&nbsp;&nbsp;Một đánh giá phân tích nhiều khía cạnh (1 : N).<br><br>3. <b>crawl_requests</b>: Hàng đợi cào độc lập.</div>
+                </div>
+            </foreignObject><rect x="50.0" y="460.0" width="290.0" height="200.0" rx="6" ry="6" fill="#ffffff" stroke="#059669" stroke-width="2"  /><foreignObject x="54.0" y="462.0" width="282.0" height="196.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 9.5px; font-weight: normal; color: #1e293b; text-align: left; padding-top: 6px; padding-left: 8px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start;">
+                    <div><b>TABLE: crawl_requests</b><hr><b>PK</b> id : INTEGER<br>&nbsp;&nbsp;&nbsp;&nbsp;query : VARCHAR(255)<br>&nbsp;&nbsp;&nbsp;&nbsp;city : VARCHAR(100)<br>&nbsp;&nbsp;&nbsp;&nbsp;status : VARCHAR(50)<br>&nbsp;&nbsp;&nbsp;&nbsp;requested_at : DATETIME<br>&nbsp;&nbsp;&nbsp;&nbsp;completed_at : DATETIME</div>
+                </div>
+            </foreignObject><rect x="880.0" y="85.0" width="240.0" height="220.0" rx="6" ry="6" fill="#ffffff" stroke="#059669" stroke-width="2"  /><foreignObject x="884.0" y="87.0" width="232.0" height="216.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 9.5px; font-weight: normal; color: #1e293b; text-align: left; padding-top: 6px; padding-left: 8px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start;">
+                    <div><b>TABLE: review_analysis</b><hr><b>PK</b> id : INTEGER<br><b>FK</b> review_id : INTEGER<br>&nbsp;&nbsp;&nbsp;&nbsp;aspect : VARCHAR(50)<br>&nbsp;&nbsp;&nbsp;&nbsp;sentiment : VARCHAR(20)<br>&nbsp;&nbsp;&nbsp;&nbsp;confidence : FLOAT<br>&nbsp;&nbsp;&nbsp;&nbsp;is_urgent : INTEGER<br>&nbsp;&nbsp;&nbsp;&nbsp;analyzed_at : DATETIME</div>
+                </div>
+            </foreignObject><rect x="40.0" y="15.0" width="1090.0" height="40.0" rx="6" ry="6" fill="#0f172a" stroke="#020617" stroke-width="2"  /><foreignObject x="44.0" y="17.0" width="1082.0" height="36.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; font-weight: bold; color: #ffffff; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>SƠ ĐỒ THỰC THỂ LIÊN KẾT (ERD — CROW'S FOOT NOTATION)</div>
+                </div>
+            </foreignObject><path d="M 341.0 200.5 L 460.0 200.5" fill="none" stroke="#059669" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="377.25" y="190.5" width="46.5" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    1 : N
+                </div>
+            </foreignObject><path d="M 771.0 190.5 L 880.0 190.5" fill="none" stroke="#059669" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="802.25" y="180.5" width="46.5" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    1 : N
+                </div>
+            </foreignObject><path d="M 195.5 460.0 L 195.5 396.0" fill="none" stroke="#475569" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="162.5" y="418.0" width="66.0" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Triggers
+                </div>
+            </foreignObject>
+    </svg>

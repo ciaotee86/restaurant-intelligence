@@ -1,0 +1,82 @@
+<mxfile host="app.diagrams.net" modified="2026-10-25T12:00:00.000Z" agent="Senior UML/DFD Modeler" version="24.0.0" type="device">
+  <diagram id="diag_uml_class_diagram" name="UML Class Diagram">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="860" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="t7" value="SƠ ĐỒ LỚP (UML CLASS DIAGRAM)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0f172a;strokeColor=#020617;strokeWidth=2;fontFamily=Helvetica;fontSize=13;fontStyle=1;fontColor=#ffffff;align=center;" vertex="1" parent="1">
+  <mxGeometry x="40" y="15" width="1090" height="40" as="geometry" />
+</mxCell>
+        <mxCell id="sec_models" value="1. CÁC THỰC THỂ DỮ LIỆU (DATABASE MODELS)" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;dashPattern=6 6;fillColor=#f8fafc;strokeColor=#94a3b8;strokeWidth=1.5;align=left;verticalAlign=top;spacingLeft=15;spacingTop=8;fontFamily=Helvetica;fontSize=11;fontStyle=1;fontColor=#1e293b;" vertex="1" parent="1">
+  <mxGeometry x="40" y="68" width="1090" height="225" as="geometry" />
+</mxCell>
+        <mxCell id="cls_rest" value="&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;Restaurant&lt;/b&gt;&lt;hr&gt;+ id: int [PK]&lt;br&gt;+ name: str&lt;br&gt;+ address: str&lt;br&gt;+ overall_rating: float&lt;br&gt;+ credibility_score: float&lt;hr&gt;+ get_reviews(): List" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=1.5;fontFamily=Helvetica;fontSize=9.5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;strokeColor=#2563eb;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="55" y="95" width="225" height="180" as="geometry" />
+</mxCell>
+        <mxCell id="cls_rev" value="&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;Review&lt;/b&gt;&lt;hr&gt;+ id: int [PK]&lt;br&gt;+ restaurant_id: int [FK]&lt;br&gt;+ author: str&lt;br&gt;+ rating: float&lt;br&gt;+ is_spam: int&lt;br&gt;+ fingerprint: str&lt;hr&gt;+ get_analysis(): List" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=1.5;fontFamily=Helvetica;fontSize=9.5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;strokeColor=#2563eb;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="325" y="95" width="225" height="180" as="geometry" />
+</mxCell>
+        <mxCell id="cls_ana" value="&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;ReviewAnalysis&lt;/b&gt;&lt;hr&gt;+ id: int [PK]&lt;br&gt;+ review_id: int [FK]&lt;br&gt;+ aspect: str&lt;br&gt;+ sentiment: str&lt;br&gt;+ confidence: float&lt;hr&gt;+ is_urgent: int" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=1.5;fontFamily=Helvetica;fontSize=9.5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;strokeColor=#2563eb;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="595" y="95" width="225" height="180" as="geometry" />
+</mxCell>
+        <mxCell id="cls_req" value="&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;CrawlRequest&lt;/b&gt;&lt;hr&gt;+ id: int [PK]&lt;br&gt;+ query: str&lt;br&gt;+ status: str&lt;hr&gt;+ requested_at: datetime" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=1.5;fontFamily=Helvetica;fontSize=9.5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;strokeColor=#2563eb;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="875" y="95" width="240" height="180" as="geometry" />
+</mxCell>
+        <mxCell id="sec_services" value="2. DỊCH VỤ NGHIỆP VỤ &amp; AI (SERVICES &amp; ANALYSIS)" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;dashPattern=6 6;fillColor=#f8fafc;strokeColor=#94a3b8;strokeWidth=1.5;align=left;verticalAlign=top;spacingLeft=15;spacingTop=8;fontFamily=Helvetica;fontSize=11;fontStyle=1;fontColor=#1e293b;" vertex="1" parent="1">
+  <mxGeometry x="40" y="310" width="800" height="520" as="geometry" />
+</mxCell>
+        <mxCell id="cls_s_entity" value="&amp;lt;&amp;lt;service&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;EntityResolutionService&lt;/b&gt;&lt;hr&gt;+ resolve_restaurant()&lt;br&gt;+ calculate_similarity()&lt;hr&gt;+ is_duplicate_review()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=1.5;fontFamily=Helvetica;fontSize=9.5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;strokeColor=#d97706;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="55" y="345" width="225" height="120" as="geometry" />
+</mxCell>
+        <mxCell id="cls_s_bi" value="&amp;lt;&amp;lt;service&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;BIService&lt;/b&gt;&lt;hr&gt;+ calculate_credibility()&lt;br&gt;+ aggregate_aspects()&lt;hr&gt;+ compute_trends()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=1.5;fontFamily=Helvetica;fontSize=9.5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;strokeColor=#d97706;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="325" y="345" width="225" height="120" as="geometry" />
+</mxCell>
+        <mxCell id="cls_s_assist" value="&amp;lt;&amp;lt;service&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;AssistantService&lt;/b&gt;&lt;hr&gt;+ ask_assistant()&lt;br&gt;+ detect_intent()&lt;hr&gt;+ synthesize_answer()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=1.5;fontFamily=Helvetica;fontSize=9.5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;strokeColor=#d97706;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="595" y="345" width="225" height="120" as="geometry" />
+</mxCell>
+        <mxCell id="cls_s_filter" value="&amp;lt;&amp;lt;service&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;ReviewFilter&lt;/b&gt;&lt;hr&gt;- patterns: List&lt;hr&gt;+ check_spam()&lt;br&gt;+ is_valid_length()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=1.5;fontFamily=Helvetica;fontSize=9.5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;strokeColor=#d97706;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="55" y="500" width="225" height="120" as="geometry" />
+</mxCell>
+        <mxCell id="cls_s_reply" value="&amp;lt;&amp;lt;service&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;ReplyService&lt;/b&gt;&lt;hr&gt;+ generate_reply()&lt;br&gt;+ build_prompt()&lt;hr&gt;+ make_voucher()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=1.5;fontFamily=Helvetica;fontSize=9.5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;strokeColor=#d97706;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="325" y="500" width="225" height="120" as="geometry" />
+</mxCell>
+        <mxCell id="cls_s_gemini" value="&amp;lt;&amp;lt;engine&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;GeminiAnalyzer&lt;/b&gt;&lt;hr&gt;- api_key: str&lt;hr&gt;+ analyze_review()&lt;br&gt;+ parse_json_response()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=1.5;fontFamily=Helvetica;fontSize=9.5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;strokeColor=#d97706;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="595" y="500" width="225" height="120" as="geometry" />
+</mxCell>
+        <mxCell id="sec_crawlers" value="3. CRAWLERS" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;dashPattern=6 6;fillColor=#f8fafc;strokeColor=#94a3b8;strokeWidth=1.5;align=left;verticalAlign=top;spacingLeft=15;spacingTop=8;fontFamily=Helvetica;fontSize=11;fontStyle=1;fontColor=#1e293b;" vertex="1" parent="1">
+  <mxGeometry x="860" y="310" width="270" height="520" as="geometry" />
+</mxCell>
+        <mxCell id="cls_c_foody" value="&amp;lt;&amp;lt;crawler&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;FoodyCrawler&lt;/b&gt;&lt;hr&gt;- driver: WebDriver&lt;hr&gt;+ crawl_restaurant()&lt;br&gt;+ extract_reviews()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=1.5;fontFamily=Helvetica;fontSize=9.5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;strokeColor=#7c3aed;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="875" y="345" width="240" height="120" as="geometry" />
+</mxCell>
+        <mxCell id="cls_c_gmaps" value="&amp;lt;&amp;lt;crawler&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;GoogleMapsCrawler&lt;/b&gt;&lt;hr&gt;- browser: Browser&lt;hr&gt;+ crawl_google_maps()&lt;br&gt;+ scroll_reviews()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=1.5;fontFamily=Helvetica;fontSize=9.5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;strokeColor=#7c3aed;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="875" y="500" width="240" height="120" as="geometry" />
+</mxCell>
+        <mxCell id="e_c_comp1" value="1 : 0..*" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0f172a;strokeWidth=1.5;startArrow=diamond;startFill=1;endArrow=none;labelBackgroundColor=#ffffff;fontFamily=Helvetica;fontSize=9;" edge="1" parent="1" source="cls_rest" target="cls_rev">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+        <mxCell id="e_c_comp2" value="1 : 0..*" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0f172a;strokeWidth=1.5;startArrow=diamond;startFill=1;endArrow=none;labelBackgroundColor=#ffffff;fontFamily=Helvetica;fontSize=9;" edge="1" parent="1" source="cls_rev" target="cls_ana">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+        <mxCell id="e_cd_1" value="«resolves»" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=open;endFill=0;labelBackgroundColor=#ffffff;fontFamily=Helvetica;fontSize=9;fontColor=#334155;;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="cls_s_entity" target="cls_rest">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+        <mxCell id="e_cd_3" value="«aggregates»" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=open;endFill=0;labelBackgroundColor=#ffffff;fontFamily=Helvetica;fontSize=9;fontColor=#334155;;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="cls_s_bi" target="cls_rev">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+        <mxCell id="e_cd_9" value="«uses_bi»" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=open;endFill=0;labelBackgroundColor=#ffffff;fontFamily=Helvetica;fontSize=9;fontColor=#334155;;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="cls_s_assist" target="cls_s_bi">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+        <mxCell id="e_cd_8" value="«uses_llm»" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=open;endFill=0;labelBackgroundColor=#ffffff;fontFamily=Helvetica;fontSize=9;fontColor=#334155;;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="cls_s_assist" target="cls_s_gemini">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+        <mxCell id="e_cd_7" value="«uses_llm»" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=open;endFill=0;labelBackgroundColor=#ffffff;fontFamily=Helvetica;fontSize=9;fontColor=#334155;;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="cls_s_reply" target="cls_s_gemini">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+        <mxCell id="e_cd_c1" value="«populates»" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=open;endFill=0;labelBackgroundColor=#ffffff;fontFamily=Helvetica;fontSize=9;fontColor=#334155;;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="cls_c_foody" target="cls_req">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

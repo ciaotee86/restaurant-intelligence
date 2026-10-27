@@ -1,0 +1,55 @@
+<mxfile host="app.diagrams.net" modified="2026-10-25T12:00:00.000Z" agent="Senior UML/DFD Modeler" version="24.0.0" type="device">
+  <diagram id="diag_entity_relationship_diagram" name="Entity Relationship Diagram">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="860" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="t5" value="SƠ ĐỒ THỰC THỂ LIÊN KẾT (ERD — CROW&#x27;S FOOT NOTATION)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0f172a;strokeColor=#020617;strokeWidth=2;fontFamily=Helvetica;fontSize=13;fontStyle=1;fontColor=#ffffff;align=center;" vertex="1" parent="1">
+  <mxGeometry x="40" y="15" width="1090" height="40" as="geometry" />
+</mxCell>
+        <mxCell id="tbl_rest" value="&lt;b&gt;TABLE: restaurants&lt;/b&gt;&lt;hr&gt;&lt;b&gt;PK&lt;/b&gt; id : INTEGER&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;name : VARCHAR(255)&lt;br&gt;&lt;b&gt;UK&lt;/b&gt; foody_url : VARCHAR(500)&lt;br&gt;&lt;b&gt;UK&lt;/b&gt; google_maps_url : VARCHAR(1000)&lt;br&gt;&lt;b&gt;IDX&lt;/b&gt; google_place_id : VARCHAR(255)&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;address : VARCHAR(500)&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;city : VARCHAR(100)&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;overall_rating : FLOAT&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;review_count : INTEGER&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;credibility_score : FLOAT&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;crawled_at : DATETIME" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=1.5;fontFamily=Helvetica;fontSize=9.5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;strokeColor=#059669;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="50" y="85" width="290" height="310" as="geometry" />
+</mxCell>
+        <mxCell id="tbl_rev" value="&lt;b&gt;TABLE: reviews&lt;/b&gt;&lt;hr&gt;&lt;b&gt;PK&lt;/b&gt; id : INTEGER&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; restaurant_id : INTEGER&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;author : VARCHAR(255)&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;rating : FLOAT&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;text : TEXT&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;review_date : VARCHAR(50)&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;is_analyzed : INTEGER&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;is_spam : INTEGER&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;spam_score : FLOAT&lt;br&gt;&lt;b&gt;IDX&lt;/b&gt; fingerprint : VARCHAR(64)&lt;br&gt;&lt;b&gt;IDX&lt;/b&gt; source : VARCHAR(50)&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;created_at : DATETIME" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=1.5;fontFamily=Helvetica;fontSize=9.5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;strokeColor=#059669;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="460" y="85" width="310" height="330" as="geometry" />
+</mxCell>
+        <mxCell id="tbl_ana" value="&lt;b&gt;TABLE: review_analysis&lt;/b&gt;&lt;hr&gt;&lt;b&gt;PK&lt;/b&gt; id : INTEGER&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; review_id : INTEGER&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;aspect : VARCHAR(50)&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;sentiment : VARCHAR(20)&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;confidence : FLOAT&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;is_urgent : INTEGER&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;analyzed_at : DATETIME" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=1.5;fontFamily=Helvetica;fontSize=9.5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;strokeColor=#059669;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="880" y="85" width="240" height="220" as="geometry" />
+</mxCell>
+        <mxCell id="tbl_req" value="&lt;b&gt;TABLE: crawl_requests&lt;/b&gt;&lt;hr&gt;&lt;b&gt;PK&lt;/b&gt; id : INTEGER&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;query : VARCHAR(255)&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;city : VARCHAR(100)&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;status : VARCHAR(50)&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;requested_at : DATETIME&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;completed_at : DATETIME" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=1.5;fontFamily=Helvetica;fontSize=9.5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;strokeColor=#059669;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="50" y="460" width="290" height="200" as="geometry" />
+</mxCell>
+        <mxCell id="box_legend" value="&lt;b&gt;QUY ƯỚC &amp; QUAN HỆ (RELATIONSHIPS):&lt;/b&gt;&lt;hr&gt;• &lt;b&gt;PK&lt;/b&gt;: Khóa chính &amp;nbsp;|&amp;nbsp; &lt;b&gt;FK&lt;/b&gt;: Khóa ngoại&lt;br&gt;• &lt;b&gt;UK&lt;/b&gt;: Khóa duy nhất &amp;nbsp;|&amp;nbsp; &lt;b&gt;IDX&lt;/b&gt;: Chỉ mục&lt;br&gt;&lt;br&gt;1. &lt;b&gt;restaurants ||--o{ reviews&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;Một quán ăn có nhiều bài đánh giá (1 : N).&lt;br&gt;&lt;br&gt;2. &lt;b&gt;reviews ||--o{ review_analysis&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;Một đánh giá phân tích nhiều khía cạnh (1 : N).&lt;br&gt;&lt;br&gt;3. &lt;b&gt;crawl_requests&lt;/b&gt;: Hàng đợi cào độc lập." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#94a3b8;strokeWidth=1.5;align=left;verticalAlign=top;spacingLeft=10;spacingTop=8;fontFamily=Helvetica;fontSize=9.5;fontColor=#334155;" vertex="1" parent="1">
+  <mxGeometry x="880" y="360" width="240" height="300" as="geometry" />
+</mxCell>
+        <mxCell id="erd_p1" value="" style="opacity=0;" vertex="1" parent="1">
+  <mxGeometry x="340" y="200" width="1" height="1" as="geometry" />
+</mxCell>
+        <mxCell id="erd_p2" value="" style="opacity=0;" vertex="1" parent="1">
+  <mxGeometry x="460" y="200" width="1" height="1" as="geometry" />
+</mxCell>
+        <mxCell id="e_erd_1" value="1 : N" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#059669;strokeWidth=1.5;endArrow=ERmany;startArrow=ERone;endFill=0;startFill=0;labelBackgroundColor=#ffffff;fontFamily=Helvetica;fontSize=9;fontColor=#065f46;" edge="1" parent="1" source="erd_p1" target="erd_p2">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+        <mxCell id="erd_p3" value="" style="opacity=0;" vertex="1" parent="1">
+  <mxGeometry x="770" y="190" width="1" height="1" as="geometry" />
+</mxCell>
+        <mxCell id="erd_p4" value="" style="opacity=0;" vertex="1" parent="1">
+  <mxGeometry x="880" y="190" width="1" height="1" as="geometry" />
+</mxCell>
+        <mxCell id="e_erd_2" value="1 : N" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#059669;strokeWidth=1.5;endArrow=ERmany;startArrow=ERone;endFill=0;startFill=0;labelBackgroundColor=#ffffff;fontFamily=Helvetica;fontSize=9;fontColor=#065f46;" edge="1" parent="1" source="erd_p3" target="erd_p4">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+        <mxCell id="erd_p5" value="" style="opacity=0;" vertex="1" parent="1">
+  <mxGeometry x="195" y="460" width="1" height="1" as="geometry" />
+</mxCell>
+        <mxCell id="erd_p6" value="" style="opacity=0;" vertex="1" parent="1">
+  <mxGeometry x="195" y="395" width="1" height="1" as="geometry" />
+</mxCell>
+        <mxCell id="e_erd_3" value="Triggers" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;endArrow=open;endFill=0;labelBackgroundColor=#ffffff;fontFamily=Helvetica;fontSize=9;fontColor=#334155;" edge="1" parent="1" source="erd_p5" target="erd_p6">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

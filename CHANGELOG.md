@@ -2,6 +2,33 @@
 
 All notable changes to the **Restaurant Intelligence** project will be documented in this file.
 
+## [1.19.0] - 2026-10-27
+
+### Khắc Phục Lỗi Playwright Browser Thiếu Trong Docker & Tự Động Nhận Diện URL Thông Minh
+- **Hạ Tầng Docker & Container Runtime (`Dockerfile`)**:
+  - Thiết lập biến môi trường `PLAYWRIGHT_BROWSERS_PATH=/home/appuser/.cache/ms-playwright` nhằm chỉ định vị trí cài đặt browser toàn cục cho user không đặc quyền `appuser`.
+  - Bổ sung lệnh `RUN python -m playwright install --with-deps chromium` trong Docker build layer, đảm bảo binary Chromium của Playwright luôn có sẵn trong container image trước khi deploy.
+  - Phân quyền sở hữu `chown -R appuser:appuser /home/appuser` cho phép tiến trình chạy dưới quyền `appuser` có toàn quyền thực thi trình duyệt Playwright.
+- **Backend Crawler & Self-Healing Fallback (`crawler/google_maps_crawler.py`, `routers/crawler.py`)**:
+  - **Cơ chế tự phục hồi trình duyệt 3 lớp (`create_stealth_browser`)**:
+    1. Kiểm tra `playwright_instance.chromium.executable_path` trên đĩa.
+    2. Nếu executable chưa có sẵn, tự động fallback sang Chromium hệ thống (`/usr/bin/chromium` hoặc `CHROME_BIN`).
+    3. Nếu cả hai chưa tồn tại, tự động thực thi subprocess `python -m playwright install chromium` trong runtime.
+  - **Nhận diện URL thông minh trong `search_and_crawl_google_maps`**: Tự động nhận diện nếu `query` là một Google Maps URL trực tiếp (Place URL, Share Link `goo.gl`), chuẩn hóa protocol và gọi trực tiếp `crawl_google_maps_reviews` thay vì ghép nối chuỗi thành URL tìm kiếm không hợp lệ.
+  - **Chuyển hướng an toàn trong `search_and_crawl_restaurant`**: Khi người dùng nhập/dán URL trực tiếp vào tham số tìm kiếm `req.query`, router tự động chuyển hướng sang `analyze_restaurant_url`, hỗ trợ đồng nhất cả Foody và Google Maps URLs.
+- **Frontend UX & Auto-Detect URL (`AnalyzeUrlModal.tsx`, `LinkGoogleMapsModal.tsx`)**:
+  - **Modal Tổng Hợp Đánh Giá Quán Mới (`AnalyzeUrlModal.tsx`)**:
+    - Khi người dùng dán hoặc nhập chuỗi liên kết (`http://` hoặc `https://`) vào ô "Tìm theo tên quán / từ khóa", hệ thống tự động nhận diện domain (Foody / Google Maps), tự động chuyển sang tab "Dán liên kết trang quán ăn" (`setTab('url')`) và điền URL.
+    - Bổ sung lớp phòng thủ trong `handleSubmit`: nếu form submit trong tab keyword chứa URL, tự động chuyển hướng gọi `analyzeFoodyUrl` thay vì `searchAndCrawlFoody`.
+  - **Modal Bổ Sung Đánh Giá Google Maps (`LinkGoogleMapsModal.tsx`)**:
+    - Tự động nhận diện Google Maps URL khi nhập vào ô tìm kiếm tên quán và chuyển sang tab dán đường dẫn.
+    - Phòng thủ trong `handleSubmit`: nếu đang ở tab tìm kiếm mà giá trị là URL, tự động xử lý như `payloadUrl`.
+- **Kiểm Thử & Đảm Bảo Chất Lượng**:
+  - `npm run build`: 1837 modules transformed, 0 lỗi TypeScript / JSX.
+  - `npm test`: 6/6 tests passed.
+  - Backend `pytest`: 63/63 crawler tests passed (100%).
+
+
 ## [1.18.0] - 2026-10-25
 
 ### Rà Soát Toàn Diện & Vá Lỗ Hổng Bảo Mật Hệ Thống (Comprehensive Security Hardening)

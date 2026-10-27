@@ -1,0 +1,134 @@
+% =====================================================================
+%  KHOA CÔNG NGHỆ THÔNG TIN - TRƯỜNG ĐẠI HỌC KIẾN TRÚC ĐÀ NẴNG
+%  styles/settings.tex - Cấu hình định dạng và trang bìa chuẩn
+% =====================================================================
+\ProvidesPackage{styles/settings}
+
+\usepackage[margin=2.2cm, top=2.5cm, bottom=2.5cm]{geometry}
+
+% --- CẤU HÌNH PHÔNG CHỮ & ĐA NGÔN NGỮ (TƯƠNG THÍCH 100% OVERLEAF LINUX) ---
+\usepackage{fontspec}
+\usepackage[vietnamese, english, bidi=basic, provide=*]{babel}
+\babelprovide[import, onchar=ids fonts]{vietnamese}
+\babelprovide[import, onchar=ids fonts]{english}
+\babelfont{rm}{Noto Serif}
+\babelfont{sf}{Noto Sans}
+\babelfont{tt}{Noto Sans Mono}
+
+% --- CÁC GÓI TOÁN HỌC, BẢNG BIỂU & ĐỒ HOẠ ---
+\usepackage{amsmath, amssymb}
+\usepackage{titlesec}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage[table]{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{adjustbox}
+\usepackage[skip=6pt, indent=0pt]{parskip}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=blue,
+    citecolor=blue,
+    pdftitle={Báo Cáo Đồ Án Trí Tuệ Nhân Tạo - Restaurant Intelligence},
+    pdfauthor={Nguyễn Ngọc Thắng - Trần Lê Quốc Thịnh}
+}
+
+% --- CẤU HÌNH HEADER & FOOTER VỚI FANCYHDR ---
+\newcommand{\dauPageStyle}{%
+    \pagestyle{fancy}%
+    \fancyhf{}%
+    \fancyhead[L]{\small\itshape AIP202 -- Hệ thống Restaurant Intelligence}%
+    \fancyhead[R]{\small\itshape Khoa CNTT -- ĐH Kiến Trúc Đà Nẵng}%
+    \fancyfoot[C]{\thepage}%
+    \renewcommand{\headrulewidth}{0.4pt}%
+    \renewcommand{\footrulewidth}{0.4pt}%
+}
+
+% Cấu hình hiển thị mã nguồn / Prompt
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    backgroundcolor=\color{gray!8},
+    frame=single,
+    rulecolor=\color{gray!40},
+    breaklines=true,
+    postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space},
+    tabsize=2,
+    showstringspaces=false,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    xleftmargin=1.5em,
+    framexleftmargin=1.5em
+}
+
+% --- THƯ VIỆN VẼ SƠ ĐỒ (TIKZ) ---
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, shapes.multipart, arrows.meta, positioning, calc, fit, backgrounds}
+
+% Các biến metadata
+\newcommand{\crname}[1]{\def\@crname{#1}}
+\newcommand{\cmonhoc}[1]{\def\@cmonhoc{#1}}
+\newcommand{\ctname}[1]{\def\@ctname{#1}}
+\newcommand{\cstuname}[1]{\def\@cstuname{#1}}
+\newcommand{\cmssv}[1]{\def\@cmssv{#1}}
+\newcommand{\clopsv}[1]{\def\@clopsv{#1}}
+\newcommand{\csCouncil}[1]{\def\@csCouncil{#1}}
+\newcommand{\csSupervise}[1]{\def\@csSupervise{#1}}
+\newcommand{\cttime}[1]{\def\@cttime{#1}}
+\newcommand{\csdeptname}[1]{\def\@csdeptname{#1}}
+\newcommand{\csplace}[1]{\def\@csplace{#1}}
+
+% Trang bìa trang trọng có khung kép
+\newcommand{\coverpage}{%
+\begin{titlepage}
+\begin{tikzpicture}[remember picture, overlay]
+    \draw[line width=2.5pt, draw=blue!85!black] 
+        ($(current page.north west) + (1.8cm, -1.8cm)$) 
+        rectangle 
+        ($(current page.south east) + (-1.5cm, 1.8cm)$);
+    \draw[line width=0.8pt, draw=blue!65!black] 
+        ($(current page.north west) + (1.95cm, -1.95cm)$) 
+        rectangle 
+        ($(current page.south east) + (-1.65cm, 1.95cm)$);
+\end{tikzpicture}
+
+\begin{center}
+\vspace*{0.4cm}
+{\large\bfseries TRƯỜNG ĐẠI HỌC KIẾN TRÚC ĐÀ NẴNG}\\[0.2cm]
+{\large\bfseries KHOA CÔNG NGHỆ THÔNG TIN}\\[0.3cm]
+\rule{0.48\textwidth}{1.0pt}
+
+\vspace{3.2cm}
+
+{\LARGE\bfseries BÁO CÁO ĐỒ ÁN}\\[0.4cm]
+{\Large\bfseries MÔN: ĐỒ ÁN TRÍ TUỆ NHÂN TẠO}\\[0.2cm]
+{\normalsize\bfseries MÃ HỌC PHẦN: AIP202 \textperiodcentered{} 2 TÍN CHỈ}
+
+\vspace{1.5cm}
+
+{\Large\bfseries ĐỀ TÀI:\\[0.35cm]
+\scalebox{0.95}{\parbox{\linewidth}{\centering HỆ THỐNG PHÂN TÍCH ĐÁNH GIÁ NHÀ HÀNG\\ỨNG DỤNG TRÍ TUỆ NHÂN TẠO\\(RESTAURANT INTELLIGENCE)}}}
+
+\vspace{2.5cm}
+
+\begin{tabular}{ll}
+\textbf{Giảng viên hướng dẫn:} & \textbf{TS. Đỗ Phúc Hảo} \\[12pt]
+\textbf{Sinh viên thực hiện:}  & \textbf{Nguyễn Ngọc Thắng} -- MSSV: 2351220287 \\[8pt]
+                               & \textbf{Trần Lê Quốc Thịnh} -- MSSV: 2351220257 \\[12pt]
+\textbf{Lớp / Ngành:}          & \textbf{CNTT 23 -- Công nghệ thông tin} \\
+\end{tabular}
+
+\vfill
+
+{\bfseries Đà Nẵng, năm 2026}
+\vspace*{0.3cm}
+\end{center}
+\end{titlepage}
+}

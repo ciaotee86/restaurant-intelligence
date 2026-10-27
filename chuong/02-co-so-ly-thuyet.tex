@@ -1,0 +1,38 @@
+\chapter{Cơ sở Lý thuyết và Mô hình Toán học}
+
+\section{Bài toán Phân tích Cảm xúc theo Khía cạnh (ABSA)}
+Khác với phân tích cảm xúc mức văn bản, bài toán \textbf{ABSA}~\cite{pontiki2014, zhang2022} giải quyết các câu nhận xét đa ý kiến. Bài toán được mô hình hóa thành phép ánh xạ từ văn bản $r_i$ sang tập hợp các bộ tứ (quadruples) theo Công thức~\eqref{eq:absa}:
+\begin{equation}
+\label{eq:absa}
+    \mathcal{F}_{\text{ABSA}}(r_i) = \left\{ \left( a_k, s_k, c_k, u_k \right) \;\middle|\; a_k \in \mathcal{A},\; s_k \in \mathcal{S},\; c_k \in [0, 1],\; u_k \in \{0, 1\} \right\}
+\end{equation}
+Trong đó $\mathcal{A} = \{\texttt{food}, \texttt{service}, \texttt{price}, \texttt{ambiance}, \texttt{hygiene}\}$, $\mathcal{S} = \{\texttt{positive}, \texttt{neutral}, \texttt{negative}\}$, $c_k \in [0, 1]$ là độ tự tin và $u_k \in \{0, 1\}$ là cờ cảnh báo khẩn cấp (\texttt{is\_urgent}).
+
+\section{Thuật toán Khớp nối Thực thể và Khử trùng lặp SHA-256}
+Để nhận diện hai bản ghi từ Foody.vn và Google Maps thuộc cùng một nhà hàng mà không gộp nhầm các chi nhánh khác quận, nhóm áp dụng quy trình so khớp mờ theo Christen (2012)~\cite{christen2012}:
+\begin{equation}
+\label{eq:sim}
+    \text{Sim}(\tilde{T}_F, \tilde{T}_G) = \left( 1 - \frac{d_{\text{Levenshtein}}(\tilde{T}_F, \tilde{T}_G)}{\max\left(|\tilde{T}_F|, |\tilde{T}_G|\right)} \right) \times 100\%
+\end{equation}
+Điều kiện ràng buộc gộp thực thể:
+\begin{equation}
+\label{eq:match}
+    \text{Match}(R_F, R_G) = \mathbb{I}\Big( \text{Sim}(\tilde{T}_F, \tilde{T}_G) \ge 85\% \;\wedge\; \text{District}(A_F) \equiv \text{District}(A_G) \Big)
+\end{equation}
+Khử trùng lặp bình luận bằng chữ ký số SHA-256:
+\begin{equation}
+\label{eq:fingerprint}
+    \text{Fingerprint}(r) = \text{SHA256}\Big( \texttt{restaurant\_id} \;\|\; \texttt{source} \;\|\; \text{NFKC}(\text{Lower}(\text{Trim}(r_{\text{text}}))) \Big)
+\end{equation}
+
+\section{Độ Tin cậy Cỡ mẫu Thống kê $C(N)$ và Điểm Sức khỏe}
+Độ tin cậy cỡ mẫu tiệm cận logarit $C(N)$ dựa trên số lượng đánh giá hợp lệ $N$:
+\begin{equation}
+\label{eq:credibility}
+    C(N) = \min\left( 1.0,\; \frac{\ln(N + 1)}{\ln(N_{\text{threshold}} + 1)} \right) \times 100\% \quad (N_{\text{threshold}} = 30)
+\end{equation}
+Điểm sức khỏe khía cạnh $k \in \mathcal{A}$ có trọng số theo độ tự tin $c_{i,k}$:
+\begin{equation}
+\label{eq:health_score}
+    S_k = \frac{\sum_{i=1}^{M_k} w(s_{i,k}) \cdot c_{i,k}}{\sum_{i=1}^{M_k} c_{i,k}} \times 100 \quad \text{với } w(s) = \begin{cases} 1.0 & s = \texttt{positive} \\ 0.5 & s = \texttt{neutral} \\ 0.0 & s = \texttt{negative} \end{cases}
+\end{equation}

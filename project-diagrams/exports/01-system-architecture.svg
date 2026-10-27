@@ -1,0 +1,187 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1169" height="860" viewBox="0 0 1169 860">
+    
+    <defs>
+      <marker id="arrow_classic" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1 L 10 5 L 0 9 z" fill="#334155" />
+      </marker>
+      <marker id="diamond_filled" viewBox="0 0 14 14" refX="7" refY="7" markerWidth="8" markerHeight="8" orient="auto">
+        <polygon points="7,0 14,7 7,14 0,7" fill="#0f172a" />
+      </marker>
+    </defs>
+    
+    <rect width="1169" height="860" fill="#ffffff" /><rect x="40.0" y="475.0" width="1090.0" height="230.0" rx="6" ry="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6,6" /><foreignObject x="44.0" y="477.0" width="1082.0" height="226.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #1e293b; text-align: left; padding-top: 6px; padding-left: 8px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start;">
+                    <div>4. PERSISTENCE, CRAWLERS & EXTERNAL SERVICES</div>
+                </div>
+            </foreignObject><rect x="40.0" y="295.0" width="1090.0" height="160.0" rx="6" ry="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6,6" /><foreignObject x="44.0" y="297.0" width="1082.0" height="156.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #1e293b; text-align: left; padding-top: 6px; padding-left: 8px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start;">
+                    <div>3. CORE SERVICES TIER (NGHIỆP VỤ & AI)</div>
+                </div>
+            </foreignObject><rect x="40.0" y="68.0" width="1090.0" height="95.0" rx="6" ry="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6,6" /><foreignObject x="44.0" y="70.0" width="1082.0" height="91.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #1e293b; text-align: left; padding-top: 6px; padding-left: 8px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start;">
+                    <div>1. PRESENTATION TIER (CLIENT)</div>
+                </div>
+            </foreignObject><rect x="40.0" y="180.0" width="1090.0" height="95.0" rx="6" ry="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6,6" /><foreignObject x="44.0" y="182.0" width="1082.0" height="91.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #1e293b; text-align: left; padding-top: 6px; padding-left: 8px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start;">
+                    <div>2. API GATEWAY TIER (FASTAPI — PORT 8000)</div>
+                </div>
+            </foreignObject><rect x="40.0" y="15.0" width="1090.0" height="40.0" rx="6" ry="6" fill="#0f172a" stroke="#020617" stroke-width="2"  /><foreignObject x="44.0" y="17.0" width="1082.0" height="36.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; font-weight: bold; color: #ffffff; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>SƠ ĐỒ KIẾN TRÚC HỆ THỐNG (SYSTEM ARCHITECTURE)</div>
+                </div>
+            </foreignObject><rect x="40.0" y="720.0" width="1090.0" height="40.0" rx="6" ry="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"  /><foreignObject x="44.0" y="722.0" width="1082.0" height="36.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 9.5px; font-weight: normal; color: #334155; text-align: left; padding-top: 6px; padding-left: 8px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start;">
+                    <div>GHI CHÚ GIAO THỨC:  [Client -> Gateway]: HTTP/REST JSON  |  [Services -> DB]: SQLAlchemy ORM  |  [Services -> AI]: Google GenAI SDK  |  [Crawlers]: Headless Browser</div>
+                </div>
+            </foreignObject><rect x="830.0" y="505.0" width="270.0" height="100.0" rx="6" ry="6" fill="#fff1f2" stroke="#e11d48" stroke-width="1.5"  /><foreignObject x="834.0" y="507.0" width="262.0" height="96.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #881337; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Google Gemini AI<br/>(ABSA & Chatbot)</div>
+                </div>
+            </foreignObject><rect x="550.0" y="505.0" width="250.0" height="100.0" rx="6" ry="6" fill="#fff1f2" stroke="#e11d48" stroke-width="1.5"  /><foreignObject x="554.0" y="507.0" width="242.0" height="96.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #881337; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Nền tảng Đánh giá<br/>(Foody.vn & Google Maps)</div>
+                </div>
+            </foreignObject><rect x="320.0" y="95.0" width="480.0" height="48.0" rx="6" ry="6" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"  /><foreignObject x="324.0" y="97.0" width="472.0" height="44.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #1e3a8a; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Frontend SPA<br/>(React 19 + TypeScript)</div>
+                </div>
+            </foreignObject><path d="M 70.0 513.0 A 105.0 8 0 0 1 280.0 513.0 L 280.0 567.0 A 105.0 8 0 0 1 70.0 567.0 Z" fill="#ecfdf5" stroke="#059669" stroke-width="1.5" /><path d="M 70.0 513.0 A 105.0 8 0 1 1 280.0 513.0 A 105.0 8 0 1 1 70.0 513.0 Z" fill="#ecfdf5" stroke="#059669" stroke-width="1.5" /><foreignObject x="74.0" y="507.0" width="202.0" height="66.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #064e3b; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>SQLite Database<br/>(WAL Mode)</div>
+                </div>
+            </foreignObject><rect x="70.0" y="208.0" width="300.0" height="48.0" rx="6" ry="6" fill="#f0fdfa" stroke="#0d9488" stroke-width="1.5"  /><foreignObject x="74.0" y="210.0" width="292.0" height="44.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #134e4a; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Restaurants Router<br/>(/api/restaurants)</div>
+                </div>
+            </foreignObject><rect x="435.0" y="208.0" width="300.0" height="48.0" rx="6" ry="6" fill="#f0fdfa" stroke="#0d9488" stroke-width="1.5"  /><foreignObject x="439.0" y="210.0" width="292.0" height="44.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #134e4a; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>FastAPI Core<br/>(api_server.py)</div>
+                </div>
+            </foreignObject><rect x="800.0" y="208.0" width="300.0" height="48.0" rx="6" ry="6" fill="#f0fdfa" stroke="#0d9488" stroke-width="1.5"  /><foreignObject x="804.0" y="210.0" width="292.0" height="44.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #134e4a; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Crawler Router<br/>(/api/crawler)</div>
+                </div>
+            </foreignObject><rect x="550.0" y="615.0" width="250.0" height="45.0" rx="6" ry="6" fill="#fff1f2" stroke="#e11d48" stroke-width="1.5"  /><foreignObject x="554.0" y="617.0" width="242.0" height="41.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #881337; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>GitHub Actions<br/>(Lập lịch Cron)</div>
+                </div>
+            </foreignObject><rect x="870.0" y="95.0" width="230.0" height="48.0" rx="6" ry="6" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"  /><foreignObject x="874.0" y="97.0" width="222.0" height="44.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #1e3a8a; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>API Client<br/>(Fetch JSON)</div>
+                </div>
+            </foreignObject><rect x="470.0" y="325.0" width="200.0" height="50.0" rx="6" ry="6" fill="#fefce8" stroke="#ca8a04" stroke-width="1.5"  /><foreignObject x="474.0" y="327.0" width="192.0" height="46.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #713f12; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Reply Service<br/>(Sinh phản hồi & Voucher)</div>
+                </div>
+            </foreignObject><rect x="900.0" y="325.0" width="200.0" height="50.0" rx="6" ry="6" fill="#fefce8" stroke="#ca8a04" stroke-width="1.5"  /><foreignObject x="904.0" y="327.0" width="192.0" height="46.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #713f12; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Review Filter<br/>(Lọc spam)</div>
+                </div>
+            </foreignObject><rect x="690.0" y="325.0" width="190.0" height="50.0" rx="6" ry="6" fill="#fefce8" stroke="#ca8a04" stroke-width="1.5"  /><foreignObject x="694.0" y="327.0" width="182.0" height="46.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #713f12; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Entity Resolution<br/>(Khớp quán & Dedup)</div>
+                </div>
+            </foreignObject><path d="M 70.0 613.0 A 105.0 8 0 0 1 280.0 613.0 L 280.0 642.0 A 105.0 8 0 0 1 70.0 642.0 Z" fill="#ecfdf5" stroke="#059669" stroke-width="1.5" /><path d="M 70.0 613.0 A 105.0 8 0 1 1 280.0 613.0 A 105.0 8 0 1 1 70.0 613.0 Z" fill="#ecfdf5" stroke="#059669" stroke-width="1.5" /><foreignObject x="74.0" y="607.0" width="202.0" height="41.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #064e3b; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Seed Backup<br/>(restaurants.db)</div>
+                </div>
+            </foreignObject><rect x="310.0" y="505.0" width="210.0" height="45.0" rx="6" ry="6" fill="#faf5ff" stroke="#9333ea" stroke-width="1.5"  /><foreignObject x="314.0" y="507.0" width="202.0" height="41.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #581c87; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Foody Crawler<br/>(Selenium)</div>
+                </div>
+            </foreignObject><rect x="310.0" y="560.0" width="210.0" height="45.0" rx="6" ry="6" fill="#faf5ff" stroke="#9333ea" stroke-width="1.5"  /><foreignObject x="314.0" y="562.0" width="202.0" height="41.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #581c87; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Maps Crawler<br/>(Playwright)</div>
+                </div>
+            </foreignObject><rect x="310.0" y="615.0" width="210.0" height="45.0" rx="6" ry="6" fill="#faf5ff" stroke="#9333ea" stroke-width="1.5"  /><foreignObject x="314.0" y="617.0" width="202.0" height="41.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #581c87; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Crawl Pipeline<br/>(run_pipeline.py)</div>
+                </div>
+            </foreignObject><rect x="70.0" y="325.0" width="180.0" height="50.0" rx="6" ry="6" fill="#fefce8" stroke="#ca8a04" stroke-width="1.5"  /><foreignObject x="74.0" y="327.0" width="172.0" height="46.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #713f12; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>BI Service<br/>(Chỉ số & ABSA)</div>
+                </div>
+            </foreignObject><rect x="270.0" y="325.0" width="180.0" height="50.0" rx="6" ry="6" fill="#fefce8" stroke="#ca8a04" stroke-width="1.5"  /><foreignObject x="274.0" y="327.0" width="172.0" height="46.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #713f12; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Assistant Service<br/>(Trợ lý F&B)</div>
+                </div>
+            </foreignObject><rect x="70.0" y="95.0" width="180.0" height="48.0" rx="6" ry="6" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"  /><foreignObject x="74.0" y="97.0" width="172.0" height="44.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: bold; color: #1e3a8a; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Người dùng / Quản lý<br/>(Web Browser)</div>
+                </div>
+            </foreignObject><path d="M 470.0 403.0 A 75.0 8 0 0 1 620.0 403.0 L 620.0 429.0 A 75.0 8 0 0 1 470.0 429.0 Z" fill="#fdf4ff" stroke="#c026d3" stroke-width="1.5" /><path d="M 470.0 403.0 A 75.0 8 0 1 1 620.0 403.0 A 75.0 8 0 1 1 470.0 403.0 Z" fill="#fdf4ff" stroke="#c026d3" stroke-width="1.5" /><foreignObject x="474.0" y="397.0" width="142.0" height="38.0">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: bold; color: #701a75; text-align: center; padding-top: 0px; padding-left: 0px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+                    <div>Session Cache<br/>(In-Memory)</div>
+                </div>
+            </foreignObject><path d="M 250.0 119.0 L 320.0 119.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="248.75" y="109.0" width="72.5" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Tương tác
+                </div>
+            </foreignObject><path d="M 800.0 119.0 L 870.0 119.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="802.0" y="109.0" width="66.0" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Cập nhật
+                </div>
+            </foreignObject><path d="M 985.0 143.0 L 985.0 175.5 L 585.0 175.5 L 585.0 208.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="742.25" y="165.5" width="85.5" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    HTTP / JSON
+                </div>
+            </foreignObject><path d="M 435.0 232.0 L 370.0 232.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="372.75" y="222.0" width="59.5" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Include
+                </div>
+            </foreignObject><path d="M 735.0 232.0 L 800.0 232.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="737.75" y="222.0" width="59.5" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Include
+                </div>
+            </foreignObject><path d="M 220.0 256.0 L 220.0 290.5 L 160.0 290.5 L 160.0 325.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="157.0" y="280.5" width="66.0" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Truy vấn
+                </div>
+            </foreignObject><path d="M 220.0 256.0 L 220.0 290.5 L 360.0 290.5 L 360.0 325.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="260.25" y="280.5" width="59.5" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Hỏi đáp
+                </div>
+            </foreignObject><path d="M 220.0 256.0 L 220.0 290.5 L 570.0 290.5 L 570.0 325.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="362.0" y="280.5" width="66.0" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Sinh thư
+                </div>
+            </foreignObject><path d="M 950.0 256.0 L 950.0 290.5 L 785.0 290.5 L 785.0 325.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="818.25" y="280.5" width="98.5" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Khớp thực thể
+                </div>
+            </foreignObject><path d="M 950.0 256.0 L 950.0 290.5 L 1000.0 290.5 L 1000.0 325.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="945.25" y="280.5" width="59.5" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Lọc rác
+                </div>
+            </foreignObject><path d="M 570.0 375.0 L 570.0 385.0 L 545.0 385.0 L 545.0 395.0" fill="none" stroke="#475569" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><g transform="translate(531.0, 375.0)">
+                    <rect width="53.0" height="20" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8" />
+                    <text x="26.5" y="14" font-family="Arial, sans-serif" font-size="9" font-weight="600" fill="#1e293b" text-anchor="middle">Lookup</text>
+                </g><path d="M 167.5 375.0 L 167.5 505.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="145.0" y="430.0" width="45" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    ORM
+                </div>
+            </foreignObject><path d="M 650.0 375.0 L 650.0 440.0 L 965.0 440.0 L 965.0 505.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><g transform="translate(781.0, 430.0)">
+                    <rect width="53.0" height="20" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8" />
+                    <text x="26.5" y="14" font-family="Arial, sans-serif" font-size="9" font-weight="600" fill="#1e293b" text-anchor="middle">Prompt</text>
+                </g><path d="M 520.0 527.5 L 535.0 527.5 L 535.0 555.0 L 550.0 555.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="492.25" y="531.25" width="85.5" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Cào dữ liệu
+                </div>
+            </foreignObject><path d="M 520.0 582.5 L 535.0 582.5 L 535.0 555.0 L 550.0 555.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="492.25" y="558.75" width="85.5" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Cào dữ liệu
+                </div>
+            </foreignObject><path d="M 310.0 637.5 L 295.0 637.5 L 295.0 540.0 L 280.0 540.0" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="268.5" y="578.75" width="53.0" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Ghi DB
+                </div>
+            </foreignObject><path d="M 550.0 637.5 L 520.0 637.5" fill="none" stroke="#0f172a" stroke-width="1.5"   marker-end="url(#arrow_classic)" /><foreignObject x="498.75" y="627.5" width="72.5" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Kích hoạt
+                </div>
+            </foreignObject><path d="M 175.0 575.0 L 175.0 605.0" fill="none" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5,5"  marker-end="url(#arrow_classic)" /><foreignObject x="138.75" y="580.0" width="72.5" height="20">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 9px; font-weight: 500; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 4px; text-align: center; white-space: nowrap; line-height: 16px;">
+                    Khôi phục
+                </div>
+            </foreignObject>
+    </svg>

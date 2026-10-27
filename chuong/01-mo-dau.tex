@@ -1,0 +1,44 @@
+\chapter{Tổng quan về Đề tài Nghiên cứu}
+
+\section{Thông tin chung và Tính cấp thiết của Đề tài}
+Ngành dịch vụ ẩm thực (Food and Beverage -- F\&B) tại Việt Nam có mức độ cạnh tranh vô cùng khốc liệt. Trước khi quyết định lựa chọn một địa điểm ăn uống, hơn 85\% thực khách hiện đại có thói quen tra cứu đánh giá trên Google Maps hoặc các chuyên trang ẩm thực như Foody.vn. Tuy nhiên, cả thực khách lẫn chủ nhà hàng đều đang đối mặt với bốn rào cản lớn:
+\begin{enumerate}
+    \item \textbf{Sự phân mảnh dữ liệu đa nền tảng (Data Silos):} Một nhà hàng lâu năm có thể sở hữu hàng trăm bình luận trên Foody.vn nhưng lại mới tạo địa điểm trên Google Maps, hoặc ngược lại, các quán ăn thế hệ mới có hàng ngàn đánh giá trên Google Maps nhưng rất thưa dữ liệu trên Foody. Nếu chỉ nhìn vào một nền tảng, kết quả phân tích sẽ bị lệch lạc nghiêm trọng.
+    \item \textbf{Nhiễu loạn thông tin do đánh giá rác (Spam \& Noise Pollution):} Các trang đánh giá công cộng tại Việt Nam chứa lượng lớn bình luận rác như quảng cáo dịch vụ xe đưa đón, rao bán bất động sản, bình luận copy-paste để nhận xu thưởng (coin farming), hoặc các đoạn văn bản lỗi giao diện (\texttt{\{\{Model.Owner...\}\}}). Nếu đưa trực tiếp dữ liệu thô này vào mô hình AI, hệ thống vừa lãng phí chi phí API vừa làm sai lệch điểm số cảm xúc.
+    \item \textbf{Điểm xếp hạng trung bình (Star Rating) không phản ánh đúng bản chất:} Một quán ăn đạt 4.0/5.0 sao không cho chủ quán biết khách hàng đang khen món ăn ngon hay đang phàn nàn gay gắt về thái độ nhân viên giữ xe và vấn đề vệ sinh.
+    \item \textbf{Thiếu công cụ phản hồi và chăm sóc khách hàng tức thì:} Khi gặp một đánh giá 1 sao phàn nàn về trải nghiệm, chủ nhà hàng thường lúng túng hoặc phản hồi cảm tính, thiếu quy trình xin lỗi chuyên nghiệp kèm giải pháp đền bù (voucher) để giữ chân khách hàng.
+\end{enumerate}
+
+\section{Mục tiêu và Phạm vi của Hệ thống}
+Hệ thống \textbf{Restaurant Intelligence} được thiết kế nhằm giải quyết trọn vẹn 4 bài toán trên thông qua quy trình xử lý thông minh khép kín:
+\begin{itemize}
+    \item \textbf{Thu thập đa nguồn \& Khớp nối thực thể:} Thu thập Foody.vn và Google Maps; so khớp mờ tiếng Việt ($\ge 85\%$), đối chiếu địa chỉ hành chính và mã băm SHA-256 khử trùng lặp.
+    \item \textbf{Tiền xử lý lọc spam 11 trường hợp:} Lọc tự động các nhóm quảng cáo thuê xe, bất động sản, săn xu thưởng và dọn sạch mã lỗi AngularJS DOM.
+    \item \textbf{Phân tích 5 khía cạnh ABSA qua Gemini API:} Bóc tách khía cạnh (\textit{Món ăn, Dịch vụ, Giá cả, Không gian, Vệ sinh/Vị trí}), nhãn cảm xúc, độ tự tin và cờ khẩn cấp \texttt{is\_urgent}.
+    \item \textbf{Trợ lý AI Chatbot \& AI Review Responder:} Hỗ trợ thực khách hỏi đáp qua 4 tầng Guardrails và giúp chủ quán soạn thư xin lỗi/cảm ơn kèm cấp mã giảm giá \texttt{CARE-\{SHORTNAME\}-\{DISCOUNT\}}.
+    \item \textbf{Dashboard Đa góc nhìn (Dual-Perspective BI):} Góc nhìn Thực khách (Món nên thử, so sánh đối đầu) và Chủ nhà hàng (Checklist vận hành, biểu đồ xu hướng, độ tin cậy mẫu $C(N)$).
+\end{itemize}
+
+\section{So sánh với các Giải pháp Hiện có}
+Bảng~\ref{tab:comparison} đối chiếu sự khác biệt giữa việc tra cứu truyền thống trên các nền tảng hiện hành và hệ thống do nhóm phát triển:
+
+\begin{table}[H]
+\centering
+\caption{So sánh tính năng giữa các nền tảng hiện có và Restaurant Intelligence}
+\label{tab:comparison}
+\vspace{0.15cm}
+\footnotesize
+\begin{tabularx}{\textwidth}{l c c c X}
+\toprule
+\rowcolor{blue!8}
+\textbf{Tiêu chí kỹ thuật} & \textbf{Foody.vn} & \textbf{Google Maps} & \textbf{Social Listening} & \textbf{Restaurant Intelligence (Đề tài)} \\
+\midrule
+Nguồn dữ liệu & Đơn nguồn & Đơn nguồn & Mạng xã hội & \textbf{Hợp nhất Foody + Google Maps} \\
+Lọc Spam đặc thù VN & Thấp & Trung bình & Theo từ khóa & \textbf{Bộ lọc đa tín hiệu 11 ca + dọn DOM lỗi} \\
+Phân tích 5 khía cạnh & Điểm tĩnh & Từ khóa rời rạc & Tổng quan & \textbf{ABSA bằng Gemini + Cờ \texttt{is\_urgent}} \\
+Đo độ tin cậy mẫu & Không có & Không có & Không có & \textbf{Hàm toán học logarit $C(N)$ minh bạch} \\
+So sánh đối đầu 2 quán & Không có & Không có & Chi phí cao & \textbf{So sánh trực diện từng khía cạnh trên UI} \\
+Trợ lý Q\&A \& Soạn Reply & Không có & Không có & Hạn chế & \textbf{Chatbot 4 tầng Guardrails + AI Responder} \\
+\bottomrule
+\end{tabularx}
+\end{table}

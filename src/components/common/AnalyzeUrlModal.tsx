@@ -204,8 +204,11 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
   const isFormValid = tab === 'keyword' ? isKeywordFormValid : isUrlFormValid;
 
   // Xác định nguồn đang chạy để hiển thị các bước Stepper tương ứng
+  const isKeywordUrl = /^https?:\/\//i.test(keyword.trim());
   const activeStepSource: 'auto' | 'foody' | 'google_maps' =
-    tab === 'url' ? (detectedUrlSource || 'google_maps') : searchSource;
+    tab === 'url' || isKeywordUrl
+      ? (detectUrlSource(tab === 'url' ? url || keyword.trim() : keyword.trim()) || 'google_maps')
+      : searchSource;
 
   useEffect(() => {
     let interval: any;
@@ -225,14 +228,43 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
   if (!isOpen) return null;
 
   const handleKeywordChange = (val: string) => {
+    const trimmed = val.trim();
+    // Tự động nhận diện URL thông minh nếu người dùng nhập hoặc dán liên kết Foody / Google Maps
+    if (/^https?:\/\//i.test(trimmed)) {
+      const source = detectUrlSource(trimmed);
+      if (source !== null) {
+        setTab('url');
+        setUrl(trimmed);
+        setKeyword('');
+        setSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
+    }
+
     setKeyword(val);
-    if (val.trim().length >= 2) {
-      const matched = restaurantService.getSearchSuggestions(val.trim());
+    if (trimmed.length >= 2) {
+      const matched = restaurantService.getSearchSuggestions(trimmed);
       setSuggestions(matched);
       setShowSuggestions(matched.length > 0);
     } else {
       setSuggestions([]);
       setShowSuggestions(false);
+    }
+  };
+
+  const handleKeywordPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pastedText = e.clipboardData.getData('text').trim();
+    if (/^https?:\/\//i.test(pastedText)) {
+      const source = detectUrlSource(pastedText);
+      if (source !== null) {
+        e.preventDefault();
+        setTab('url');
+        setUrl(pastedText);
+        setKeyword('');
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
     }
   };
 
@@ -252,9 +284,30 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
 
     try {
       if (tab === 'keyword') {
-        if (!keyword.trim()) return;
+        const trimmedKeyword = keyword.trim();
+        if (!trimmedKeyword) return;
+
+        // Phòng thủ nếu người dùng nhập/dán URL trong tab keyword mà chưa chuyển tab
+        if (/^https?:\/\//i.test(trimmedKeyword)) {
+          const res = await restaurantService.analyzeFoodyUrl(trimmedKeyword, maxReviews);
+          if (res.success && res.restaurant) {
+            setStatus('success');
+            setTimeout(() => {
+              onSuccess(res.restaurant!.id);
+              onClose();
+              setStatus('idle');
+              setKeyword('');
+              setUrl('');
+            }, 800);
+          } else {
+            setStatus('error');
+            setErrorMessage(res.message || 'Không thể xử lý liên kết này.');
+          }
+          return;
+        }
+
         const res = await restaurantService.searchAndCrawlFoody(
-          keyword.trim(),
+          trimmedKeyword,
           city,
           maxReviews,
           searchSource
@@ -439,6 +492,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                     required
                     value={keyword}
                     onChange={(e) => handleKeywordChange(e.target.value)}
+                    onPaste={handleKeywordPaste}
                     onFocus={() => {
                       if (keyword.trim().length >= 2 && suggestions.length > 0) {
                         setShowSuggestions(true);
