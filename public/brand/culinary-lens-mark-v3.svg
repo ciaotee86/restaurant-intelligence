@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <title>Restaurant Intelligence — Culinary Lens (Refined Finial)</title>
+  
+  <!-- Platter Foundation -->
+  <path d="M40 196C40 191.582 43.582 188 48 188H208C212.418 188 216 191.582 216 196C216 200.418 212.418 204 208 204H48C43.582 204 40 200.418 40 196Z" fill="#991B1B"/>
+  
+  <!-- Cloche Dome (Fine Dining Bell) -->
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M52 180C52 122 86 92 128 92C170 92 204 122 204 180H52ZM78 168C76 136 98 114 124 106C116 118 98 140 100 168H78Z" fill="#991B1B"/>
+
+  <!-- The Intelligence Star Finial (Seamlessly anchored at apex y=92) -->
+  <!-- Center at (128, 54), top=16, right=162, bottom=92, left=94 -->
+  <path d="M128 16Q128 54 162 54Q128 54 128 92Q128 54 94 54Q128 54 128 16Z" fill="#D97706"/>
+  
+  <!-- Optical Core Eye -->
+  <circle cx="128" cy="54" r="5.5" fill="#F8F6F0"/>
+  <circle cx="128" cy="54" r="2.5" fill="#991B1B"/>
+</svg>

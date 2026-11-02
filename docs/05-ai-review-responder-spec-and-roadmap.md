@@ -4,7 +4,7 @@
 > **Mã tài liệu**: `SPEC-FEAT-05`  
 > **Phiên bản áp dụng**: v1.13.0  
 > **Kiến trúc mô hình**: Pure Generative AI Engine (Gemini LLM-First)  
-> **Trạng thái**: Bản thảo đặc tả kỹ thuật (Draft Specification - Đã cập nhật theo phản hồi)  
+> **Trạng thái**: Đã nghiệm thu & Hoàn thành (Implemented & Verified in v1.13.0)  
 > **Dự án**: Restaurant Intelligence System  
 
 ---
@@ -142,7 +142,7 @@ Mỗi tông giọng được cấu trúc bằng một bộ **System Instruction*
 
 ### 5.2. Danh Mục Công Việc Chi Tiết (Detailed Task Breakdown)
 
-- [ ] **[TASK-01] Xây dựng Backend Gemini Reply Service & Prompt Engine** (2h)
+- [x] **[TASK-01] Xây dựng Backend Gemini Reply Service & Prompt Engine** (2h)
   - **Module/Files**: `restaurant-review-ai/services/reply_service.py`
   - **Dependencies**: Tận dụng Google GenAI SDK hiện có trong project.
   - **Chi tiết**:
@@ -154,7 +154,7 @@ Mỗi tông giọng được cấu trúc bằng một bộ **System Instruction*
     - Phản hồi từ Gemini hoàn tất trong $< 1.8\text{s}$.
     - Văn phong chuẩn tiếng Việt, tự nhiên, không bị cụt lủn hay lặp từ.
 
-- [ ] **[TASK-02] Đăng Ký Endpoint API Router** (1h)
+- [x] **[TASK-02] Đăng Ký Endpoint API Router** (1h)
   - **Module/Files**: `restaurant-review-ai/routers/restaurants.py`
   - **Dependencies**: TASK-01.
   - **Chi tiết**:
@@ -164,7 +164,7 @@ Mỗi tông giọng được cấu trúc bằng một bộ **System Instruction*
   - **DoD / Acceptance Criteria**:
     - Gọi thử nghiệm qua FastAPI Swagger `/docs` trả về mã 200 kèm phản hồi AI hoàn chỉnh.
 
-- [ ] **[TASK-03] Xây Dựng Component Modal Phản Hồi (ReviewReplyModal)** (3h)
+- [x] **[TASK-03] Xây Dựng Component Modal Phản Hồi (ReviewReplyModal)** (3h)
   - **Module/Files**: `src/components/dashboard/ReviewReplyModal.tsx`
   - **Dependencies**: TASK-02.
   - **Chi tiết**:
@@ -177,7 +177,7 @@ Mỗi tông giọng được cấu trúc bằng một bộ **System Instruction*
     - Đóng mở mượt mà bằng phím `ESC` hoặc click vùng nền.
     - Responsive 100% trên cả điện thoại và màn hình máy tính.
 
-- [ ] **[TASK-04] Tích Hợp Vào ReviewExplorer & ReviewDetailModal** (1.5h)
+- [x] **[TASK-04] Tích Hợp Vào ReviewExplorer & ReviewDetailModal** (1.5h)
   - **Module/Files**: `src/components/dashboard/ReviewExplorer.tsx`, `src/components/dashboard/ReviewDetailModal.tsx`, `src/services/restaurantService.ts`
   - **Dependencies**: TASK-03.
   - **Chi tiết**:
@@ -187,7 +187,7 @@ Mỗi tông giọng được cấu trúc bằng một bộ **System Instruction*
   - **DoD / Acceptance Criteria**:
     - Mọi thẻ đánh giá trong danh sách đều mở được modal tương ứng với đúng dữ liệu của khách đó.
 
-- [ ] **[TASK-05] Kiểm Thử Toàn Diện & Hoàn Thiện Bàn Giao** (1.5h)
+- [x] **[TASK-05] Kiểm Thử Toàn Diện & Hoàn Thiện Bàn Giao** (1.5h)
   - **Module/Files**: `restaurant-review-ai/tests/test_reply_service.py`, `CHANGELOG.md`
   - **Dependencies**: TASK-01, TASK-02, TASK-04.
   - **Chi tiết**:

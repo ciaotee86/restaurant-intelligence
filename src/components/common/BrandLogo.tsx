@@ -1,0 +1,43 @@
+import React from 'react';
+
+interface BrandMarkProps {
+  className?: string;
+  size?: number | string;
+}
+
+export const BrandMark: React.FC<BrandMarkProps> = ({ className = 'w-8 h-8', size }) => {
+  return (
+    <svg
+      viewBox="0 0 256 256"
+      width={size}
+      height={size}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-label="Restaurant Intelligence Logo"
+    >
+      <title>Restaurant Intelligence</title>
+      {/* Platter Foundation */}
+      <path
+        d="M40 196C40 191.582 43.582 188 48 188H208C212.418 188 216 191.582 216 196C216 200.418 212.418 204 208 204H48C43.582 204 40 200.418 40 196Z"
+        fill="#991B1B"
+      />
+      {/* Cloche Dome with Negative Space Refraction */}
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M52 180C52 122 86 92 128 92C170 92 204 122 204 180H52ZM78 168C76 136 98 114 124 106C116 118 98 140 100 168H78Z"
+        fill="#991B1B"
+      />
+      {/* The Intelligence Star / Culinary Lens Apex */}
+      <path
+        d="M128 16Q128 54 162 54Q128 54 128 92Q128 54 94 54Q128 54 128 16Z"
+        fill="#D97706"
+      />
+      <circle cx="128" cy="54" r="5.5" fill="#F8F6F0" />
+      <circle cx="128" cy="54" r="2.5" fill="#991B1B" />
+    </svg>
+  );
+};
+
+export default BrandMark;

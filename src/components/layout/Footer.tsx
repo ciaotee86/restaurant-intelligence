@@ -1,5 +1,6 @@
 import React from 'react';
 import { Store, ShieldCheck } from 'lucide-react';
+import { BrandMark } from '../common/BrandLogo';
 
 interface FooterProps {
   onNavigate: (view: 'home' | 'explore' | 'dashboard' | 'how-it-works', restaurantId?: string) => void;
@@ -14,8 +15,8 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           {/* Cột 1: Thông tin nền tảng */}
           <div className="md:col-span-2 space-y-3.5">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-[#991B1B] text-white flex items-center justify-center font-display font-bold text-xs shadow-editorial-sm">
-                RI
+              <div className="w-8 h-8 rounded-lg bg-[#991B1B]/5 border border-[#991B1B]/15 flex items-center justify-center p-1">
+                <BrandMark className="w-full h-full drop-shadow-sm" />
               </div>
               <span className="font-display font-bold text-base text-[#1C1917] tracking-tight">
                 Restaurant Intelligence

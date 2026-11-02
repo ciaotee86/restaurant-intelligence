@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Link2, ArrowRight, Loader2, CheckCircle2, AlertCircle, Sparkles, Search, Zap, Store, MapPin } from 'lucide-react';
 import { restaurantService } from '../../services/restaurantService';
-import { VIETNAM_CITIES, getCitySlug } from '../../utils/cityUtils';
+import { VIETNAM_CITIES, PROMINENT_DESTINATIONS, getCitySlug } from '../../utils/cityUtils';
 
 interface AnalyzeUrlModalProps {
   isOpen: boolean;
@@ -10,13 +10,42 @@ interface AnalyzeUrlModalProps {
 }
 
 /**
+ * Chuẩn hóa chuỗi URL (tự động bổ sung https:// nếu thiếu)
+ */
+const normalizeUrlString = (urlString: string): string => {
+  const trimmed = urlString.trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^(www\.|maps\.google|google\.|foody\.vn)/i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+};
+
+/**
+ * Kiểm tra xem chuỗi nhập vào có phải liên kết web (URL) hay không
+ */
+const isLikelyUrl = (text: string): boolean => {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  return (
+    /^https?:\/\//i.test(trimmed) ||
+    trimmed.startsWith('www.') ||
+    trimmed.includes('foody.vn') ||
+    trimmed.includes('google.com/maps') ||
+    trimmed.includes('maps.google.') ||
+    trimmed.includes('maps.app.goo.gl') ||
+    trimmed.includes('goo.gl/maps')
+  );
+};
+
+/**
  * Kiểm tra tính hợp lệ của liên kết quán ăn từ Foody.vn:
  * - Bắt buộc bắt đầu bằng giao thức http:// hoặc https://.
  * - Hostname phải là foody.vn hoặc subdomain của foody.vn (ví dụ: www.foody.vn).
  * - Path tối thiểu phải có độ dài hoặc chứa slug quán ăn (không chỉ là trang chủ https://www.foody.vn/).
  */
 const isValidFoodyUrl = (urlString: string): boolean => {
-  const trimmed = urlString.trim();
+  const trimmed = normalizeUrlString(urlString);
   if (!trimmed) return false;
 
   // URL phải bắt đầu bằng http:// hoặc https://
@@ -88,7 +117,7 @@ const isValidFoodyUrl = (urlString: string): boolean => {
  * - Không chứa userinfo (username:password)
  */
 const isValidGoogleMapsUrl = (urlString: string): boolean => {
-  const trimmed = urlString.trim();
+  const trimmed = normalizeUrlString(urlString);
   if (!trimmed || trimmed.length > 4096) return false;
 
   if (!/^https?:\/\//i.test(trimmed)) {
@@ -230,16 +259,13 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
   const handleKeywordChange = (val: string) => {
     const trimmed = val.trim();
     // Tự động nhận diện URL thông minh nếu người dùng nhập hoặc dán liên kết Foody / Google Maps
-    if (/^https?:\/\//i.test(trimmed)) {
-      const source = detectUrlSource(trimmed);
-      if (source !== null) {
-        setTab('url');
-        setUrl(trimmed);
-        setKeyword('');
-        setSuggestions([]);
-        setShowSuggestions(false);
-        return;
-      }
+    if (isLikelyUrl(trimmed)) {
+      setTab('url');
+      setUrl(normalizeUrlString(trimmed));
+      setKeyword('');
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
     }
 
     setKeyword(val);
@@ -255,16 +281,13 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
 
   const handleKeywordPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     const pastedText = e.clipboardData.getData('text').trim();
-    if (/^https?:\/\//i.test(pastedText)) {
-      const source = detectUrlSource(pastedText);
-      if (source !== null) {
-        e.preventDefault();
-        setTab('url');
-        setUrl(pastedText);
-        setKeyword('');
-        setSuggestions([]);
-        setShowSuggestions(false);
-      }
+    if (isLikelyUrl(pastedText)) {
+      e.preventDefault();
+      setTab('url');
+      setUrl(normalizeUrlString(pastedText));
+      setKeyword('');
+      setSuggestions([]);
+      setShowSuggestions(false);
     }
   };
 
@@ -288,8 +311,9 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
         if (!trimmedKeyword) return;
 
         // Phòng thủ nếu người dùng nhập/dán URL trong tab keyword mà chưa chuyển tab
-        if (/^https?:\/\//i.test(trimmedKeyword)) {
-          const res = await restaurantService.analyzeFoodyUrl(trimmedKeyword, maxReviews);
+        if (isLikelyUrl(trimmedKeyword)) {
+          const normalized = normalizeUrlString(trimmedKeyword);
+          const res = await restaurantService.analyzeFoodyUrl(normalized, maxReviews);
           if (res.success && res.restaurant) {
             setStatus('success');
             setTimeout(() => {
@@ -434,9 +458,9 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                   >
                     <div className="flex items-center gap-1.5 font-bold text-xs">
                       <Sparkles className="w-3.5 h-3.5 shrink-0 text-[#C2410C]" />
-                      <span className="truncate">Tự động (Ưu tiên)</span>
+                      <span className="truncate">Đồng bộ kép (Ưu tiên)</span>
                     </div>
-                    <p className="text-[10px] text-zinc-500 leading-tight">Foody &amp; Maps</p>
+                    <p className="text-[10px] text-zinc-500 leading-tight">Cào cả Foody &amp; Google Maps</p>
                   </button>
 
                   <button
@@ -453,7 +477,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                       <Store className="w-3.5 h-3.5 shrink-0 text-[#C2410C]" />
                       <span className="truncate">Foody.vn</span>
                     </div>
-                    <p className="text-[10px] text-zinc-500 leading-tight">Chỉ Foody.vn</p>
+                    <p className="text-[10px] text-zinc-500 leading-tight">Chỉ cào từ Foody.vn</p>
                   </button>
 
                   <button
@@ -470,7 +494,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                       <MapPin className="w-3.5 h-3.5 shrink-0 text-blue-600" />
                       <span className="truncate">Google Maps</span>
                     </div>
-                    <p className="text-[10px] text-zinc-500 leading-tight">Cào Maps trực tiếp</p>
+                    <p className="text-[10px] text-zinc-500 leading-tight">Chỉ cào Google Maps</p>
                   </button>
                 </div>
               </div>
@@ -584,19 +608,12 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                   disabled={status === 'crawling'}
                   className="w-full text-xs px-3 py-2 bg-zinc-50 border border-[#D4D4D8] rounded-md focus:outline-none focus:ring-1 focus:ring-zinc-800 text-[#18181B] cursor-pointer"
                 >
-                  <optgroup label="🌟 Thành phố trọng điểm ẩm thực">
-                    <option value="da-nang">Đà Nẵng</option>
-                    <option value="ho-chi-minh">TP. Hồ Chí Minh</option>
-                    <option value="ha-noi">Hà Nội</option>
-                    <option value="hai-phong">Hải Phòng</option>
-                    <option value="can-tho">Cần Thơ</option>
-                    <option value="hue">Thừa Thiên Huế</option>
-                    <option value="khanh-hoa">Khánh Hòa (Nha Trang)</option>
-                    <option value="lam-dong">Lâm Đồng (Đà Lạt)</option>
-                    <option value="vung-tau">Bà Rịa - Vũng Tàu</option>
-                    <option value="quang-nam">Quảng Nam (Hội An)</option>
-                    <option value="kien-giang">Kiên Giang (Phú Quốc)</option>
-                    <option value="quang-ninh">Quảng Ninh (Hạ Long)</option>
+                  <optgroup label="🌟 Đô thị ẩm thực & du lịch trọng điểm">
+                    {PROMINENT_DESTINATIONS.map((d) => (
+                      <option key={d.slug} value={d.slug}>
+                        {d.displayName}
+                      </option>
+                    ))}
                   </optgroup>
                   <optgroup label="🏛️ Tất cả 63 Tỉnh / Thành phố Việt Nam">
                     {VIETNAM_CITIES.map((c) => (

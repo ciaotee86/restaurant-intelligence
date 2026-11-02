@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <title>Restaurant Intelligence — The Culinary Lens</title>
+  
+  <!-- Platter Foundation (Crisp, balanced baseline with refined proportions) -->
+  <path d="M40 196C40 191.582 43.582 188 48 188H208C212.418 188 216 191.582 216 196C216 200.418 212.418 204 208 204H48C43.582 204 40 200.418 40 196Z" fill="#991B1B"/>
+  
+  <!-- Main Cloche Dome with Negative Space Lens Crescent -->
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M52 180C52 122 86 92 128 92C170 92 204 122 204 180H52ZM78 168C76 136 98 114 124 106C116 118 98 140 100 168H78Z" fill="#991B1B"/>
+
+  <!-- Stem Anchor -->
+  <rect x="125" y="80" width="6" height="14" rx="2" fill="#D97706"/>
+
+  <!-- The Intelligence Star / Culinary Lens Apex (Radiant, optical Michelin-style star) -->
+  <path d="M128 26Q128 58 160 58Q128 58 128 90Q128 58 96 58Q128 58 128 26Z" fill="#D97706"/>
+  <!-- Optical Aperture Core -->
+  <circle cx="128" cy="58" r="5" fill="#F8F6F0"/>
+  <circle cx="128" cy="58" r="2" fill="#D97706"/>
+</svg>

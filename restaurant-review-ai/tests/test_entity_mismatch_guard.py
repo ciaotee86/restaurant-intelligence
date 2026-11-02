@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 from api_server import app
 from services.entity_resolution import (
@@ -70,3 +71,33 @@ def test_api_crawler_google_maps_blocks_mismatch():
     assert "King Pizza" in detail
     assert "Pizza Take Away Đà Nẵng" in detail
     assert "không khớp" in detail
+
+
+@patch("crawler.google_maps_crawler.search_and_crawl_google_maps")
+def test_api_crawler_google_maps_branch_mismatch_message(mock_search_gmaps):
+    """Khi crawler tìm thấy quán khác chi nhánh, câu thông báo phải nêu rõ địa chỉ và hướng dẫn sang tab dán link."""
+    mock_search_gmaps.return_value = {
+        "success": True,
+        "restaurant_name": "Pizza Take Away Đà Nẵng",
+        "address": "253 Hồ Nghinh, Quận Sơn Trà, Đà Nẵng",
+        "overall_rating": 4.5,
+        "google_maps_url": "https://www.google.com/maps/place/...",
+        "google_place_id": "0x3142_branch_son_tra",
+        "reviews": [],
+        "total_crawled": 0,
+        "error": None
+    }
+    client = TestClient(app)
+    resp = client.post(
+        "/api/crawler/google-maps",
+        json={
+            "restaurantId": "260",
+            "queryName": "Pizza Take Away",
+            "maxReviews": 10
+        }
+    )
+    assert resp.status_code == 400
+    detail = resp.json().get("detail", "")
+    assert "không trùng khớp với địa chỉ chi nhánh" in detail
+    assert "Dán đường dẫn Google Maps" in detail
+    assert "253 Hồ Nghinh" in detail

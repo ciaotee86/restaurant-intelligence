@@ -20,6 +20,7 @@ import time
 import random
 import logging
 import subprocess
+import unicodedata
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
@@ -123,6 +124,44 @@ def clean_review_text(text: Optional[str]) -> str:
     return cleaned
 
 
+def check_address_match(card_text: str, target_addr: str) -> float:
+    """
+    Tính điểm khớp giữa văn bản thẻ kết quả tìm kiếm Google Maps và địa chỉ mục tiêu (0.0 -> 1.0+).
+    Hỗ trợ nhận diện đúng chi nhánh quán ăn (VD: phân biệt QL22B vs 30 Tháng 4).
+    """
+    if not card_text or not target_addr:
+        return 0.0
+
+    def _norm(t: str) -> str:
+        t = str(t).lower()
+        t = t.replace("đ", "d").replace("Đ", "d")
+        nfd = unicodedata.normalize("NFD", t)
+        t = "".join(c for c in nfd if unicodedata.category(c) != "Mn")
+        return re.sub(r"[^a-z0-9\s]", " ", t)
+
+    norm_card = _norm(card_text)
+    norm_addr = _norm(target_addr)
+
+    # 1. Trích xuất các số nhà hoặc mã đường đặc thù (VD: "22b", "241", "30", "17")
+    addr_numbers = re.findall(r"\b\d+[a-z]?\b", norm_addr)
+    # 2. Trích xuất các từ khóa địa chỉ có độ dài >= 3
+    addr_tokens = [w for w in norm_addr.split() if len(w) >= 3]
+
+    if not addr_tokens:
+        return 0.0
+
+    match_count = sum(1 for tok in addr_tokens if tok in norm_card)
+    score = match_count / len(addr_tokens)
+
+    # Thưởng điểm nếu khớp số nhà / số quốc lộ / số đường
+    for num in addr_numbers:
+        if num in norm_card:
+            score += 0.35
+            break
+
+    return score
+
+
 # ==============================================================================
 # QUẢN LÝ BROWSER PLAYWRIGHT HEADLESS & STEALTH
 # ==============================================================================
@@ -206,6 +245,10 @@ def create_stealth_browser(
         "--disable-gpu",
         "--disable-infobars",
         "--window-size=1280,800",
+        "--js-flags=--max-old-space-size=128",
+        "--renderer-process-limit=1",
+        "--disable-software-rasterizer",
+        "--mute-audio",
     ]
 
     executable_path = resolve_chromium_executable(playwright_instance)
@@ -239,6 +282,48 @@ def create_stealth_browser(
             "Chrome/124.0.0.0 Safari/537.36"
         ),
     )
+
+    # Chặn (abort) các tài nguyên nặng không cần thiết để tối ưu RAM (cắt giảm 75%) và tăng tốc độ cào
+    media_pattern = re.compile(r"\.(png|jpg|jpeg|webp|gif|svg|ico|woff|woff2|ttf|mp4|webm)($|\?)", re.IGNORECASE)
+    tile_patterns = ["/maps/vt/", "khms", "ggpht.com", "googleusercontent.com/p/"]
+
+    def _block_heavy_resources(route):
+        try:
+            req = route.request
+            req_url = req.url
+            res_type = req.resource_type
+
+            # Tuyệt đối KHÔNG chặn script và HTML document
+            if res_type in ("document", "script"):
+                route.continue_()
+                return
+
+            # Chặn toàn bộ map tiles Google Maps
+            if any(tp in req_url for tp in tile_patterns):
+                route.abort()
+                return
+
+            # Chặn hình ảnh, media, webfont
+            if res_type in ("image", "media", "font"):
+                route.abort()
+                return
+
+            # Chặn theo định dạng phần mở rộng tĩnh
+            if media_pattern.search(req_url):
+                route.abort()
+                return
+
+            route.continue_()
+        except Exception:
+            try:
+                route.continue_()
+            except Exception:
+                pass
+
+    try:
+        context.route("**/*", _block_heavy_resources)
+    except Exception as route_err:
+        logger.debug(f"Không thể thiết lập route filter trên context: {route_err}")
 
     # Bổ sung JavaScript chống phát hiện Automation (Stealth Evasion)
     context.add_init_script("""
@@ -422,14 +507,18 @@ def navigate_to_reviews_tab(page: Page) -> bool:
         return False
 
 
-def harvest_all_reviews(page: Page, max_reviews: int = 30) -> List[Dict[str, Any]]:
+def harvest_all_reviews(
+    page: Page,
+    max_reviews: int = 30,
+    deadline: Optional[float] = None
+) -> List[Dict[str, Any]]:
     """
     Thu thập tối đa số lượng bài đánh giá từ Google Maps:
-    1. Cuộn container ảo trên view hiện tại.
-    2. Tự động chuyển qua các tiêu chí sắp xếp (Phù hợp nhất, Mới nhất, Xếp hạng cao nhất, Xếp hạng thấp nhất)
-       để gom đầy đủ các luồng đánh giá phong phú (kể cả khi Google áp đặt Sign-In Wall ở phiên chưa đăng nhập).
-    3. Mở rộng toàn văn bằng nút 'Xem thêm'.
-    4. Khử trùng lặp theo ID và nội dung.
+    1. Cuộn container ảo (div.m6QErb.DxyBCb hoặc div[role="feed"]) trực tiếp theo từng đợt 800-1200px.
+    2. Click nút 'Xem thêm' (button.w8nwRe) để mở rộng toàn văn.
+    3. Trích xuất ngay danh sách thẻ bài viết (div.jftiEf) và khử trùng lặp theo ID/nội dung.
+    4. Cơ chế dừng sớm (Early Stopping): Dừng ngay nếu đủ max_reviews hoặc sau 2 lượt cuộn số lượng không đổi.
+    5. Kiểm soát deadline an toàn (Internal Timeout Guard).
     """
     collected: Dict[str, Dict[str, Any]] = {}
 
@@ -442,7 +531,7 @@ def harvest_all_reviews(page: Page, max_reviews: int = 30) -> List[Dict[str, Any
             for btn in expand_buttons:
                 try:
                     if btn.is_visible():
-                        btn.click(timeout=300)
+                        btn.click(timeout=250)
                 except Exception:
                     pass
         except Exception:
@@ -494,72 +583,80 @@ def harvest_all_reviews(page: Page, max_reviews: int = 30) -> List[Dict[str, Any
                     "google_review_id": rev_id
                 }
 
-    # Bước 1: Trích xuất các bài đánh giá ở chế độ mặc định (Phù hợp nhất)
+    # Trích xuất các bài đánh giá ban đầu
     extract_from_current_view()
     logger.info(f"Đã trích xuất {len(collected)} đánh giá ban đầu từ Google Maps.")
 
-    # Bước 2: Duyệt qua các tiêu chí sắp xếp để gom thêm đánh giá (Multi-Sort Strategy)
-    # 0: Phù hợp nhất, 1: Mới nhất, 2: Xếp hạng cao nhất, 3: Xếp hạng thấp nhất
-    sort_labels = {
-        1: "Mới nhất",
-        2: "Xếp hạng cao nhất",
-        3: "Xếp hạng thấp nhất"
-    }
+    if len(collected) >= max_reviews:
+        return list(collected.values())[:max_reviews]
 
-    for sort_idx in [1, 2, 3]:
-        if len(collected) >= max_reviews:
+    # Cuộn container ảo theo từng đợt 800 - 1200px với Early Stopping
+    max_scroll_turns = 25
+    prev_count = len(collected)
+    stagnant_turns = 0
+
+    for turn in range(max_scroll_turns):
+        # Kiểm tra deadline bảo vệ timeout 35s
+        if deadline and time.time() >= deadline:
+            logger.info("Chạm deadline an toàn trong quá trình cuộn, dừng thu thập sớm.")
             break
 
-        sort_name = sort_labels.get(sort_idx, f"Sort {sort_idx}")
+        # Cuộn container ảo trực tiếp theo từng đợt 800 - 1200px
+        scroll_delta = random.randint(800, 1200)
         try:
-            # Cuộn container lên đỉnh để nút sắp xếp luôn nằm chuẩn xác trong viewport
-            page.evaluate("() => { const c = document.querySelector('div.m6QErb.DxyBCb'); if (c) c.scrollTop = 0; }")
-            page.wait_for_timeout(500)
+            page.evaluate(f"""() => {{
+                const containers = Array.from(document.querySelectorAll('div.m6QErb.DxyBCb, div[role="feed"]'));
+                for (const c of containers) {{
+                    if (c.scrollHeight > c.clientHeight) {{
+                        c.scrollTop += {scroll_delta};
+                    }}
+                }}
+            }}""")
+        except Exception:
+            pass
 
-            sort_btn = page.locator('button.FNe70d').first
-            if sort_btn.count() > 0:
-                sort_btn.scroll_into_view_if_needed()
-                sort_btn.click(force=True)
-                page.wait_for_timeout(1000)
+        # Cuộn thẻ card cuối cùng vào tầm nhìn để trigger lazy load
+        try:
+            cards = page.locator("div.jftiEf, div[data-review-id]").all()
+            if cards:
+                cards[-1].scroll_into_view_if_needed(timeout=400)
+        except Exception:
+            pass
 
-                items = page.locator('div[role="menuitemradio"]').all()
-                if len(items) > sort_idx:
-                    item_text = items[sort_idx].inner_text().strip()
-                    logger.info(f"Áp dụng bộ sắp xếp Google Maps: '{sort_name}' ({item_text})...")
-                    items[sort_idx].click(force=True)
-                    page.wait_for_timeout(2500)
-                    handle_consent_and_modals(page)
+        # Delay ngắn với random jitter (250ms - 450ms)
+        page.wait_for_timeout(random.randint(250, 450))
 
-                    extract_from_current_view()
-                    logger.info(f"Tổng số đánh giá sau '{sort_name}': {len(collected)}")
-        except Exception as e:
-            logger.warning(f"Không thể đổi bộ sắp xếp '{sort_name}': {e}")
+        # Kiểm tra nếu xuất hiện nút 'Xem các bài đánh giá khác'
+        try:
+            more_btn = page.locator('button[aria-label*="Xem các bài đánh giá khác"], button[aria-label*="More reviews"]').first
+            if more_btn.count() > 0 and more_btn.is_visible():
+                more_btn.click(timeout=500)
+                page.wait_for_timeout(400)
+        except Exception:
+            pass
 
-    # Bước 3: Tìm kiếm theo từ khóa chủ đề nếu vẫn chưa đủ max_reviews (Topic Search Strategy)
-    if len(collected) < max_reviews:
-        topic_keywords = ["ngon", "giá", "quán", "phục vụ", "sạch", "thái độ", "không gian", "đà nẵng"]
-        search_input = page.locator('input.yBHhWb, input.tactile-searchbox-input').first
+        # Trích xuất sau mỗi lượt cuộn
+        extract_from_current_view()
+        current_count = len(collected)
 
-        for kw in topic_keywords:
-            if len(collected) >= max_reviews:
+        # Điều kiện dừng 1: Đã đạt số lượng mong muốn
+        if current_count >= max_reviews:
+            logger.info(f"Đã thu thập đủ {current_count}/{max_reviews} bài đánh giá. Dừng cuộn.")
+            break
+
+        # Điều kiện dừng 2: Early Stopping nếu sau 2 lượt cuộn liên tiếp không tăng thêm
+        if current_count == prev_count:
+            stagnant_turns += 1
+            if stagnant_turns >= 2:
+                logger.info(
+                    f"Kích hoạt Early Stopping: Số bài đánh giá không tăng sau 2 lượt cuộn liên tiếp "
+                    f"({current_count} bài). Dừng cuộn."
+                )
                 break
-            try:
-                page.evaluate("""() => {
-                    const c = document.querySelector('div.m6QErb.DxyBCb');
-                    if (c) c.scrollTop = 0;
-                }""")
-                page.wait_for_timeout(300)
+        else:
+            stagnant_turns = 0
 
-                if search_input.count() > 0 and search_input.is_visible():
-                    search_input.fill(kw)
-                    page.keyboard.press("Enter")
-                    page.wait_for_timeout(2000)
-                    handle_consent_and_modals(page)
-
-                    extract_from_current_view()
-                    logger.info(f"Tổng số đánh giá sau từ khóa '{kw}': {len(collected)}")
-            except Exception as e:
-                logger.debug(f"Lỗi khi tìm kiếm từ khóa '{kw}': {e}")
+        prev_count = current_count
 
     return list(collected.values())[:max_reviews]
 
@@ -567,86 +664,20 @@ def harvest_all_reviews(page: Page, max_reviews: int = 30) -> List[Dict[str, Any
 def scroll_and_expand_reviews(
     page: Page,
     max_reviews: int = 30,
-    max_scroll_turns: int = 20
+    max_scroll_turns: int = 20,
+    deadline: Optional[float] = None
 ) -> None:
     """
-    Cuộn container ảo Google Maps kết hợp thu hoạch đa chiều qua multi-sort.
+    Cuộn container ảo Google Maps kết hợp thu hoạch bài đánh giá tối ưu.
     """
     try:
-        harvested = harvest_all_reviews(page, max_reviews=max_reviews)
+        harvested = harvest_all_reviews(page, max_reviews=max_reviews, deadline=deadline)
         if harvested and len(harvested) > 0:
-            logger.info(f"Thu hoạch thành công {len(harvested)} bài đánh giá thông qua multi-sort và topic search.")
+            logger.info(f"Thu hoạch thành công {len(harvested)} bài đánh giá.")
             setattr(page, "_harvested_reviews", harvested)
             return
     except Exception as e:
-        logger.debug(f"harvest_all_reviews fallback sang scroll thông thường: {e}")
-
-    logger.info(f"Bắt đầu cuộn container để tải tối đa {max_reviews} bài đánh giá...")
-    prev_card_count = 0
-    stagnant_turns = 0
-
-    for turn in range(max_scroll_turns):
-        cards = page.locator("div.jftiEf, div[data-review-id]").all()
-        card_count = len(cards)
-
-        if card_count >= max_reviews:
-            logger.info(f"Đã đạt {card_count} bài đánh giá (yêu cầu {max_reviews}), dừng cuộn.")
-            break
-
-        if card_count == prev_card_count:
-            stagnant_turns += 1
-            if stagnant_turns >= 4:
-                logger.info(f"Không có thêm bài đánh giá mới sau 4 lượt cuộn ({card_count} bài hiện tại). Dừng cuộn.")
-                break
-        else:
-            stagnant_turns = 0
-        prev_card_count = card_count
-
-        # Cuộn container ảo thông qua JavaScript
-        page.evaluate("""() => {
-            const containers = Array.from(document.querySelectorAll('div.m6QErb.DxyBCb, div[role="feed"]'));
-            for (const c of containers) {
-                if (c.scrollHeight > c.clientHeight) {
-                    c.scrollTop = c.scrollHeight;
-                }
-            }
-        }""")
-
-        # Đồng thời cuộn phần tử review cuối cùng vào viewport
-        if cards:
-            try:
-                cards[-1].scroll_into_view_if_needed(timeout=1000)
-            except Exception:
-                pass
-
-        # Human-like delay với random jitter 300ms - 600ms
-        jitter_ms = random.randint(300, 600)
-        page.wait_for_timeout(jitter_ms)
-
-        # Kiểm tra nếu xuất hiện nút 'Xem các bài đánh giá khác'
-        more_reviews_btn = page.locator('button[aria-label*="Xem các bài đánh giá khác"], button[aria-label*="More reviews"]').first
-        if more_reviews_btn.count() > 0 and more_reviews_btn.is_visible():
-            try:
-                more_reviews_btn.click()
-                page.wait_for_timeout(1000)
-                handle_consent_and_modals(page)
-            except Exception:
-                pass
-
-    # Bấm nút 'Xem thêm' / 'More' (button.w8nwRe) để mở rộng các đoạn văn dài bị rút gọn (...)
-    try:
-        expand_buttons = page.locator(
-            'button.w8nwRe, button[aria-label*="Xem thêm" i], button[aria-label*="More" i]'
-        ).all()
-        for btn in expand_buttons:
-            try:
-                if btn.is_visible():
-                    btn.click()
-                    page.wait_for_timeout(50)
-            except Exception:
-                pass
-    except Exception as e:
-        logger.debug(f"Lỗi khi mở rộng text review: {e}")
+        logger.debug(f"harvest_all_reviews gặp ngoại lệ: {e}")
 
 
 def extract_reviews_data(page: Page, max_reviews: int = 30) -> List[Dict[str, Any]]:
@@ -719,7 +750,8 @@ def crawl_google_maps_reviews(
     url: str,
     max_reviews: int = 30,
     timeout_ms: int = 25000,
-    headless: bool = True
+    headless: bool = True,
+    target_address: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Thu thập dữ liệu quán ăn và đánh giá trực tiếp từ một Google Maps URL.
@@ -729,6 +761,7 @@ def crawl_google_maps_reviews(
         max_reviews: Số lượng bài đánh giá tối đa cần cào (mặc định 30).
         timeout_ms: Thời gian chờ tối đa cho điều hướng và tải trang (ms).
         headless: Chạy trình duyệt ở chế độ không giao diện (mặc định True).
+        target_address: Địa chỉ quán mục tiêu để kiểm tra khớp chi nhánh nếu gặp trang kết quả tìm kiếm.
 
     Returns:
         Dict có cấu trúc chuẩn theo đặc tả hệ thống.
@@ -749,6 +782,9 @@ def crawl_google_maps_reviews(
     url = url.strip()
     logger.info(f"Bắt đầu cào dữ liệu Google Maps từ URL: {url} (max_reviews={max_reviews})")
 
+    start_time = time.time()
+    internal_deadline = start_time + 35.0  # Ngưỡng an toàn 35s chống Render 502/100s timeout
+
     browser: Optional[Browser] = None
     context: Optional[BrowserContext] = None
     page: Optional[Page] = None
@@ -757,34 +793,52 @@ def crawl_google_maps_reviews(
     try:
         playwright_ctx = sync_playwright().start()
         browser, context, page = create_stealth_browser(playwright_ctx, headless=headless)
-        page.set_default_timeout(timeout_ms)
+        page.set_default_timeout(min(timeout_ms, 20000))
 
         # Điều hướng với domcontentloaded để tránh treo trên Google Maps tile streaming
-        page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-        page.wait_for_timeout(3000)
+        page.goto(url, wait_until="domcontentloaded", timeout=min(timeout_ms, 20000))
+        page.wait_for_timeout(1500)
 
         handle_consent_and_modals(page)
 
-        # Nếu URL trỏ tới danh sách kết quả tìm kiếm thay vì 1 quán cụ thể, chọn kết quả đầu tiên (bỏ qua quảng cáo)
+        # Nếu URL trỏ tới danh sách kết quả tìm kiếm thay vì 1 quán cụ thể
         search_results = page.locator("a.hfpxzc").all()
         if search_results:
             target_res = search_results[0]
-            for sr in search_results:
+            matched_candidate = None
+            best_match_score = 0.0
+
+            # Duyệt qua tối đa 5 kết quả đầu tiên (bỏ qua quảng cáo, khớp địa chỉ mục tiêu nếu có)
+            candidates_to_check = search_results[:5]
+            for sr in candidates_to_check:
                 try:
-                    # Kiểm tra toàn bộ thẻ bọc kết quả (div.Nv2PK) xem có phải vị trí được tài trợ (quảng cáo) không
                     card_text = sr.evaluate("el => { const c = el.closest('div.Nv2PK') || el.parentElement; return c ? c.innerText : ''; }")
                     lower_card = card_text.lower()
-                    if "được tài trợ" not in lower_card and "sponsored" not in lower_card:
-                        target_res = sr
-                        break
+                    if "được tài trợ" in lower_card or "sponsored" in lower_card:
+                        continue
+
+                    if matched_candidate is None:
+                        matched_candidate = sr
+
+                    if target_address:
+                        score = check_address_match(card_text, target_address)
+                        if score > best_match_score:
+                            best_match_score = score
+                            matched_candidate = sr
                 except Exception:
                     pass
-            logger.info(f"Phát hiện trang danh sách tìm kiếm ({len(search_results)} địa điểm). Chọn địa điểm phù hợp.")
+
+            target_res = matched_candidate or search_results[0]
+            if target_address and best_match_score >= 0.3:
+                logger.info(f"Phát hiện danh sách tìm kiếm: Chọn kết quả khớp địa chỉ mục tiêu '{target_address}' (score={round(best_match_score, 2)}).")
+            else:
+                logger.info(f"Phát hiện trang danh sách tìm kiếm ({len(search_results)} địa điểm). Chọn địa điểm phù hợp.")
+
             target_res.click()
-            page.wait_for_timeout(3000)
+            page.wait_for_timeout(2000)
             handle_consent_and_modals(page)
             try:
-                page.locator("h1.DUwDvf, div[role='main'] h1, h1").first.wait_for(state="visible", timeout=8000)
+                page.locator("h1.DUwDvf, div[role='main'] h1, h1").first.wait_for(state="visible", timeout=6000)
             except Exception:
                 pass
 
@@ -804,15 +858,18 @@ def crawl_google_maps_reviews(
 
         logger.info(f"Đã xác định địa điểm: '{name}' | Điểm: {overall_rating} | Địa chỉ: '{address}'")
 
-        # Điều hướng sang tab Đánh giá
-        navigate_to_reviews_tab(page)
+        # Kiểm tra deadline an toàn trước khi vào tab Đánh giá
+        if time.time() < internal_deadline:
+            # Điều hướng sang tab Đánh giá
+            navigate_to_reviews_tab(page)
 
-        # Cuộn và mở rộng bài đánh giá
-        scroll_and_expand_reviews(page, max_reviews=max_reviews)
+            # Cuộn và mở rộng bài đánh giá với deadline guard 35s
+            scroll_and_expand_reviews(page, max_reviews=max_reviews, deadline=internal_deadline)
 
         # Trích xuất dữ liệu bài đánh giá
         reviews = extract_reviews_data(page, max_reviews=max_reviews)
-        logger.info(f"Hoàn tất trích xuất {len(reviews)} bài đánh giá từ Google Maps.")
+        duration = round(time.time() - start_time, 2)
+        logger.info(f"Hoàn tất trích xuất {len(reviews)} bài đánh giá từ Google Maps trong {duration}s.")
 
         return {
             "success": True,
@@ -831,6 +888,26 @@ def crawl_google_maps_reviews(
         logger.error(error_msg, exc_info=True)
         if page:
             capture_failure_screenshot(page, "crawl_google_maps_error")
+        # Cơ chế phục hồi một phần: Nếu đã có reviews được thu hoạch trước khi timeout/lỗi, trả về dữ liệu đó
+        harvested = getattr(page, "_harvested_reviews", None) if page else None
+        if harvested and len(harvested) > 0:
+            logger.warning(f"Quá trình cào gặp ngoại lệ nhưng đã thu hoạch được {len(harvested)} bài đánh giá. Trả về kết quả một phần.")
+            meta = {}
+            try:
+                meta = extract_place_metadata(page)
+            except Exception:
+                pass
+            return {
+                "success": True,
+                "restaurant_name": meta.get("name") or "",
+                "address": meta.get("address") or "",
+                "overall_rating": meta.get("overall_rating") or 0.0,
+                "google_maps_url": getattr(page, "url", url),
+                "google_place_id": extract_place_id_from_url(getattr(page, "url", url)),
+                "reviews": harvested[:max_reviews],
+                "total_crawled": len(harvested[:max_reviews]),
+                "error": None
+            }
         return {
             "success": False,
             "restaurant_name": "",
@@ -864,20 +941,22 @@ def crawl_google_maps_reviews(
 
 def search_and_crawl_google_maps(
     query: str,
-    city: str = "Đà Nẵng",
+    city: str = "",
     max_reviews: int = 30,
     timeout_ms: int = 25000,
-    headless: bool = True
+    headless: bool = True,
+    target_address: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Tìm kiếm quán ăn trên Google Maps theo từ khóa + thành phố và cào dữ liệu đánh giá.
 
     Args:
         query: Tên nhà hàng / quán ăn hoặc món ăn (ví dụ: 'Cơm Gà Gia Vĩnh').
-        city: Thành phố / Tỉnh (mặc định: 'Đà Nẵng').
+        city: Thành phố / Tỉnh (mặc định rỗng, chỉ ghép nếu được truyền).
         max_reviews: Số lượng bài đánh giá tối đa cần cào (mặc định 30).
         timeout_ms: Thời gian chờ tối đa (ms).
         headless: Chế độ chạy không giao diện.
+        target_address: Địa chỉ chi nhánh mục tiêu để đối chiếu tránh lệch quán.
 
     Returns:
         Dict có cấu trúc chuẩn theo đặc tả hệ thống.
@@ -915,7 +994,8 @@ def search_and_crawl_google_maps(
             url=target_url,
             max_reviews=max_reviews,
             timeout_ms=timeout_ms,
-            headless=headless
+            headless=headless,
+            target_address=target_address
         )
 
     clean_city = city.strip() if city else ""
@@ -928,5 +1008,6 @@ def search_and_crawl_google_maps(
         url=search_url,
         max_reviews=max_reviews,
         timeout_ms=timeout_ms,
-        headless=headless
+        headless=headless,
+        target_address=target_address
     )

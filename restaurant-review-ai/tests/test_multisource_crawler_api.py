@@ -22,6 +22,8 @@ from routers.crawler import (
     SearchAndCrawlRequest,
     validate_foody_url,
     validate_google_maps_url,
+    get_foody_city_slug,
+    get_google_maps_location,
 )
 from services.bi_service import format_restaurant_full
 
@@ -222,7 +224,7 @@ def test_analyze_url_google_maps_crawler_failure(mock_crawl_gmaps, client):
 # ==============================================================================
 
 def test_search_and_crawl_step1_cache_hit_db(client, test_db_session):
-    """Bước 1: Quán đã có trong SQLite DB thì trả về ngay tức thì (<20ms) với source='database'."""
+    """Bước 1: Quán đã có đủ cả 2 nguồn trong SQLite DB thì trả về ngay tức thì (<20ms) với source='database'."""
     rest = Restaurant(
         name="Bún Chả Cá Bà Lữ",
         address="319 Hùng Vương, Đà Nẵng",
@@ -231,6 +233,18 @@ def test_search_and_crawl_step1_cache_hit_db(client, test_db_session):
         review_count=10
     )
     test_db_session.add(rest)
+    test_db_session.flush()
+
+    # Thêm review Google Maps để quán có đủ cả 2 nguồn
+    g_rev = Review(
+        restaurant_id=rest.id,
+        author="Khách Google",
+        rating=5.0,
+        text="Bún chả cá thơm ngon đậm vị",
+        review_date="2 ngày trước",
+        source="GoogleMaps"
+    )
+    test_db_session.add(g_rev)
     test_db_session.commit()
 
     # Tìm kiếm theo tên
@@ -241,6 +255,301 @@ def test_search_and_crawl_step1_cache_hit_db(client, test_db_session):
     assert data["source"] == "database"
     assert "Tìm thấy quán 'Bún Chả Cá Bà Lữ' đã được phân tích sẵn" in data["message"]
     assert data["restaurant"]["name"] == "Bún Chả Cá Bà Lữ"
+
+
+@patch("crawler.google_maps_crawler.search_and_crawl_google_maps")
+@patch("analysis.gemini_analyzer.analyze_batch")
+def test_search_and_crawl_auto_db_hit_missing_gmaps_crawls_and_merges(
+    mock_analyze_batch,
+    mock_crawl_gmaps,
+    client,
+    test_db_session
+):
+    """Khi source='auto' và quán đã có trong DB nhưng CHƯA có review Google Maps: Tự động cào thêm Google Maps và gộp đủ 2 nguồn."""
+    rest = Restaurant(
+        name="Cơm Gà A Hải",
+        address="96 Phan Châu Trinh, Hải Châu, Đà Nẵng",
+        city="Đà Nẵng",
+        foody_url="https://www.foody.vn/da-nang/com-ga-a-hai",
+        review_count=1
+    )
+    test_db_session.add(rest)
+    test_db_session.flush()
+
+    foody_rev = Review(
+        restaurant_id=rest.id,
+        author="Người dùng Foody",
+        rating=8.0,
+        text="Cơm gà xối mỡ da giòn rụm rất ngon miệng.",
+        review_date="1 tuần trước",
+        source="Foody"
+    )
+    test_db_session.add(foody_rev)
+    test_db_session.commit()
+
+    mock_crawl_gmaps.return_value = {
+        "success": True,
+        "restaurant_name": "Cơm Gà A Hải",
+        "address": "96 Phan Châu Trinh, Đà Nẵng",
+        "overall_rating": 4.4,
+        "google_maps_url": "https://maps.google.com/place/AHai",
+        "google_place_id": "ChIJ_ahai_111",
+        "reviews": [
+            {
+                "author": "Minh Tuấn",
+                "rating": 5.0,
+                "review_date": "Hôm qua",
+                "text": "Thịt gà mềm thơm, nước luộc gà nấu cơm béo ngậy tuyệt hảo.",
+                "google_review_id": "rev_ahai_g01"
+            }
+        ],
+        "total_crawled": 1,
+        "error": None
+    }
+    mock_analyze_batch.return_value = [
+        {
+            "review_id": 2,
+            "_analysis_succeeded": True,
+            "aspects": [{"aspect": "món ăn", "sentiment": "positive", "confidence": 0.95}],
+            "is_urgent": False
+        }
+    ]
+
+    res = client.post("/api/search-and-crawl", json={"query": "cơm gà a hải", "source": "auto"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert data["source"] == "crawled_and_analyzed"
+    assert "bổ sung thành công nhận xét từ Google Maps" in data["message"]
+    mock_crawl_gmaps.assert_called_once()
+    assert data["restaurant"]["sourceBreakdown"]["googleMaps"] == 1
+    assert data["restaurant"]["sourceBreakdown"]["foody"] == 1
+
+
+@patch("crawler.google_maps_crawler.search_and_crawl_google_maps")
+def test_search_and_crawl_auto_db_hit_missing_gmaps_crawler_fails_graceful(
+    mock_crawl_gmaps,
+    client,
+    test_db_session
+):
+    """Khi source='auto' và quán đã có trong DB nhưng cào Google Maps bị lỗi/timeout: Graceful degradation, trả về dữ liệu Foody hiện có."""
+    rest = Restaurant(
+        name="Bánh Tráng Cuốn Thịt Heo Đại Lộc",
+        address="124 Huỳnh Thúc Kháng, Đà Nẵng",
+        city="Đà Nẵng",
+        foody_url="https://www.foody.vn/da-nang/banh-trang-dai-loc",
+        review_count=1
+    )
+    test_db_session.add(rest)
+    test_db_session.flush()
+
+    foody_rev = Review(
+        restaurant_id=rest.id,
+        author="Tuấn Hưng",
+        rating=7.5,
+        text="Thịt luộc hai đầu da thái mỏng, mắm nêm đậm đà thơm nức.",
+        review_date="3 ngày trước",
+        source="Foody"
+    )
+    test_db_session.add(foody_rev)
+    test_db_session.commit()
+
+    # Google Maps crawler ném exception (timeout browser)
+    mock_crawl_gmaps.side_effect = Exception("Playwright browser timeout 25000ms")
+
+    res = client.post("/api/search-and-crawl", json={"query": "bánh tráng đại lộc", "source": "auto"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert data["source"] == "database"
+    assert "Đã tổng hợp từ Foody; Google Maps không tìm thấy chi nhánh khớp" in data["message"]
+    assert data["restaurant"]["name"] == "Bánh Tráng Cuốn Thịt Heo Đại Lộc"
+    assert data["restaurant"]["sourceBreakdown"]["foody"] == 1
+    assert data["restaurant"]["sourceBreakdown"]["googleMaps"] == 0
+
+
+@patch("crawler.google_maps_crawler.search_and_crawl_google_maps")
+def test_search_and_crawl_source_foody_ignores_gmaps(
+    mock_crawl_gmaps,
+    client,
+    test_db_session
+):
+    """Khi source='foody': Quán có trong DB thì trả về ngay từ DB, TUYỆT ĐỐI KHÔNG gọi Google Maps crawler."""
+    rest = Restaurant(
+        name="Bún Bò Huế Bà Đào",
+        address="15 Nguyễn Du, Đà Nẵng",
+        city="Đà Nẵng",
+        foody_url="https://www.foody.vn/da-nang/bun-bo-ba-dao",
+        review_count=5
+    )
+    test_db_session.add(rest)
+    test_db_session.commit()
+
+    res = client.post("/api/search-and-crawl", json={"query": "bún bò bà đào", "source": "foody"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert data["source"] == "database"
+    mock_crawl_gmaps.assert_not_called()
+
+
+@patch("crawler.foody_crawler.search_foody_places")
+@patch("crawler.foody_crawler.crawl_restaurant")
+@patch("crawler.google_maps_crawler.search_and_crawl_google_maps")
+@patch("analysis.gemini_analyzer.analyze_batch")
+@patch("services.pipeline_service.analyze_batch")
+def test_search_and_crawl_auto_new_restaurant_dual_source_merge(
+    mock_pipeline_analyze,
+    mock_analyze_batch,
+    mock_crawl_gmaps,
+    mock_crawl_foody,
+    mock_search_foody,
+    client,
+    test_db_session
+):
+    """Khi source='auto' và quán CHƯA có trong DB: Cào Foody trước, sau đó tự động cào tiếp Google Maps và gộp cả 2 nguồn."""
+    mock_pipeline_analyze.return_value = [
+        {
+            "review_id": 1,
+            "_analysis_succeeded": True,
+            "aspects": [{"aspect": "món ăn", "sentiment": "positive", "confidence": 0.99}],
+            "is_urgent": False
+        }
+    ]
+    mock_search_foody.return_value = [
+        {
+            "name": "Bánh Mì Phượng Hội An",
+            "url": "https://www.foody.vn/quang-nam/banh-mi-phuong-hoi-an",
+            "address": "2B Phan Châu Trinh, Hội An"
+        }
+    ]
+    mock_crawl_foody.return_value = {
+        "name": "Bánh Mì Phượng Hội An",
+        "address": "2B Phan Châu Trinh, Hội An",
+        "overall_rating": 8.8,
+        "reviews": [
+            {
+                "author": "Hoàng Nam",
+                "rating": 9.0,
+                "text": "Bánh mì giòn rụm, pate gan béo bùi kèm sốt đặc biệt ăn một lần nhớ mãi.",
+                "date": "1 tuần trước"
+            }
+        ]
+    }
+    mock_crawl_gmaps.return_value = {
+        "success": True,
+        "restaurant_name": "Bánh Mì Phượng",
+        "address": "2B Phan Châu Trinh, Hội An, Quảng Nam",
+        "overall_rating": 4.5,
+        "google_maps_url": "https://maps.google.com/place/BanhMiPhuong",
+        "google_place_id": "ChIJ_phuong_222",
+        "reviews": [
+            {
+                "author": "Sarah Jenkins",
+                "rating": 5.0,
+                "review_date": "2 days ago",
+                "text": "Best banh mi in Vietnam! The pork and pate mixture is unbelievable.",
+                "google_review_id": "rev_phuong_g01"
+            }
+        ],
+        "total_crawled": 1,
+        "error": None
+    }
+    mock_analyze_batch.return_value = [
+        {
+            "review_id": 1,
+            "_analysis_succeeded": True,
+            "aspects": [{"aspect": "món ăn", "sentiment": "positive", "confidence": 0.99}],
+            "is_urgent": False
+        },
+        {
+            "review_id": 2,
+            "_analysis_succeeded": True,
+            "aspects": [{"aspect": "món ăn", "sentiment": "positive", "confidence": 0.97}],
+            "is_urgent": False
+        }
+    ]
+
+    res = client.post("/api/search-and-crawl", json={"query": "bánh mì phượng", "city": "hoi-an", "source": "auto"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert data["source"] == "crawled_and_analyzed"
+    assert "Đã tổng hợp thành công nhận xét từ cả 2 nguồn Foody & Google Maps" in data["message"]
+    mock_search_foody.assert_called_once()
+    mock_crawl_foody.assert_called_once()
+    mock_crawl_gmaps.assert_called_once()
+    assert data["restaurant"]["sourceBreakdown"]["foody"] == 1
+    assert data["restaurant"]["sourceBreakdown"]["googleMaps"] == 1
+
+
+@patch("crawler.foody_crawler.search_foody_places")
+@patch("crawler.foody_crawler.crawl_restaurant")
+@patch("crawler.google_maps_crawler.search_and_crawl_google_maps")
+@patch("analysis.gemini_analyzer.analyze_batch")
+@patch("services.pipeline_service.analyze_batch")
+def test_search_and_crawl_auto_new_restaurant_gmaps_fails_graceful(
+    mock_pipeline_analyze,
+    mock_analyze_batch,
+    mock_crawl_gmaps,
+    mock_crawl_foody,
+    mock_search_foody,
+    client,
+    test_db_session
+):
+    """Khi source='auto' và quán CHƯA có trong DB: Cào Foody thành công, nhưng cào Google Maps bị lỗi -> Graceful degradation giữ nguyên dữ liệu Foody."""
+    mock_pipeline_analyze.return_value = [
+        {
+            "review_id": 1,
+            "_analysis_succeeded": True,
+            "aspects": [{"aspect": "món ăn", "sentiment": "positive", "confidence": 0.9}],
+            "is_urgent": False
+        }
+    ]
+    mock_search_foody.return_value = [
+        {
+            "name": "Bánh Bèo Quê Hương",
+            "url": "https://www.foody.vn/da-nang/banh-beo-que-huong",
+            "address": "441 Núi Thành, Đà Nẵng"
+        }
+    ]
+    mock_crawl_foody.return_value = {
+        "name": "Bánh Bèo Quê Hương",
+        "address": "441 Núi Thành, Đà Nẵng",
+        "overall_rating": 8.0,
+        "reviews": [
+            {
+                "author": "Ánh Tuyết",
+                "rating": 8.0,
+                "text": "Bánh bèo chén nóng hổi tôm chấy đỏ au nước mắm ngọt dịu vừa miệng.",
+                "date": "2 tuần trước"
+            }
+        ]
+    }
+    # Google Maps crawler trả về thất bại
+    mock_crawl_gmaps.return_value = {
+        "success": False,
+        "restaurant_name": "",
+        "reviews": [],
+        "error": "Không tìm thấy địa điểm trên bản đồ"
+    }
+    mock_analyze_batch.return_value = [
+        {
+            "review_id": 1,
+            "_analysis_succeeded": True,
+            "aspects": [{"aspect": "món ăn", "sentiment": "positive", "confidence": 0.9}],
+            "is_urgent": False
+        }
+    ]
+
+    res = client.post("/api/search-and-crawl", json={"query": "bánh bèo quê hương", "city": "da-nang", "source": "auto"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert data["source"] == "crawled_and_analyzed"
+    assert data["message"] == "Đã tổng hợp từ Foody; Google Maps không tìm thấy chi nhánh khớp."
+    assert data["restaurant"]["sourceBreakdown"]["foody"] == 1
+    assert data["restaurant"]["sourceBreakdown"]["googleMaps"] == 0
 
 
 @patch("crawler.google_maps_crawler.search_and_crawl_google_maps")
@@ -470,3 +779,149 @@ def test_crawler_google_maps_endpoint_returns_formatted_restaurant(
     assert data["restaurant"]["name"] == "Bún Mắm Nêm Dì Cúc"
     assert data["restaurant"]["googleMapsUrl"] == "https://maps.app.goo.gl/DiCuc123"
     assert data["restaurant"]["sourceBreakdown"]["googleMaps"] == 1
+
+
+# ==============================================================================
+# 4. TEST SUB-CITY MAPPING & DEFENSIVE URL GUARD
+# ==============================================================================
+
+def test_subcity_mapping_resolution():
+    """Kiểm tra ánh xạ 16 đô thị/điểm du lịch sang Foody slug và Google Maps location chuẩn xác."""
+    subcities = [
+        ("hoi-an", "quang-nam", "Hội An, Quảng Nam"),
+        ("tam-ky", "quang-nam", "Tam Kỳ, Quảng Nam"),
+        ("nha-trang", "khanh-hoa", "Nha Trang, Khánh Hòa"),
+        ("cam-ranh", "khanh-hoa", "Cam Ranh, Khánh Hòa"),
+        ("da-lat", "lam-dong", "Đà Lạt, Lâm Đồng"),
+        ("bao-loc", "lam-dong", "Bảo Lộc, Lâm Đồng"),
+        ("phu-quoc", "kien-giang", "Phú Quốc, Kiên Giang"),
+        ("rach-gia", "kien-giang", "Rạch Giá, Kiên Giang"),
+        ("vung-tau", "vung-tau", "Vũng Tàu, Bà Rịa - Vũng Tàu"),
+        ("con-dao", "vung-tau", "Côn Đảo, Bà Rịa - Vũng Tàu"),
+        ("ha-long", "quang-ninh", "Hạ Long, Quảng Ninh"),
+        ("cam-pha", "quang-ninh", "Cẩm Phả, Quảng Ninh"),
+        ("phan-thiet", "binh-thuan", "Phan Thiết, Bình Thuận"),
+        ("mui-ne", "binh-thuan", "Mũi Né, Bình Thuận"),
+        ("sa-pa", "lao-cai", "Sa Pa, Lào Cai"),
+        ("buon-ma-thuot", "dak-lak", "Buôn Ma Thuột, Đắk Lắk"),
+    ]
+
+    for slug, expected_foody, expected_gmaps in subcities:
+        assert get_foody_city_slug(slug) == expected_foody, f"Foody slug sai cho {slug}"
+        assert get_google_maps_location(slug) == expected_gmaps, f"Google Maps location sai cho {slug}"
+
+    # Kiểm tra biến thể có dấu và khoảng trắng
+    assert get_foody_city_slug("Hội An") == "quang-nam"
+    assert get_google_maps_location("Hội An") == "Hội An, Quảng Nam"
+    assert get_foody_city_slug("Đà Lạt") == "lam-dong"
+    assert get_google_maps_location("Đà Lạt") == "Đà Lạt, Lâm Đồng"
+    assert get_google_maps_location("Phú Quốc") == "Phú Quốc, Kiên Giang"
+
+
+@patch("routers.crawler.analyze_restaurant_url")
+def test_search_and_crawl_defensive_url_guard(mock_analyze_url, client):
+    """Khi người dùng dán URL vào ô tìm kiếm, Defensive URL Guard tự động chuyển hướng qua analyze_restaurant_url."""
+    mock_analyze_url.return_value = {
+        "success": True,
+        "source": "crawled_and_analyzed",
+        "message": "Đã cào thành công từ link!",
+        "restaurant": {"id": 1, "name": "Quán Cơm Gà"}
+    }
+
+    # 1. Foody URL đầy đủ có https://
+    res1 = client.post("/api/search-and-crawl", json={"query": "https://www.foody.vn/da-nang/com-ga-x", "city": "da-nang"})
+    assert res1.status_code == 200
+    mock_analyze_url.assert_called_with(AnalyzeRequest(url="https://www.foody.vn/da-nang/com-ga-x", max_reviews=25))
+
+    # 2. Google Maps URL dạng rút gọn không có scheme (bắt đầu bằng www. hoặc maps.app.goo.gl)
+    res2 = client.post("/api/search-and-crawl", json={"query": "maps.app.goo.gl/ShortLink123", "city": "hoi-an"})
+    assert res2.status_code == 200
+    mock_analyze_url.assert_called_with(AnalyzeRequest(url="https://maps.app.goo.gl/ShortLink123", max_reviews=25))
+
+
+@patch("crawler.google_maps_crawler.search_and_crawl_google_maps")
+@patch("analysis.gemini_analyzer.analyze_batch")
+def test_search_and_crawl_google_maps_receives_subcity_gmaps_location(
+    mock_analyze_batch,
+    mock_crawl_gmaps,
+    client,
+    test_db_session
+):
+    """Khi người dùng chọn đô thị trực thuộc (vd: hoi-an), query Google Maps phải nhận vị trí chính xác ('Hội An, Quảng Nam')."""
+    mock_crawl_gmaps.return_value = {
+        "success": True,
+        "restaurant_name": "Cơm Gà Bà Buội",
+        "address": "22 Phan Chu Trinh, Hội An",
+        "overall_rating": 4.6,
+        "google_maps_url": "https://www.google.com/maps/place/Ba+Buoi",
+        "google_place_id": "ChIJ_ba_buoi_hoi_an",
+        "reviews": [],
+        "total_crawled": 0,
+        "error": None
+    }
+    mock_analyze_batch.return_value = []
+
+    res = client.post(
+        "/api/search-and-crawl",
+        json={"query": "Cơm Gà Bà Buội", "city": "hoi-an", "source": "google_maps"}
+    )
+    assert res.status_code == 200
+    assert res.json()["success"] is True
+
+    # Kiểm tra tham số truyền vào search_and_crawl_google_maps
+    mock_crawl_gmaps.assert_called_once()
+    _, kwargs = mock_crawl_gmaps.call_args
+    assert kwargs["city"] == "Hội An, Quảng Nam", f"Expected 'Hội An, Quảng Nam' but got {kwargs['city']}"
+
+
+@patch("crawler.foody_crawler.search_foody_places")
+@patch("crawler.foody_crawler.crawl_restaurant")
+@patch("crawler.google_maps_crawler.search_and_crawl_google_maps")
+@patch("analysis.gemini_analyzer.analyze_batch")
+def test_search_and_crawl_auto_uses_subcity_foody_and_gmaps_location(
+    mock_analyze_batch,
+    mock_crawl_gmaps,
+    mock_crawl_foody,
+    mock_search_foody,
+    client,
+    test_db_session
+):
+    """Chế độ auto với sub-city: Foody tìm kiếm theo province slug (lam-dong), Google Maps cào theo location chi tiết (Đà Lạt, Lâm Đồng)."""
+    mock_search_foody.return_value = [
+        {"name": "Lẩu Gà Lá É Tao Ngộ", "url": "https://www.foody.vn/lam-dong/lau-ga-la-e-tao-ngo", "address": "Số 5 Đường 3/4, Đà Lạt"}
+    ]
+    mock_crawl_foody.return_value = {
+        "name": "Lẩu Gà Lá É Tao Ngộ",
+        "reviews": [
+            {"author": "Minh Khang", "rating": 9.0, "review_date": "2024-03-01", "text": "Lẩu gà lá é ngon tuyệt đỉnh trời lạnh."}
+        ]
+    }
+    mock_crawl_gmaps.return_value = {
+        "success": True,
+        "restaurant_name": "Lẩu Gà Lá É Tao Ngộ",
+        "address": "Số 5 Đường 3/4, Đà Lạt",
+        "google_maps_url": "https://maps.app.goo.gl/TaoNgoDaLat",
+        "reviews": [
+            {"author": "Phương Thảo", "rating": 5.0, "review_date": "1 tuần trước", "text": "Nước lẩu ngọt thanh, măng giòn rụm."}
+        ]
+    }
+    mock_analyze_batch.return_value = []
+
+    res = client.post(
+        "/api/search-and-crawl",
+        json={"query": "Lẩu Gà Tao Ngộ", "city": "da-lat", "source": "auto"}
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+
+    # Kiểm tra Foody tìm theo slug 'lam-dong'
+    mock_search_foody.assert_called_once()
+    _, f_kwargs = mock_search_foody.call_args
+    assert f_kwargs["city_slug"] == "lam-dong"
+
+    # Kiểm tra Google Maps tìm theo location 'Đà Lạt, Lâm Đồng'
+    mock_crawl_gmaps.assert_called_once()
+    _, gm_kwargs = mock_crawl_gmaps.call_args
+    assert gm_kwargs["city"] == "Đà Lạt, Lâm Đồng"
+

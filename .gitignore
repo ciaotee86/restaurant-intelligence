@@ -61,6 +61,9 @@ temp_*
 *.png
 scratch/
 restaurant-review-ai/database/restaurants.db
+graphify-out/
+tests/e2e_report.json
+
 
 
 

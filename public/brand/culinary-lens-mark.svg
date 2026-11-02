@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <!-- Culinary Platter Base (Crimson) -->
+  <path d="M44 200C44 196.686 46.686 194 50 194H206C209.314 194 212 196.686 212 200C212 203.314 209.314 206 206 206H50C46.686 206 44 203.314 44 200Z" fill="#991B1B"/>
+  <path d="M84 208C84 206.895 84.895 206 86 206H170C171.105 206 172 206.895 172 208C172 211.314 169.314 214 166 214H90C86.686 214 84 211.314 84 208Z" fill="#991B1B"/>
+
+  <!-- Cloche Lip / Rim (Crimson) -->
+  <path d="M54 182C54 179.791 55.791 178 58 178H198C200.209 178 202 179.791 202 182C202 184.209 200.209 186 198 186H58C55.791 186 54 184.209 54 182Z" fill="#991B1B"/>
+
+  <!-- Main Cloche Dome with Negative Space Lens Crescent -->
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M62 174C62 124.294 91.549 94 128 94C164.451 94 194 124.294 194 174H62ZM82 164C80 138 98 118 118 112C112 122 94 140 96 164H82Z" fill="#991B1B"/>
+
+  <!-- Stem Connector to Radiant Star Handle -->
+  <rect x="125" y="78" width="6" height="18" rx="2" fill="#D97706"/>
+
+  <!-- The Intelligence Star / Culinary Lens Apex (Amber Gold) -->
+  <path d="M128 32Q128 58 154 58Q128 58 128 84Q128 58 102 58Q128 58 128 32Z" fill="#D97706"/>
+  <!-- Central core glow / facet dot -->
+  <circle cx="128" cy="58" r="3.5" fill="#F8F6F0"/>
+</svg>

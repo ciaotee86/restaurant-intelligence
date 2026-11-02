@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Link2,
@@ -17,6 +17,149 @@ import type { Restaurant, CrawlGoogleMapsResponse } from '../../types/restaurant
 import { restaurantService } from '../../services/restaurantService';
 import { formatNumber } from '../../utils/sentimentUtils';
 
+/**
+ * Loại bỏ dấu tiếng Việt để so sánh chuỗi
+ */
+function removeVietnameseDiacritics(str: string): string {
+  if (!str) return '';
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, (m) => (m === 'Đ' ? 'D' : 'd'))
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Chuẩn hóa chuỗi tìm kiếm thành dạng chữ thường không dấu, chỉ gồm chữ cái và số
+ */
+function cleanQueryNorm(str: string): string {
+  return removeVietnameseDiacritics(str).replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Bóc tách tiền tố số nhà, tầng, hành chính (phường, quận, đường...) để lấy lõi tên đường
+ */
+function stripAddressPrefix(str: string): string {
+  return str
+    .replace(/^(số|so)\s*\d+[\w/-]*\s*/i, '')
+    .replace(/^lô\s*\w+\s*/i, '')
+    .replace(/^tầng\s*[\w\d]+\s*/i, '')
+    .replace(/^\d+[\w/-]*\s*/i, '')
+    .replace(/^(phường|p\.|p\b|xã|x\.|thị trấn|tt\.|thành phố|tp\.|tp\b|tỉnh|quận|q\.|q\b|huyện|h\.|thị xã|tx\.|tx\b|đường|đ\.|đ\b|phố|ngõ|hẻm)\s+/i, '')
+    .trim();
+}
+
+/**
+ * Chuẩn hóa tên thành phố / tỉnh để định danh địa lý rõ ràng, súc tích
+ */
+function normalizeCityName(city: string): string {
+  if (!city) return '';
+  const c = city.trim();
+  if (/^tp\.?\s*(hồ chí minh|hcm)/i.test(c)) {
+    return c;
+  }
+  return c.replace(/^(thành phố|tp\.|tp\b|tỉnh)\s+/i, '').trim();
+}
+
+/**
+ * Chuẩn hóa chuỗi tìm kiếm thông minh cho Google Maps:
+ * - Khử phần lặp lại giữa tên quán (thường đã chứa chi nhánh/đường) và địa chỉ.
+ * - Khử các đoạn trùng lặp nội bộ trong địa chỉ (ví dụ "Tp. Tây Ninh, Tây Ninh").
+ * - Giữ lại cấu trúc ngắn gọn: Thương hiệu + Chi nhánh/Đường + Thành phố rõ nghĩa.
+ *   Ví dụ:
+ *   - Name: "Bò Tơ Tây Ninh Năm Sánh - 30 Tháng 4", Address: "30 Tháng 4, Tp. Tây Ninh, Tây Ninh"
+ *     -> "Bò Tơ Tây Ninh Năm Sánh 30 Tháng 4, Tây Ninh"
+ */
+function buildSmartGoogleMapsQuery(restaurant: {
+  name: string;
+  address?: string;
+  city?: string;
+}): string {
+  const rawName = (restaurant.name || '').trim();
+  const rawAddress = (restaurant.address || '').trim();
+  const rawCity = (restaurant.city || '').trim();
+
+  if (!rawName) return rawAddress || rawCity || '';
+
+  // 1. Tách các thành phần tên quán nếu có dấu gạch ngang phân tách chi nhánh
+  // Ví dụ: "Bò Tơ Tây Ninh Năm Sánh - 30 Tháng 4" -> ["Bò Tơ Tây Ninh Năm Sánh", "30 Tháng 4"]
+  const nameParts = rawName.split(/\s*[-–—]\s*/).map((p) => p.trim()).filter(Boolean);
+  const branchInName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+  const normBranch = cleanQueryNorm(branchInName);
+
+  // Chuẩn hóa tên quán: thay thế ' - ' hoặc ' – ' bằng khoảng trắng để liền mạch
+  const cleanName = rawName.replace(/\s*[-–—]\s*/g, ' ').replace(/\s+/g, ' ').trim();
+  const normName = cleanQueryNorm(cleanName);
+
+  // 2. Tách các phân đoạn của địa chỉ theo dấu phẩy
+  const rawSegments = (rawAddress ? rawAddress.split(/[,;\n]+/) : [])
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  // Xác định thành phố mục tiêu
+  let targetCity = '';
+  if (rawCity) {
+    targetCity = normalizeCityName(rawCity);
+  } else if (rawSegments.length > 0) {
+    // Nếu không có prop city, lấy phần tử cuối cùng của address
+    targetCity = normalizeCityName(rawSegments[rawSegments.length - 1]);
+  }
+
+  const normCity = cleanQueryNorm(targetCity);
+
+  // 3. Kiểm tra xem phân đoạn đường đầu tiên (Segment 0) đã có trong tên quán chưa
+  let streetToAdd = '';
+
+  if (rawSegments.length > 0) {
+    const firstSeg = rawSegments[0];
+    const normFirstSeg = cleanQueryNorm(firstSeg);
+    const coreFirstSeg = stripAddressPrefix(firstSeg);
+    const coreFirstSegNorm = cleanQueryNorm(coreFirstSeg);
+
+    // Kiểm tra xem tên quán có chứa phân đoạn 0 này (hoặc tên đường cốt lõi của nó) chưa
+    let isFirstSegInName =
+      (normFirstSeg.length >= 3 && normName.includes(normFirstSeg)) ||
+      (coreFirstSegNorm.length >= 3 && normName.includes(coreFirstSegNorm));
+
+    // Nếu tên quán có chi nhánh phân tách bằng dấu gạch ngang và phân đoạn này chứa chi nhánh đó
+    // Ví dụ tên quán có branchInName = "30 Tháng 4" và firstSeg = "30 Tháng 4 Tp Tây Ninh"
+    if (!isFirstSegInName && normBranch && normBranch.length >= 3 && normFirstSeg.includes(normBranch)) {
+      isFirstSegInName = true;
+      // Nếu địa chỉ không có dấu phẩy, thử bóc tách phần còn lại (ví dụ "Tp Tây Ninh") làm city nếu chưa có
+      if (!targetCity) {
+        const remaining = firstSeg.replace(new RegExp(branchInName, 'i'), '').trim();
+        if (remaining) {
+          targetCity = normalizeCityName(remaining);
+        }
+      }
+    }
+
+    // Nếu phân đoạn đầu tiên không trùng với tên quán và không phải thành phố
+    if (!isFirstSegInName && coreFirstSegNorm !== normCity && normFirstSeg !== normCity) {
+      streetToAdd = firstSeg;
+    }
+  }
+
+  // 4. Ghép chuỗi kết quả:
+  // Tên thương hiệu + đường bổ sung (nếu tên chưa chứa) + thành phố
+  let query = cleanName;
+
+  if (streetToAdd) {
+    query = `${query} ${streetToAdd}`.trim();
+  }
+
+  // Thêm thành phố ở cuối nếu chưa xuất hiện ở cuối chuỗi
+  if (targetCity) {
+    const normQuery = cleanQueryNorm(query);
+    if (!normQuery.endsWith(normCity)) {
+      query = `${query}, ${targetCity}`;
+    }
+  }
+
+  return query;
+}
+
 export interface LinkGoogleMapsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -29,11 +172,10 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
   restaurant,
   onSuccess
 }) => {
+  const urlInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'url' | 'search'>('url');
   const [googleMapsUrl, setGoogleMapsUrl] = useState(restaurant.googleMapsUrl || '');
-  const [queryName, setQueryName] = useState(
-    `${restaurant.name} ${restaurant.address || restaurant.city || ''}`.trim()
-  );
+  const [queryName, setQueryName] = useState(() => buildSmartGoogleMapsQuery(restaurant));
   const [maxReviews, setMaxReviews] = useState<number>(30);
 
   const handleQueryNameChange = (val: string) => {
@@ -149,6 +291,20 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
     }
     onClose();
   };
+
+  const handleSwitchToUrlTab = () => {
+    setActiveTab('url');
+    setTimeout(() => {
+      if (urlInputRef.current) {
+        urlInputRef.current.focus();
+        urlInputRef.current.select();
+      }
+    }, 100);
+  };
+
+  const isBranchConflict = Boolean(
+    errorMsg && /(chi nhánh|không khớp|xung đột)/i.test(errorMsg)
+  );
 
   return (
     <div
@@ -321,9 +477,20 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
               {errorMsg && (
                 <div className="p-3.5 bg-[#FEF2F2] border border-[#FECACA] rounded-xl flex items-start gap-2.5 text-xs text-[#991B1B]">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
+                  <div className="space-y-1.5 flex-1">
                     <p className="font-bold">Không thể hoàn tất thu thập:</p>
-                    <p>{errorMsg}</p>
+                    <p className="leading-relaxed">{errorMsg}</p>
+                    {isBranchConflict && (
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={handleSwitchToUrlTab}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#991B1B] bg-white border border-[#FECACA] rounded-lg hover:bg-[#FDF2F2] hover:border-[#F87171] transition-all cursor-pointer shadow-xs"
+                        >
+                          <span>👉 Chuyển sang Dán đường dẫn Google Maps của chi nhánh này</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -365,6 +532,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
                   </label>
                   <div className="relative">
                     <input
+                      ref={urlInputRef}
                       id="gmaps-url-input"
                       type="url"
                       value={googleMapsUrl}
@@ -477,5 +645,5 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
 
 export const LinkGoogleMapsModal: React.FC<LinkGoogleMapsModalProps> = (props) => {
   if (!props.isOpen) return null;
-  return <LinkGoogleMapsModalContent {...props} />;
+  return <LinkGoogleMapsModalContent key={props.restaurant.id} {...props} />;
 };

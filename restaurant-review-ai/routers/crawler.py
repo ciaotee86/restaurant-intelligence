@@ -627,52 +627,225 @@ analyze_foody_url = analyze_restaurant_url
 
 import re
 
+GOOGLE_MAPS_CITY_LOCATION_MAP = {
+    # 16 đô thị trực thuộc & điểm du lịch nổi tiếng
+    "hoi an": "Hội An, Quảng Nam",
+    "hoi-an": "Hội An, Quảng Nam",
+    "tam ky": "Tam Kỳ, Quảng Nam",
+    "tam-ky": "Tam Kỳ, Quảng Nam",
+    "nha trang": "Nha Trang, Khánh Hòa",
+    "nha-trang": "Nha Trang, Khánh Hòa",
+    "cam ranh": "Cam Ranh, Khánh Hòa",
+    "cam-ranh": "Cam Ranh, Khánh Hòa",
+    "da lat": "Đà Lạt, Lâm Đồng",
+    "da-lat": "Đà Lạt, Lâm Đồng",
+    "bao loc": "Bảo Lộc, Lâm Đồng",
+    "bao-loc": "Bảo Lộc, Lâm Đồng",
+    "phu quoc": "Phú Quốc, Kiên Giang",
+    "phu-quoc": "Phú Quốc, Kiên Giang",
+    "rach gia": "Rạch Giá, Kiên Giang",
+    "rach-gia": "Rạch Giá, Kiên Giang",
+    "vung tau": "Vũng Tàu, Bà Rịa - Vũng Tàu",
+    "vung-tau": "Vũng Tàu, Bà Rịa - Vũng Tàu",
+    "con dao": "Côn Đảo, Bà Rịa - Vũng Tàu",
+    "con-dao": "Côn Đảo, Bà Rịa - Vũng Tàu",
+    "ha long": "Hạ Long, Quảng Ninh",
+    "ha-long": "Hạ Long, Quảng Ninh",
+    "cam pha": "Cẩm Phả, Quảng Ninh",
+    "cam-pha": "Cẩm Phả, Quảng Ninh",
+    "phan thiet": "Phan Thiết, Bình Thuận",
+    "phan-thiet": "Phan Thiết, Bình Thuận",
+    "mui ne": "Mũi Né, Bình Thuận",
+    "mui-ne": "Mũi Né, Bình Thuận",
+    "sa pa": "Sa Pa, Lào Cai",
+    "sapa": "Sa Pa, Lào Cai",
+    "sa-pa": "Sa Pa, Lào Cai",
+    "buon ma thuot": "Buôn Ma Thuột, Đắk Lắk",
+    "buon-ma-thuot": "Buôn Ma Thuột, Đắk Lắk",
+
+    # Các thành phố trực thuộc Trung ương & tỉnh thành chính
+    "da nang": "Đà Nẵng",
+    "da-nang": "Đà Nẵng",
+    "ha noi": "Hà Nội",
+    "ha-noi": "Hà Nội",
+    "tp. ho chi minh": "TP. Hồ Chí Minh",
+    "ho chi minh": "TP. Hồ Chí Minh",
+    "ho-chi-minh": "TP. Hồ Chí Minh",
+    "sai gon": "TP. Hồ Chí Minh",
+    "hai phong": "Hải Phòng",
+    "hai-phong": "Hải Phòng",
+    "can tho": "Cần Thơ",
+    "can-tho": "Cần Thơ",
+    "hue": "Huế",
+    "thua thien hue": "Thừa Thiên Huế",
+    "thua-thien-hue": "Thừa Thiên Huế",
+    "quang nam": "Quảng Nam",
+    "quang-nam": "Quảng Nam",
+    "khanh hoa": "Khánh Hòa",
+    "khanh-hoa": "Khánh Hòa",
+    "lam dong": "Lâm Đồng",
+    "lam-dong": "Lâm Đồng",
+    "kien giang": "Kiên Giang",
+    "kien-giang": "Kiên Giang",
+    "quang ninh": "Quảng Ninh",
+    "quang-ninh": "Quảng Ninh",
+    "binh thuan": "Bình Thuận",
+    "binh-thuan": "Bình Thuận",
+    "lao cai": "Lào Cai",
+    "lao-cai": "Lào Cai",
+    "dak lak": "Đắk Lắk",
+    "dak-lak": "Đắk Lắk",
+    "ba ria - vung tau": "Bà Rịa - Vũng Tàu",
+    "ba ria vung tau": "Bà Rịa - Vũng Tàu",
+    "ba-ria-vung-tau": "Bà Rịa - Vũng Tàu",
+    "binh dinh": "Bình Định",
+    "binh-dinh": "Bình Định",
+    "quy nhon": "Quy Nhơn, Bình Định",
+    "quy-nhon": "Quy Nhơn, Bình Định",
+    "phu yen": "Phú Yên",
+    "phu-yen": "Phú Yên",
+    "tuy hoa": "Tuy Hòa, Phú Yên",
+    "tuy-hoa": "Tuy Hòa, Phú Yên",
+    "gia lai": "Gia Lai",
+    "gia-lai": "Gia Lai",
+    "pleiku": "Pleiku, Gia Lai",
+    "dong nai": "Đồng Nai",
+    "dong-nai": "Đồng Nai",
+    "binh duong": "Bình Dương",
+    "binh-duong": "Bình Dương",
+}
+
+
+def get_google_maps_location(city_input: str) -> str:
+    """Ánh xạ city input (slug hoặc tên) sang địa danh chi tiết cho tìm kiếm Google Maps."""
+    if not city_input:
+        return ""
+    raw = city_input.lower().strip()
+    if raw in GOOGLE_MAPS_CITY_LOCATION_MAP:
+        return GOOGLE_MAPS_CITY_LOCATION_MAP[raw]
+    norm = remove_accents(raw)
+    if norm in GOOGLE_MAPS_CITY_LOCATION_MAP:
+        return GOOGLE_MAPS_CITY_LOCATION_MAP[norm]
+    norm_hyphen = norm.replace(" ", "-")
+    norm_space = norm.replace("-", " ")
+    if norm_hyphen in GOOGLE_MAPS_CITY_LOCATION_MAP:
+        return GOOGLE_MAPS_CITY_LOCATION_MAP[norm_hyphen]
+    if norm_space in GOOGLE_MAPS_CITY_LOCATION_MAP:
+        return GOOGLE_MAPS_CITY_LOCATION_MAP[norm_space]
+    return city_input
+
+
 FOODY_CITY_SLUG_MAP = {
     "thua thien hue": "hue",
     "thua-thien-hue": "hue",
     "hue": "hue",
     "tp. ho chi minh": "ho-chi-minh",
     "ho chi minh": "ho-chi-minh",
+    "ho-chi-minh": "ho-chi-minh",
     "sai gon": "ho-chi-minh",
     "hcm": "ho-chi-minh",
     "ha noi": "ha-noi",
+    "ha-noi": "ha-noi",
     "hn": "ha-noi",
     "da nang": "da-nang",
+    "da-nang": "da-nang",
     "hai phong": "hai-phong",
+    "hai-phong": "hai-phong",
     "can tho": "can-tho",
+    "can-tho": "can-tho",
+    # Khánh Hòa / Nha Trang / Cam Ranh
     "khanh hoa": "khanh-hoa",
+    "khanh-hoa": "khanh-hoa",
     "nha trang": "khanh-hoa",
+    "nha-trang": "khanh-hoa",
+    "cam ranh": "khanh-hoa",
+    "cam-ranh": "khanh-hoa",
+    # Lâm Đồng / Đà Lạt / Bảo Lộc
     "lam dong": "lam-dong",
+    "lam-dong": "lam-dong",
     "da lat": "lam-dong",
+    "da-lat": "lam-dong",
+    "bao loc": "lam-dong",
+    "bao-loc": "lam-dong",
+    # Bà Rịa - Vũng Tàu / Vũng Tàu / Côn Đảo
     "ba ria - vung tau": "vung-tau",
     "ba ria vung tau": "vung-tau",
+    "ba-ria-vung-tau": "vung-tau",
     "vung tau": "vung-tau",
+    "vung-tau": "vung-tau",
+    "con dao": "vung-tau",
+    "con-dao": "vung-tau",
+    # Quảng Nam / Hội An / Tam Kỳ
     "quang nam": "quang-nam",
+    "quang-nam": "quang-nam",
     "hoi an": "quang-nam",
+    "hoi-an": "quang-nam",
+    "tam ky": "quang-nam",
+    "tam-ky": "quang-nam",
+    # Kiên Giang / Phú Quốc / Rạch Giá
     "kien giang": "kien-giang",
+    "kien-giang": "kien-giang",
     "phu quoc": "kien-giang",
+    "phu-quoc": "kien-giang",
+    "rach gia": "kien-giang",
+    "rach-gia": "kien-giang",
+    # Quảng Ninh / Hạ Long / Cẩm Phả
     "quang ninh": "quang-ninh",
+    "quang-ninh": "quang-ninh",
     "ha long": "quang-ninh",
-    "binh duong": "binh-duong",
-    "dong nai": "dong-nai",
-    "gia lai": "gia-lai",
-    "pleiku": "gia-lai",
+    "ha-long": "quang-ninh",
+    "cam pha": "quang-ninh",
+    "cam-pha": "quang-ninh",
+    # Bình Thuận / Phan Thiết / Mũi Né
+    "binh thuan": "binh-thuan",
+    "binh-thuan": "binh-thuan",
+    "phan thiet": "binh-thuan",
+    "phan-thiet": "binh-thuan",
+    "mui ne": "binh-thuan",
+    "mui-ne": "binh-thuan",
+    # Lào Cai / Sa Pa
+    "lao cai": "lao-cai",
+    "lao-cai": "lao-cai",
+    "sa pa": "lao-cai",
+    "sapa": "lao-cai",
+    "sa-pa": "lao-cai",
+    # Đắk Lắk / Buôn Ma Thuột
     "dak lak": "dak-lak",
+    "dak-lak": "dak-lak",
     "buon ma thuot": "dak-lak",
+    "buon-ma-thuot": "dak-lak",
+    # Khác
+    "binh duong": "binh-duong",
+    "binh-duong": "binh-duong",
+    "dong nai": "dong-nai",
+    "dong-nai": "dong-nai",
+    "gia lai": "gia-lai",
+    "gia-lai": "gia-lai",
+    "pleiku": "gia-lai",
     "phu yen": "phu-yen",
+    "phu-yen": "phu-yen",
     "tuy hoa": "phu-yen",
+    "tuy-hoa": "phu-yen",
     "binh dinh": "binh-dinh",
+    "binh-dinh": "binh-dinh",
     "quy nhon": "binh-dinh",
+    "quy-nhon": "binh-dinh",
 }
 
 
 def get_foody_city_slug(city_input: str) -> str:
-    """Ánh xạ chuẩn xác tên thành phố sang slug URL hợp lệ trên Foody.vn"""
+    """Ánh xạ chuẩn xác tên thành phố / slug sang slug URL hợp lệ trên Foody.vn"""
     if not city_input:
         return "da-nang"
-    norm = remove_accents(city_input.lower().strip())
+    raw = city_input.lower().strip()
+    if raw in FOODY_CITY_SLUG_MAP:
+        return FOODY_CITY_SLUG_MAP[raw]
+    norm = remove_accents(raw)
     if norm in FOODY_CITY_SLUG_MAP:
         return FOODY_CITY_SLUG_MAP[norm]
+    norm_space = norm.replace("-", " ")
+    if norm_space in FOODY_CITY_SLUG_MAP:
+        return FOODY_CITY_SLUG_MAP[norm_space]
     for k, v in FOODY_CITY_SLUG_MAP.items():
         if k in norm or norm in k:
             return v
@@ -696,14 +869,27 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
         if not q:
             raise HTTPException(status_code=400, detail="Vui lòng nhập từ khóa tìm kiếm.")
 
-        # Tự động nhận diện nếu người dùng dán URL thay vì nhập từ khóa tìm kiếm
+        # Tự động nhận diện nếu người dùng dán URL thay vì nhập từ khóa tìm kiếm (Defensive URL Guard)
         lower_q = q.lower()
-        if q.startswith("http://") or q.startswith("https://") or "foody.vn" in lower_q or "google.com/maps" in lower_q or "goo.gl" in lower_q:
+        is_direct_url = (
+            q.startswith("http://")
+            or q.startswith("https://")
+            or q.startswith("www.")
+            or "foody.vn" in lower_q
+            or "google.com/maps" in lower_q
+            or "maps.google.com" in lower_q
+            or "goo.gl" in lower_q
+            or "maps.app.goo.gl" in lower_q
+        )
+        if is_direct_url:
             target_url = q if (q.startswith("http://") or q.startswith("https://")) else f"https://{q}"
-            print(f"-> [Search & Crawl] Nhận diện query là URL ('{target_url}'). Chuyển hướng xử lý qua analyze_restaurant_url...")
+            print(f"-> [Search & Crawl] [Defensive Guard] Nhận diện query là URL ('{target_url}'). Chuyển hướng xử lý qua analyze_restaurant_url...")
             result = analyze_restaurant_url(AnalyzeRequest(url=target_url, max_reviews=req.max_reviews or 30))
-            if isinstance(result, dict) and "source" not in result:
-                result["source"] = "crawled_and_analyzed"
+            if isinstance(result, dict):
+                if "source" not in result:
+                    result["source"] = "crawled_and_analyzed"
+                if "success" not in result:
+                    result["success"] = True
             return result
 
         norm_q = remove_accents(q)
@@ -717,6 +903,7 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
 
         effective_city = user_selected_city or detected_city or ""
         city_slug = get_foody_city_slug(effective_city) if effective_city else "da-nang"
+        gmaps_city = get_google_maps_location(effective_city) if effective_city else ""
         norm_eff_city = remove_accents(effective_city).replace("-", " ").strip() if effective_city else ""
 
         search_keyword = rem_q.strip() if rem_q.strip() else q
@@ -761,18 +948,93 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
 
             if matching_res:
                 print(f"-> [Search & Crawl] Đã tìm thấy quán '{matching_res.name}' trong cơ sở dữ liệu SQLite!")
-                formatted = format_restaurant_full(matching_res, db)
-                return {
-                    "success": True,
-                    "source": "database",
-                    "message": f"Tìm thấy quán '{matching_res.name}' đã được phân tích sẵn trong cơ sở dữ liệu!",
-                    "restaurant": formatted
-                }
+                has_gmaps = (
+                    db.query(DBReview)
+                    .filter(
+                        DBReview.restaurant_id == matching_res.id,
+                        DBReview.source.in_(["GoogleMaps", "google_maps", "Google Maps"])
+                    )
+                    .count() > 0
+                )
+
+                # 1. Người dùng chỉ định rõ nguồn Foody: Trả về luôn từ DB
+                if source == "foody":
+                    formatted = format_restaurant_full(matching_res, db)
+                    return {
+                        "success": True,
+                        "source": "database",
+                        "message": f"Tìm thấy quán '{matching_res.name}' đã được phân tích sẵn trong cơ sở dữ liệu!",
+                        "restaurant": formatted
+                    }
+
+                # 2. Người dùng chọn google_maps và quán đã có dữ liệu Google Maps
+                if source == "google_maps" and has_gmaps:
+                    formatted = format_restaurant_full(matching_res, db)
+                    return {
+                        "success": True,
+                        "source": "database",
+                        "message": f"Tìm thấy quán '{matching_res.name}' đã có dữ liệu Google Maps trong cơ sở dữ liệu!",
+                        "restaurant": formatted
+                    }
+
+                # 3. Người dùng chọn auto và quán đã có đủ dữ liệu từ Google Maps: Trả về luôn từ DB
+                if source == "auto" and has_gmaps:
+                    formatted = format_restaurant_full(matching_res, db)
+                    return {
+                        "success": True,
+                        "source": "database",
+                        "message": f"Tìm thấy quán '{matching_res.name}' đã được phân tích sẵn trong cơ sở dữ liệu!",
+                        "restaurant": formatted
+                    }
+
+                # 4. Khi source == "auto" mà quán chưa có review Google Maps: Tự động chạy cào bổ sung Google Maps
+                if source == "auto" and not has_gmaps:
+                    gmap_query = f"{matching_res.name} {matching_res.address or ''}".strip()
+                    gmap_city = gmaps_city or get_google_maps_location(matching_res.city or "")
+                    print(f"-> [Search & Crawl] [Dual-Source] Quán '{matching_res.name}' trong DB chưa có review Google Maps. Bắt đầu cào bổ sung từ Google Maps cho '{gmap_query}'...")
+                    gmaps_crawled_ok = False
+                    try:
+                        with CRAWLER_SEMAPHORE:
+                            gmaps_data = google_maps_crawler.search_and_crawl_google_maps(
+                                query=gmap_query,
+                                city=gmap_city,
+                                max_reviews=15,
+                                headless=True
+                            )
+                        if gmaps_data and gmaps_data.get("success") and gmaps_data.get("restaurant_name"):
+                            matching_res, new_count, dup_count = save_and_analyze_google_maps_reviews(
+                                db=db,
+                                crawl_data=gmaps_data,
+                                req_url=gmaps_data.get("google_maps_url"),
+                                restaurant=matching_res,
+                                default_name=matching_res.name
+                            )
+                            gmaps_crawled_ok = True
+                            print(f"-> [Search & Crawl] [Dual-Source] Đã bổ sung thành công {new_count} review Google Maps cho quán '{matching_res.name}'.")
+                    except Exception as gm_err:
+                        print(f"-> [Search & Crawl] [Dual-Source] Cào bổ sung Google Maps cho '{matching_res.name}' gặp lỗi: {gm_err}")
+
+                    formatted = format_restaurant_full(matching_res, db)
+                    if gmaps_crawled_ok:
+                        return {
+                            "success": True,
+                            "source": "crawled_and_analyzed",
+                            "message": f"Tìm thấy quán '{matching_res.name}' trong cơ sở dữ liệu và đã bổ sung thành công nhận xét từ Google Maps!",
+                            "restaurant": formatted
+                        }
+                    else:
+                        # Graceful degradation nếu Google Maps lỗi/timeout/không tìm thấy
+                        return {
+                            "success": True,
+                            "source": "database",
+                            "message": f"Đã tổng hợp từ Foody; Google Maps không tìm thấy chi nhánh khớp.",
+                            "restaurant": formatted
+                        }
 
         # Bước 2: Chưa có trong DB -> Tùy theo source (google_maps | foody | auto)
         def crawl_gmaps():
-            gmap_city = effective_city if effective_city else "Đà Nẵng"
-            print(f"-> [Search & Crawl] Bắt đầu tìm kiếm & cào Google Maps cho từ khóa '{search_keyword}' (thành phố: {gmap_city})...")
+            gmap_city = gmaps_city
+            print(f"-> [Search & Crawl] Bắt đầu tìm kiếm & cào Google Maps cho từ khóa '{search_keyword}' (thành phố: {gmap_city or 'Toàn quốc'})...")
             with CRAWLER_SEMAPHORE:
                 gmaps_data = google_maps_crawler.search_and_crawl_google_maps(
                     query=search_keyword,
@@ -824,6 +1086,55 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                     existing_by_url = db.query(DBRestaurant).filter_by(foody_url=place["url"]).first()
                     if existing_by_url:
                         print(f"-> [Search & Crawl] URL '{place['url']}' đã tồn tại trong DB!")
+                        if source == "auto":
+                            has_gm = (
+                                db.query(DBReview)
+                                .filter(
+                                    DBReview.restaurant_id == existing_by_url.id,
+                                    DBReview.source.in_(["GoogleMaps", "google_maps", "Google Maps"])
+                                )
+                                .count() > 0
+                            )
+                            if not has_gm:
+                                gm_query = f"{existing_by_url.name} {existing_by_url.address or place.get('address', '')}".strip()
+                                gm_city = gmaps_city or get_google_maps_location(existing_by_url.city or "")
+                                gm_crawled_ok = False
+                                try:
+                                    with CRAWLER_SEMAPHORE:
+                                        gm_data = google_maps_crawler.search_and_crawl_google_maps(
+                                            query=gm_query,
+                                            city=gm_city,
+                                            max_reviews=15,
+                                            headless=True
+                                        )
+                                    if gm_data and gm_data.get("success") and gm_data.get("restaurant_name"):
+                                        existing_by_url, new_gm_cnt, _ = save_and_analyze_google_maps_reviews(
+                                            db=db,
+                                            crawl_data=gm_data,
+                                            req_url=gm_data.get("google_maps_url"),
+                                            restaurant=existing_by_url,
+                                            default_name=existing_by_url.name
+                                        )
+                                        gm_crawled_ok = True
+                                except Exception as e:
+                                    print(f"-> [Search & Crawl] Lỗi cào Google Maps bổ sung: {e}")
+
+                                formatted = format_restaurant_full(existing_by_url, db)
+                                if gm_crawled_ok:
+                                    return {
+                                        "success": True,
+                                        "source": "crawled_and_analyzed",
+                                        "message": f"Tìm thấy quán '{existing_by_url.name}' trong cơ sở dữ liệu và đã bổ sung thành công nhận xét từ Google Maps!",
+                                        "restaurant": formatted
+                                    }
+                                else:
+                                    return {
+                                        "success": True,
+                                        "source": "database",
+                                        "message": f"Đã tổng hợp từ Foody; Google Maps không tìm thấy chi nhánh khớp.",
+                                        "restaurant": formatted
+                                    }
+
                         formatted = format_restaurant_full(existing_by_url, db)
                         return {
                             "success": True,
@@ -873,12 +1184,58 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                     default_name=target_place["name"],
                     default_address=target_place.get("address", "")
                 )
+                foody_rev_count = len(crawl_data.get("reviews", []))
+
+                # NÂNG CẤP DUAL-SOURCE: Khi source == "auto", gọi tiếp Google Maps crawler
+                if source == "auto":
+                    gmaps_merged = False
+                    gmaps_rev_count = 0
+                    gm_query = f"{target_place['name']} {target_place.get('address', '')}".strip()
+                    print(f"-> [Search & Crawl] [Dual-Source] Đã cào Foody xong ({foody_rev_count} nhận xét). Tiếp tục cào Google Maps cho '{gm_query}'...")
+                    try:
+                        with CRAWLER_SEMAPHORE:
+                            gm_data = google_maps_crawler.search_and_crawl_google_maps(
+                                query=gm_query,
+                                city=gmaps_city,
+                                max_reviews=15,
+                                headless=True
+                            )
+                        if gm_data and gm_data.get("success") and gm_data.get("restaurant_name"):
+                            restaurant, new_gmaps_cnt, _ = save_and_analyze_google_maps_reviews(
+                                db=db,
+                                crawl_data=gm_data,
+                                req_url=gm_data.get("google_maps_url"),
+                                restaurant=restaurant,
+                                default_name=target_place["name"]
+                            )
+                            gmaps_rev_count = len(gm_data.get("reviews", []))
+                            gmaps_merged = True
+                            print(f"-> [Search & Crawl] [Dual-Source] Gộp thành công {new_gmaps_cnt} review Google Maps vào quán '{restaurant.name}'.")
+                    except Exception as gm_err:
+                        print(f"-> [Search & Crawl] [Dual-Source] Cào Google Maps thất bại/timeout ({gm_err}). Graceful degradation tiếp tục với dữ liệu Foody.")
+
+                    invalidate_restaurants_cache()
+                    formatted = format_restaurant_full(restaurant, db)
+
+                    if gmaps_merged:
+                        msg = f"Đã tổng hợp thành công nhận xét từ cả 2 nguồn Foody & Google Maps cho quán '{restaurant.name}' ({foody_rev_count} Foody, {gmaps_rev_count} Google Maps)!"
+                    else:
+                        msg = "Đã tổng hợp từ Foody; Google Maps không tìm thấy chi nhánh khớp."
+
+                    return {
+                        "success": True,
+                        "source": "crawled_and_analyzed",
+                        "message": msg,
+                        "restaurant": formatted
+                    }
+
+                # Nếu source == "foody":
                 invalidate_restaurants_cache()
                 formatted = format_restaurant_full(restaurant, db)
                 return {
                     "success": True,
                     "source": "crawled_and_analyzed",
-                    "message": f"Đã tổng hợp thành công nhận xét thực tế của quán '{restaurant.name}' ({len(crawl_data.get('reviews', []))} nhận xét thực tế)!",
+                    "message": f"Đã tổng hợp thành công nhận xét thực tế của quán '{restaurant.name}' ({foody_rev_count} nhận xét thực tế)!",
                     "restaurant": formatted
                 }
 
@@ -1059,21 +1416,59 @@ def crawl_google_maps_endpoint(req: CrawlGoogleMapsRequest):
     crawl_data = None
     try:
         with CRAWLER_SEMAPHORE:
+            # Xác định thành phố mục tiêu cho tìm kiếm: ưu tiên target_rest_city, rồi bóc tách từ target_rest_addr, fallback ""
+            resolved_city = target_rest_city or ""
+            if not resolved_city and target_rest_addr:
+                try:
+                    from services.bi_service import detect_city
+                    d_city = detect_city(target_rest_addr)
+                    if d_city and d_city != "Toàn quốc":
+                        resolved_city = d_city
+                    else:
+                        parts = [p.strip() for p in target_rest_addr.split(",") if p.strip()]
+                        if parts:
+                            clean_last = re.sub(r"^(tp\.?|thành phố|tỉnh)\s+", "", parts[-1], flags=re.IGNORECASE).strip()
+                            resolved_city = clean_last or parts[-1]
+                except Exception:
+                    resolved_city = ""
+
+            if resolved_city:
+                resolved_city = get_google_maps_location(resolved_city)
+
+            target_address = target_rest_addr or ""
+
             if req_url:
-                crawl_data = google_maps_crawler.crawl_google_maps_reviews(url=req_url, max_reviews=max_revs, headless=True)
+                crawl_data = google_maps_crawler.crawl_google_maps_reviews(
+                    url=req_url,
+                    max_reviews=max_revs,
+                    headless=True,
+                    target_address=target_address
+                )
             elif req_query:
-                crawl_data = google_maps_crawler.search_and_crawl_google_maps(query=req_query, city="Đà Nẵng", max_reviews=max_revs, headless=True)
+                crawl_data = google_maps_crawler.search_and_crawl_google_maps(
+                    query=req_query,
+                    city=resolved_city,
+                    max_reviews=max_revs,
+                    headless=True,
+                    target_address=target_address
+                )
             elif target_rest_id:
                 if target_rest_gmap_url:
                     valid_u = validate_google_maps_url(target_rest_gmap_url)
-                    crawl_data = google_maps_crawler.crawl_google_maps_reviews(url=valid_u, max_reviews=max_revs, headless=True)
+                    crawl_data = google_maps_crawler.crawl_google_maps_reviews(
+                        url=valid_u,
+                        max_reviews=max_revs,
+                        headless=True,
+                        target_address=target_address
+                    )
                 else:
                     search_q = f"{target_rest_name} {target_rest_addr or ''}".strip()
                     crawl_data = google_maps_crawler.search_and_crawl_google_maps(
                         query=search_q,
-                        city=target_rest_city or "Đà Nẵng",
+                        city=resolved_city,
                         max_reviews=max_revs,
-                        headless=True
+                        headless=True,
+                        target_address=target_address
                     )
     except HTTPException:
         raise
@@ -1128,13 +1523,44 @@ def crawl_google_maps_endpoint(req: CrawlGoogleMapsRequest):
                     f"[Entity Mismatch Blocked] Quán mục tiêu: '{restaurant.name}' ({restaurant.address}) "
                     f"VS Quán cào từ Google Maps: '{candidate_label}' ({crawled_addr}) - Reason: {mismatch_reason} - Score: {match_score}"
                 )
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
+                from services.entity_resolution import calculate_name_similarity, extract_brand_tokens
+                brand1 = extract_brand_tokens(restaurant.name)
+                brand2 = extract_brand_tokens(candidate_label)
+                brand_overlap = brand1 & brand2
+                name_sim = calculate_name_similarity(restaurant.name, candidate_label)
+
+                # Phân biệt trường hợp khác chi nhánh: Bắt buộc phải có cùng thương hiệu / tên tương đồng (>= 0.6) nhưng khác địa chỉ
+                is_branch_mismatch = (
+                    (bool(brand_overlap) or name_sim >= 0.6)
+                    and (
+                        "Địa chỉ chi nhánh" in mismatch_reason
+                        or "quận/huyện xung đột" in mismatch_reason
+                        or (crawled_addr and restaurant.address and crawled_addr != restaurant.address)
+                    )
+                )
+
+                if is_branch_mismatch:
+                    error_detail = (
+                        f"Tìm thấy quán '{candidate_label}' tại địa chỉ '{crawled_addr}', "
+                        f"không trùng khớp với địa chỉ chi nhánh '{restaurant.name}' ({restaurant.address}). "
+                        f"Để đảm bảo chính xác dữ liệu của chi nhánh này, bạn vui lòng chuyển sang tab 'Dán đường dẫn Google Maps' và dán liên kết cụ thể của chi nhánh."
+                    )
+                elif req_url:
+                    error_detail = (
                         f"Liên kết Google Maps thuộc về quán '{candidate_label}', không khớp với quán bạn đang bổ sung đánh giá là '{restaurant.name}' ({mismatch_reason}). "
                         f"Hệ thống đã chặn quá trình lưu để tránh làm sai lệch dữ liệu của quán. "
                         f"Nếu bạn muốn phân tích riêng quán này, vui lòng quay lại Trang chủ để dán link."
                     )
+                else:
+                    error_detail = (
+                        f"Kết quả tìm kiếm trên Google Maps trả về quán '{candidate_label}', không khớp với quán bạn đang bổ sung đánh giá là '{restaurant.name}' ({mismatch_reason}). "
+                        f"Hệ thống đã chặn quá trình lưu để tránh làm sai lệch dữ liệu của quán. "
+                        f"Để đảm bảo chính xác dữ liệu của chi nhánh này, bạn vui lòng chuyển sang tab 'Dán đường dẫn Google Maps' và dán liên kết cụ thể của chi nhánh."
+                    )
+
+                raise HTTPException(
+                    status_code=400,
+                    detail=error_detail
                 )
 
             if crawl_data.get("google_maps_url") and not restaurant.google_maps_url:

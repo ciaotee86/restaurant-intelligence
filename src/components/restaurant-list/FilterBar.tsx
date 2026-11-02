@@ -1,7 +1,7 @@
 import React from 'react';
 import type { SearchFilterState } from '../../types/restaurant';
 import { Filter, RotateCcw } from 'lucide-react';
-import { VIETNAM_CITIES } from '../../utils/cityUtils';
+import { VIETNAM_CITIES, PROMINENT_DESTINATIONS } from '../../utils/cityUtils';
 
 interface FilterBarProps {
   filters: SearchFilterState;
@@ -10,10 +10,6 @@ interface FilterBarProps {
 }
 
 export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, onReset }) => {
-  const cities = [
-    'Tất cả địa điểm',
-    ...VIETNAM_CITIES.map((c) => c.name)
-  ];
   const cuisines = [
     'Tất cả ẩm thực',
     'Ý',
@@ -53,11 +49,21 @@ export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, onReset
             onChange={(e) => onChange({ ...filters, city: e.target.value })}
             className="w-full bg-[#FAF7F2] border border-[#E8E4DC] rounded-xl px-3 py-2 text-xs text-[#1C1917] focus:outline-none focus:border-[#991B1B]"
           >
-            {cities.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
+            <option value="Tất cả địa điểm">Tất cả địa điểm</option>
+            <optgroup label="🌟 Đô thị ẩm thực & du lịch trọng điểm">
+              {PROMINENT_DESTINATIONS.map((d) => (
+                <option key={d.slug} value={d.name}>
+                  {d.displayName}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="🏛️ Tất cả 63 Tỉnh / Thành phố Việt Nam">
+              {VIETNAM_CITIES.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </optgroup>
           </select>
         </div>
 

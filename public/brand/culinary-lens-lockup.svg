@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 160" width="680" height="160" fill="none">
+  <title>Restaurant Intelligence — Brand Lockup</title>
+  
+  <!-- Symbol (scaled to 120x120 footprint inside 160 height) -->
+  <g transform="translate(24, 16) scale(0.5)">
+    <!-- Platter Foundation -->
+    <path d="M40 196C40 191.582 43.582 188 48 188H208C212.418 188 216 191.582 216 196C216 200.418 212.418 204 208 204H48C43.582 204 40 200.418 40 196Z" fill="#991B1B"/>
+    
+    <!-- Cloche Dome -->
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M52 180C52 122 86 92 128 92C170 92 204 122 204 180H52ZM78 168C76 136 98 114 124 106C116 118 98 140 100 168H78Z" fill="#991B1B"/>
+
+    <!-- The Intelligence Star Finial -->
+    <path d="M128 16Q128 54 162 54Q128 54 128 92Q128 54 94 54Q128 54 128 16Z" fill="#D97706"/>
+    <circle cx="128" cy="54" r="5.5" fill="#F8F6F0"/>
+    <circle cx="128" cy="54" r="2.5" fill="#991B1B"/>
+  </g>
+
+  <!-- Vertical Divider Accent -->
+  <line x1="172" y1="44" x2="172" y2="116" stroke="#E8E4DC" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Brand Typography -->
+  <g transform="translate(196, 0)">
+    <!-- Primary Title: Restaurant Intelligence -->
+    <text x="0" y="74" font-family="'Spectral', Georgia, 'Times New Roman', serif" font-size="34" font-weight="700" fill="#1C1917" letter-spacing="-0.5">
+      Restaurant <tspan fill="#991B1B">Intelligence</tspan>
+    </text>
+    
+    <!-- Subtitle: Bản đồ đọc vị ẩm thực đa chiều -->
+    <text x="2" y="102" font-family="'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="600" fill="#8C857B" letter-spacing="3.2" text-transform="uppercase">
+      Bản đồ đọc vị ẩm thực đa chiều
+    </text>
+  </g>
+</svg>

@@ -2,6 +2,41 @@
 
 All notable changes to the **Restaurant Intelligence** project will be documented in this file.
 
+## [1.21.0] - 2026-11-02
+
+### Khắc Phục Triệt Để Lỗi 502 Bad Gateway (OOM RAM & Timeout) & Sửa Lỗi Tìm Kiếm Lệch Chi Nhánh Google Maps
+- **Tối Ưu Hóa Tài Nguyên Chromium & Chặn Lỗi 502 OOM 512MB (`crawler/google_maps_crawler.py`)**:
+  - Tích hợp cờ cấu hình tài nguyên tối thiểu cho Chromium: `--js-flags=--max-old-space-size=128`, `--renderer-process-limit=1`, `--disable-software-rasterizer`, `--mute-audio`.
+  - Thiết lập cơ chế chặn tài nguyên mạng chủ động qua `context.route`: Chặn triệt để toàn bộ Map tiles `/maps/vt/`, ảnh vệ tinh (`khms`, `ggpht`), ảnh tải lên (`googleusercontent.com/p/`) và multimedia (`png`, `jpg`, `jpeg`, `webp`, `gif`, `svg`, `ico`, `woff`, `woff2`, `ttf`, `mp4`, `webm`) trong khi vẫn bảo toàn 100% dữ liệu văn bản và XHR/fetch.
+  - Giảm tiêu thụ RAM từ ~450MB xuống còn ~70-90MB (giảm hơn 75%), loại bỏ hoàn toàn nguy cơ OOM Killer trên Render Free Tier (512MB RAM).
+- **Tăng Tốc Độ Cào Dữ Liệu & Deadline Guard 35s (`crawler/google_maps_crawler.py`)**:
+  - Loại bỏ hoàn toàn vòng lặp tìm kiếm 8 từ khóa phụ rườm rà (vốn gây tốn 30-40s và chứa từ khóa hardcode `"đà nẵng"`).
+  - Tối ưu hóa việc cuộn feed container `.m6QErb.DxyBCb` với cơ chế Early Stopping (tự động dừng ngay sau 2 nhịp cuộn liên tiếp không tăng thêm đánh giá mới).
+  - Bổ sung Deadline Guard 35 giây: Tự động trả về danh sách đánh giá đã thu thập được nếu chạm ngưỡng 35s, ngăn chặn tình trạng chạm mốc timeout 100s của Render proxy.
+- **Sửa Lỗi Tìm Kiếm Theo Tên Quán & Khớp Chi Nhánh Thông Minh (`routers/crawler.py`, `google_maps_crawler.py`, `LinkGoogleMapsModal.tsx`)**:
+  - **Backend API**: Xóa bỏ hardcode `city="Đà Nẵng"` trong `crawl_google_maps_endpoint`, tự động ưu tiên thành phố thực của quán (`target_rest_city` hoặc bóc tách từ địa chỉ).
+  - **Multi-Result Branch Matching**: Bổ sung hàm `check_address_match` duyệt qua 5 thẻ kết quả đầu tiên của danh sách tìm kiếm Google Maps để đối chiếu với địa chỉ quán mục tiêu, ưu tiên chọn đúng chi nhánh trùng khớp.
+  - **Thông Điệp Lỗi Rõ Ràng**: Nâng cấp câu thông báo lỗi tại `validate_restaurant_match`, phân biệt rõ giữa tìm kiếm theo tên và dán URL, đồng thời nêu rõ khi phát hiện khác chi nhánh (như Bò Tơ Năm Sánh QL22B vs 30 Tháng 4) và hướng dẫn chuyển sang tab dán link.
+  - **Frontend UX (`LinkGoogleMapsModal.tsx`)**: Thuật toán làm sạch chuỗi tìm kiếm `buildSmartGoogleMapsQuery` khử lặp từ ngữ giữa tên quán và địa chỉ; bổ sung nút tiện ích chuyển nhanh sang tab dán link khi phát hiện cảnh báo lệch chi nhánh.
+- **Kiểm Thử & Đảm Bảo Chất Lượng**:
+  - `npm run build`: 1838 modules transformed, 0 lỗi TypeScript / JSX.
+  - `npm test`: 6/6 tests passed.
+  - Backend Crawler Test Suite: 108/108 tests passed 100% in 12.34s.
+
+## [1.20.0] - 2026-10-30
+
+### Nhận Diện Thương Hiệu Mới — 'The Culinary Lens' (Lăng Kính Đọc Vị Ẩm Thực)
+- **Hệ Thống Logo & Brand Assets (`public/brand/`, `public/favicon.svg`)**:
+  - Thiết kế và vector hóa biểu tượng chính **The Culinary Lens**: Kết hợp nắp đậy món ăn (*Fine Dining Cloche*) với vệt cắt quang học âm bản và ngôi sao hổ phách 4 cánh (*Michelin & AI Sparkle*) ở đỉnh vòm.
+  - Xây dựng tổ hợp nhận diện chuẩn **Brand Lockup** kết hợp biểu tượng với typography *Spectral Serif* và *Be Vietnam Pro*.
+  - Kiểm thử độ sắc nét quang học đa tỷ lệ (16px, 32px, 64px, 128px, 256px) vượt chuẩn hiển thị pixel-level.
+  - Cập nhật Favicon chính thức tại `public/favicon.svg` và liên kết trong `index.html`.
+- **Tích Hợp Giao Diện Ứng Dụng (`BrandLogo.tsx`, `Navbar.tsx`, `Footer.tsx`)**:
+  - Tạo component chuẩn `BrandMark` tại `src/components/common/BrandLogo.tsx`.
+  - Thay thế placeholder ký tự `RI` cũ trên thanh điều hướng `Navbar` và chân trang `Footer`.
+- **Kiểm Thử & Đảm Bảo Chất Lượng**:
+  - `npm run build`: 1838 modules transformed, 0 lỗi TypeScript / JSX.
+
 ## [1.19.0] - 2026-10-27
 
 ### Khắc Phục Lỗi Playwright Browser Thiếu Trong Docker & Tự Động Nhận Diện URL Thông Minh

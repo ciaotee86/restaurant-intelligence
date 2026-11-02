@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search, Compass, HelpCircle, PlusCircle, Sparkles } from 'lucide-react';
+import { BrandMark } from '../common/BrandLogo';
 
 interface NavbarProps {
   currentView: 'home' | 'explore' | 'dashboard' | 'how-it-works';
@@ -24,12 +25,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => onNavigate('home')}
             className="flex items-center gap-3 text-left group focus:outline-none"
           >
-            {/* Artisanal Culinary Seal */}
-            <div className="relative">
-              <div className="w-8 h-8 rounded-lg bg-[#991B1B] text-white flex items-center justify-center font-display font-bold text-sm tracking-tighter shadow-editorial-sm group-hover:bg-[#7F1D1D] transition-colors">
-                RI
-              </div>
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#D97706] border-2 border-[#F8F6F0]" />
+            {/* The Culinary Lens Brand Mark */}
+            <div className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-[#991B1B]/5 border border-[#991B1B]/15 group-hover:bg-[#991B1B]/10 transition-colors p-1">
+              <BrandMark className="w-full h-full drop-shadow-sm" />
             </div>
 
             <div className="flex flex-col">

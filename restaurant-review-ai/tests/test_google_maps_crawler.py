@@ -29,6 +29,7 @@ from crawler.google_maps_crawler import (
     extract_place_id_from_url,
     clean_address,
     clean_review_text,
+    check_address_match,
     crawl_google_maps_reviews,
     search_and_crawl_google_maps,
     extract_place_metadata,
@@ -112,6 +113,20 @@ class TestGoogleMapsCrawlerUtilities:
         assert clean_review_text(raw_text) == expected
         assert clean_review_text(None) == ""
         assert clean_review_text("") == ""
+
+    def test_check_address_match(self):
+        """Kiểm tra đối chiếu địa chỉ chi nhánh (VD: QL22B vs 30 Tháng 4)."""
+        target_addr = "QL22B, Hiệp Trường, Hoà Thành, Tây Ninh"
+        card_matching = "Bò Tơ Tây Ninh Năm Sánh 17 · QL22B, Hiệp Trường, Hoà Thành, Tây Ninh · Đang mở cửa"
+        card_mismatch = "Bò Tơ Năm Sánh · 30 Tháng 4, Phường 2, Tây Ninh · Đang mở cửa"
+
+        score_match = check_address_match(card_matching, target_addr)
+        score_mismatch = check_address_match(card_mismatch, target_addr)
+
+        assert score_match > 0.8
+        assert score_match > score_mismatch
+        assert check_address_match("", target_addr) == 0.0
+        assert check_address_match(card_matching, "") == 0.0
 
 
 # ==============================================================================
