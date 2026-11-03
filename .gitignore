@@ -64,6 +64,24 @@ restaurant-review-ai/database/restaurants.db
 graphify-out/
 tests/e2e_report.json
 
+# Documentation, thesis and project diagrams
+ideas/
+project-diagrams/
+chuong/
+styles/
+docs/
+*.tex
+refs.bib
+
+# Tests & test scripts
+tests/
+restaurant-review-ai/tests/
+restaurant-review-ai/test_*.py
+
+# Brand previews
+public/brand/preview-sheet*.html
+
+
 
 
 
