@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import time
 import sys
 
@@ -20,26 +21,66 @@ load_dotenv()
 from google import genai
 from google.genai import types
 
+def _is_blocked_env_key(k: str) -> bool:
+    k_upper = k.strip().upper()
+    return any(b in k_upper for b in ("_DIR", "_PATH", "_HOME", "ANTIGRAVITY_"))
+
+def _is_file_path_value(v: str) -> bool:
+    if not v:
+        return True
+    if any(sep in v for sep in ("\\", "/", ":")):
+        return True
+    try:
+        if os.path.exists(v):
+            return True
+    except Exception:
+        pass
+    return False
+
 def get_gemini_api_key() -> str | None:
     key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if key and _is_file_path_value(key):
+        key = None
     if not key:
         base_dir = Path(__file__).resolve().parent.parent
         load_dotenv(dotenv_path=base_dir / ".env")
         load_dotenv()
         key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        if key and _is_file_path_value(key):
+            key = None
+
     if not key:
+        # Ưu tiên 1: Người dùng dán API Key vào cột Tên/Key (Variable Name) trên Render
+        for k, v in os.environ.items():
+            k_clean = k.strip()
+            if _is_blocked_env_key(k_clean):
+                continue
+            if k_clean.lower().startswith("aizasy") or k_clean.lower().startswith("aq."):
+                key = k_clean
+                break
+
+    if not key:
+        # Ưu tiên 2: Giá trị biến bắt đầu bằng AIzaSy hoặc AQ. hợp lệ (không phải path)
         for k, v in os.environ.items():
             k_clean = k.strip()
             v_clean = v.strip() if v else ""
-            if k_clean.startswith("AIzaSy") or k_clean.startswith("AQ."):
-                key = k_clean
+            if _is_blocked_env_key(k_clean) or _is_file_path_value(v_clean):
+                continue
+            if v_clean.startswith("AIzaSy") or v_clean.startswith("AQ."):
+                key = v_clean
                 break
+
+    if not key:
+        # Ưu tiên 3: Biến có tên chứa 'gemini' hoặc 'google_api' với giá trị hợp lệ (>15 ký tự)
+        for k, v in os.environ.items():
+            k_clean = k.strip()
+            v_clean = v.strip() if v else ""
+            if _is_blocked_env_key(k_clean) or _is_file_path_value(v_clean):
+                continue
             if ("gemini" in k_clean.lower() or "google_api" in k_clean.lower()) and len(v_clean) > 15:
                 key = v_clean
                 break
-            if v_clean.startswith("AIzaSy"):
-                key = v_clean
-                break
+
     return key.strip() if key else None
 
 API_KEY = get_gemini_api_key()
@@ -200,7 +241,43 @@ def analyze_batch_reviews(reviews: list, retries: int = 3) -> list:
                 ),
             )
 
-            data = json.loads(response.text)
+            resp_text = (response.text or "").strip()
+            data = None
+            try:
+                data = json.loads(resp_text)
+            except Exception:
+                # Fallback 1: Trích xuất nội dung giữa codeblock ```(?:json)?\s*([\s\S]*?)\s*```
+                cb_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", resp_text, re.IGNORECASE)
+                if cb_match:
+                    try:
+                        data = json.loads(cb_match.group(1).strip())
+                    except Exception:
+                        data = None
+
+                # Fallback 2: Trích xuất JSON object {...}
+                if not data:
+                    obj_match = re.search(r"(\{[\s\S]*\})", resp_text)
+                    if obj_match:
+                        try:
+                            data = json.loads(obj_match.group(1))
+                        except Exception:
+                            data = None
+
+                # Fallback 3: Trích xuất JSON array [...]
+                if not data:
+                    arr_match = re.search(r"(\[[\s\S]*\])", resp_text)
+                    if arr_match:
+                        try:
+                            arr_data = json.loads(arr_match.group(1))
+                            data = {"reviews": arr_data} if isinstance(arr_data, list) else arr_data
+                        except Exception:
+                            data = None
+
+                if not data:
+                    raise ValueError(f"Không thể trích xuất JSON hợp lệ từ phản hồi Gemini: {resp_text[:120]}")
+
+            if isinstance(data, list):
+                data = {"reviews": data}
 
             results = data.get("reviews", [])
 

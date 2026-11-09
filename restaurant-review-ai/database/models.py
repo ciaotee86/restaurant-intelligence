@@ -9,9 +9,9 @@ Schema database cho hệ thống phân tích đánh giá nhà hàng.
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
-    create_engine, Column, Integer, String, Float, Text, DateTime, ForeignKey, text, event
+    create_engine, Column, Integer, String, Float, Text, DateTime, ForeignKey, text, event, Index
 )
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -33,7 +33,7 @@ class Restaurant(Base):
     foody_review_count = Column(Integer, default=0)
     google_review_count = Column(Integer, default=0)
     credibility_score = Column(Float, default=0.0)                     # Chỉ số độ tin cậy mẫu (0.0 -> 1.0)
-    crawled_at = Column(DateTime, default=datetime.utcnow)
+    crawled_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     reviews = relationship("Review", back_populates="restaurant", cascade="all, delete-orphan")
 
@@ -42,21 +42,21 @@ class Review(Base):
     __tablename__ = "reviews"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    restaurant_id = Column(Integer, ForeignKey("restaurants.id"), nullable=False)
+    restaurant_id = Column(Integer, ForeignKey("restaurants.id", ondelete="CASCADE"), nullable=False, index=True)
     author = Column(String(255))
     rating = Column(Float)                  # điểm người dùng chấm cho review này
     text = Column(Text, nullable=False)
     review_date = Column(String(50))        # lưu string thô, Foody hay ghi kiểu "2 ngày trước"
-    is_analyzed = Column(Integer, default=0)  # 0 = chưa phân tích, 1 = đã phân tích (tránh gọi lại Gemini)
+    is_analyzed = Column(Integer, default=0, index=True)  # 0 = chưa phân tích, 1 = đã phân tích (tránh gọi lại Gemini)
     is_spam = Column(Integer, default=0)      # 0 = bình thường, 1 = spam/quảng cáo/không liên quan
     spam_score = Column(Float, default=0.0)   # Điểm số xác suất spam: 0.0 -> 1.0
     spam_category = Column(String(50), default="normal") # "normal", "low_information", "advertisement", "irrelevant", "duplicate", "suspicious"
     spam_reason = Column(Text, default="[]")  # Danh sách lý do dưới dạng JSON: ["phone_number", "email", ...]
     foody_review_id = Column(String(100), index=True, nullable=True)  # ID định danh từ Foody (nếu trích xuất được)
     fingerprint = Column(String(64), index=True, nullable=True)      # Mã băm SHA-256 duy nhất chống trùng lặp
-    source = Column(String(50), default="Foody")                      # 'Foody' | 'GoogleMaps'
+    source = Column(String(50), default="Foody", index=True)          # 'Foody' | 'GoogleMaps'
     google_review_id = Column(String(255), index=True, nullable=True) # ID bài đánh giá trên Google (nếu có)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     restaurant = relationship("Restaurant", back_populates="reviews")
     analysis = relationship("ReviewAnalysis", back_populates="review", cascade="all, delete-orphan")
@@ -66,12 +66,16 @@ class ReviewAnalysis(Base):
     __tablename__ = "review_analysis"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    review_id = Column(Integer, ForeignKey("reviews.id"), nullable=False)
+    review_id = Column(Integer, ForeignKey("reviews.id", ondelete="CASCADE"), nullable=False, index=True)
     aspect = Column(String(50))             # "món ăn" | "giá cả" | "dịch vụ" | "không gian" | "vệ sinh"
     sentiment = Column(String(20))          # "positive" | "neutral" | "negative"
     confidence = Column(Float)              # 0.0 - 1.0, do Gemini tự ước lượng
-    is_urgent = Column(Integer, default=0)  # 1 nếu review có dấu hiệu cần cảnh báo (ngộ độc, dị vật...)
-    analyzed_at = Column(DateTime, default=datetime.utcnow)
+    is_urgent = Column(Integer, default=0, index=True)  # 1 nếu review có dấu hiệu cần cảnh báo (ngộ độc, dị vật...)
+    analyzed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        Index("idx_review_analysis_aspect_sentiment", "aspect", "sentiment"),
+    )
 
     review = relationship("Review", back_populates="analysis")
 
@@ -83,9 +87,9 @@ class CrawlRequest(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     query = Column(String(255), nullable=False)
     city = Column(String(100), default="da-nang")
-    status = Column(String(50), default="pending")  # "pending", "processing", "completed", "failed"
+    status = Column(String(50), default="pending", index=True)  # "pending", "processing", "completed", "failed"
     note = Column(String(500), nullable=True)
-    requested_at = Column(DateTime, default=datetime.utcnow)
+    requested_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime, nullable=True)
 
 
@@ -152,6 +156,7 @@ def init_db(db_path: str = None):
         @event.listens_for(engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):
             cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON;")
             cursor.execute("PRAGMA journal_mode=WAL;")
             cursor.execute("PRAGMA synchronous=NORMAL;")
             cursor.execute("PRAGMA busy_timeout=30000;")
@@ -163,6 +168,7 @@ def init_db(db_path: str = None):
     with engine.connect() as conn:
         if is_sqlite:
             try:
+                conn.execute(text("PRAGMA foreign_keys=ON;"))
                 conn.execute(text("PRAGMA journal_mode=WAL;"))
                 conn.execute(text("PRAGMA synchronous=NORMAL;"))
                 conn.execute(text("PRAGMA busy_timeout=30000;"))
@@ -213,12 +219,26 @@ def init_db(db_path: str = None):
                     except Exception:
                         pass
 
-            # Đảm bảo các chỉ mục hỗ trợ truy vấn nhanh
+            # Loại bỏ index trùng thừa nếu có
+            try:
+                conn.execute(text("DROP INDEX IF EXISTS idx_restaurants_google_maps_url;"))
+                conn.commit()
+            except Exception:
+                pass
+
+            # Đảm bảo các chỉ mục B-tree hỗ trợ truy vấn nhanh, triệt tiêu Full Table Scan
             for idx_sql in [
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_restaurants_google_maps_url ON restaurants(google_maps_url) WHERE google_maps_url IS NOT NULL;",
                 "CREATE INDEX IF NOT EXISTS idx_restaurants_google_place_id ON restaurants(google_place_id);",
+                "CREATE INDEX IF NOT EXISTS idx_reviews_restaurant_id ON reviews(restaurant_id);",
+                "CREATE INDEX IF NOT EXISTS idx_reviews_fingerprint ON reviews(fingerprint);",
+                "CREATE INDEX IF NOT EXISTS idx_reviews_foody_review_id ON reviews(foody_review_id);",
                 "CREATE INDEX IF NOT EXISTS idx_reviews_google_review_id ON reviews(google_review_id);",
-                "CREATE INDEX IF NOT EXISTS idx_reviews_source ON reviews(source);"
+                "CREATE INDEX IF NOT EXISTS idx_reviews_source ON reviews(source);",
+                "CREATE INDEX IF NOT EXISTS idx_reviews_is_analyzed ON reviews(is_analyzed);",
+                "CREATE INDEX IF NOT EXISTS idx_review_analysis_review_id ON review_analysis(review_id);",
+                "CREATE INDEX IF NOT EXISTS idx_review_analysis_aspect_sentiment ON review_analysis(aspect, sentiment);",
+                "CREATE INDEX IF NOT EXISTS idx_review_analysis_is_urgent ON review_analysis(is_urgent);",
+                "CREATE INDEX IF NOT EXISTS idx_crawl_requests_status ON crawl_requests(status);"
             ]:
                 try:
                     conn.execute(text(idx_sql))

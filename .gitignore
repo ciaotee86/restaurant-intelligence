@@ -77,6 +77,7 @@ refs.bib
 tests/
 restaurant-review-ai/tests/
 restaurant-review-ai/test_*.py
+TEST-*.md
 
 # Brand previews
 public/brand/preview-sheet*.html

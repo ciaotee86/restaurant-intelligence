@@ -22,7 +22,7 @@ export const WhatNeedsAttention: React.FC<WhatNeedsAttentionProps> = ({ restaura
 
         {/* Thẻ cảnh báo vận hành */}
         <div className="space-y-4">
-          {restaurant.attentionAreas.map((area, idx) => (
+          {(restaurant.attentionAreas || []).map((area, idx) => (
             <div
               key={idx}
               className="bg-red-50/40 border border-red-200/80 rounded-lg p-4 transition-all hover:bg-red-50/60"
@@ -52,7 +52,7 @@ export const WhatNeedsAttention: React.FC<WhatNeedsAttentionProps> = ({ restaura
                   Các vấn đề thường gặp nhất:
                 </span>
                 <ul className="space-y-1 text-xs text-red-950/90 pl-3 list-disc">
-                  {area.commonComplaints.map((complaint, cIdx) => (
+                  {(area.commonComplaints || []).map((complaint, cIdx) => (
                     <li key={cIdx} className="leading-snug">
                       {complaint}
                     </li>

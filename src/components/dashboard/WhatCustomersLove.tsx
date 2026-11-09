@@ -21,7 +21,7 @@ export const WhatCustomersLove: React.FC<WhatCustomersLoveProps> = ({ restaurant
 
         {/* Danh sách điểm mạnh */}
         <div className="divide-y divide-zinc-100">
-          {restaurant.strengths.map((item, idx) => (
+          {(restaurant.strengths || []).map((item, idx) => (
             <div key={idx} className="py-3.5 first:pt-0 last:pb-0">
               <div className="flex items-center justify-between gap-2 mb-1">
                 <div className="flex items-center gap-2">

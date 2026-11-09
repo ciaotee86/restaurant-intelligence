@@ -299,6 +299,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (status === 'crawling') return;
     setShowSuggestions(false);
     setCurrentStep(1);
     setElapsedSeconds(0);

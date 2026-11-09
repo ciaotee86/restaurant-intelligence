@@ -239,6 +239,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     setErrorMsg(null);
     setCrawlResult(null);
 

@@ -21,6 +21,9 @@ import random
 import logging
 import subprocess
 import unicodedata
+import socket
+import ipaddress
+from urllib.parse import urlparse
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
@@ -230,6 +233,69 @@ def resolve_chromium_executable(playwright_instance) -> Optional[str]:
     return None
 
 
+_SSRF_PRIVATE_NETWORKS = [
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+]
+
+def is_ssrf_safe_crawler_url(url_str: str) -> bool:
+    """
+    [TASK-P1-06] Phòng vệ SSRF cho Playwright Browser:
+    Chặn đứng các URL điều hướng nếu host hoặc IP phân giải thuộc dải private/loopback/cloud-metadata.
+    Chỉ chấp nhận giao thức https://.
+    """
+    try:
+        if not url_str or not isinstance(url_str, str):
+            return False
+            
+        parsed = urlparse(url_str)
+        # 1. Chỉ chấp nhận giao thức https://
+        if parsed.scheme.lower() != "https":
+            return False
+
+        hostname = (parsed.hostname or "").lower().strip()
+        if not hostname:
+            return False
+
+        # 2. Chặn các hostname nhạy cảm
+        if hostname in ("localhost", "metadata.google.internal", "instance-data"):
+            return False
+
+        # 3. Kiểm tra nếu hostname là raw IP
+        try:
+            ip = ipaddress.ip_address(hostname)
+            if any(ip in net for net in _SSRF_PRIVATE_NETWORKS) or ip.is_private or ip.is_loopback or ip.is_link_local:
+                return False
+            if str(ip) == "169.254.169.254":
+                return False
+            return True
+        except ValueError:
+            pass
+
+        # 4. Phân giải DNS kiểm tra các IP đích
+        try:
+            addr_info = socket.getaddrinfo(hostname, None)
+            for item in addr_info:
+                ip_str = item[4][0]
+                ip = ipaddress.ip_address(ip_str)
+                if any(ip in net for net in _SSRF_PRIVATE_NETWORKS) or ip.is_private or ip.is_loopback or ip.is_link_local:
+                    return False
+                if str(ip) == "169.254.169.254":
+                    return False
+        except Exception:
+            return False
+
+        return True
+    except Exception:
+        return False
+
+
 def create_stealth_browser(
     playwright_instance,
     headless: bool = True
@@ -292,6 +358,12 @@ def create_stealth_browser(
             req = route.request
             req_url = req.url
             res_type = req.resource_type
+
+            # [TASK-P1-06] Phòng vệ SSRF: Chặn các URL không an toàn (non-https hoặc private/loopback/cloud-metadata)
+            if not is_ssrf_safe_crawler_url(req_url):
+                logger.warning(f"[Security/SSRF] Chặn yêu cầu nguy hiểm từ crawler: {req_url}")
+                route.abort()
+                return
 
             # Tuyệt đối KHÔNG chặn script và HTML document
             if res_type in ("document", "script"):
@@ -361,6 +433,8 @@ def handle_consent_and_modals(page: Page) -> None:
 
         # 2. Hộp thoại gợi ý Đăng nhập (Login Nudge / Sign in modal)
         login_modal_dismiss = [
+            'button:has-text("Loại bỏ")',
+            'button:has-text("Dismiss")',
             'button:has-text("Không, cảm ơn")',
             'button:has-text("Để sau")',
             'button:has-text("Lúc khác")',
@@ -472,33 +546,99 @@ def extract_place_metadata(page: Page) -> Dict[str, Any]:
 def navigate_to_reviews_tab(page: Page) -> bool:
     """Đảm bảo trang đang mở tab 'Bài đánh giá' (Reviews)."""
     try:
-        # 1. Kiểm tra xem tab Bài đánh giá đã được kích hoạt sẵn chưa (aria-selected="true")
+        # 1. Kiểm tra xem tab Bài đánh giá đã được kích hoạt sẵn chưa (URL chứa !9m1!1b1 hoặc aria-selected="true")
+        current_url = getattr(page, "url", "") or ""
+        if "!9m1!1b1" in current_url:
+            logger.info("Trang đã ở sẵn URL chuyên dụng Bài đánh giá (!9m1!1b1).")
+            return True
+
         active_tab = page.locator('button[role="tab"][aria-selected="true"]').first
         if active_tab.count() > 0:
-            tab_txt = active_tab.inner_text().lower()
-            if "đánh giá" in tab_txt or "reviews" in tab_txt:
+            tab_txt = (active_tab.inner_text() or "").lower()
+            tab_aria = (active_tab.get_attribute("aria-label") or "").lower()
+            if "đánh giá" in tab_txt or "reviews" in tab_txt or "đánh giá" in tab_aria or "reviews" in tab_aria:
+                logger.info("Tab Bài đánh giá đã được kích hoạt sẵn (aria-selected='true').")
                 return True
 
-        # 2. Tìm tab Bài đánh giá và click chuyển tab
+        # 2. Tìm tab Bài đánh giá đa ngôn ngữ và click chuyển tab
         review_tab_selectors = [
+            page.locator('button[role="tab"][aria-label*="Reviews" i]'),
+            page.locator('button[role="tab"][aria-label*="Bài đánh giá" i]'),
+            page.locator('button[role="tab"][aria-label*="đánh giá" i]'),
             page.locator('button[role="tab"]').filter(has_text="Bài đánh giá"),
             page.locator('button[role="tab"]').filter(has_text="Đánh giá"),
             page.locator('button[role="tab"]').filter(has_text="Reviews"),
-            page.locator('button[role="tab"][aria-label*="Bài đánh giá" i]'),
-            page.locator('button[role="tab"][aria-label*="Đánh giá" i]'),
-            page.locator('button[role="tab"][aria-label*="Reviews" i]'),
+            page.locator('button[aria-label*="Bài đánh giá" i]'),
+            page.locator('button[aria-label*="Reviews" i]'),
         ]
 
+        tab_clicked = False
         for locator in review_tab_selectors:
-            if locator.count() > 0 and locator.first.is_visible():
-                logger.info("Chuyển sang tab Đánh giá...")
-                locator.first.click()
-                page.wait_for_timeout(2500)
-                handle_consent_and_modals(page)
-                return True
+            try:
+                if locator.count() > 0 and locator.first.is_visible():
+                    logger.info("Chuyển sang tab Đánh giá...")
+                    locator.first.click()
+                    tab_clicked = True
+                    page.wait_for_timeout(random.randint(1500, 2000))
+                    handle_consent_and_modals(page)
+                    break
+            except Exception as click_err:
+                logger.debug(f"Không thể click selector tab: {click_err}")
 
-        # Fallback: Nếu không tìm thấy tab nhưng đã có cards review trên DOM
-        if page.locator("div.jftiEf").count() > 0:
+        # 3. Nếu chưa vào được tab đánh giá (hoặc URL chưa cập nhật !9m1!1b1), tìm và click nút mở rộng bài đánh giá
+        updated_url = getattr(page, "url", "") or ""
+        if "!9m1!1b1" not in updated_url:
+            more_reviews_selectors = [
+                page.locator('button:has-text("Xem các bài đánh giá khác")'),
+                page.locator('button:has-text("Bài đánh giá khác")'),
+                page.locator('button[aria-label*="Xem các bài đánh giá khác" i]'),
+                page.locator('button[aria-label*="Bài đánh giá khác" i]'),
+                page.locator('button:has-text("More reviews")'),
+                page.locator('button[aria-label*="More reviews" i]'),
+                page.locator('button:has-text("Xem tất cả bài đánh giá")'),
+                page.locator('button[aria-label*="Xem tất cả bài đánh giá" i]'),
+                page.locator('button.uj73Ce:has-text("đánh giá")'),
+                page.locator('button.uj73Ce:has-text("reviews")'),
+                page.locator('button.uj73Ce'),
+            ]
+            for m_loc in more_reviews_selectors:
+                try:
+                    if m_loc.count() > 0 and m_loc.first.is_visible():
+                        logger.info("Click nút mở rộng danh sách đánh giá...")
+                        try:
+                            m_loc.first.scroll_into_view_if_needed(timeout=500)
+                        except Exception:
+                            pass
+                        m_loc.first.click()
+                        tab_clicked = True
+                        page.wait_for_timeout(random.randint(1500, 2000))
+                        handle_consent_and_modals(page)
+                        break
+                except Exception as m_err:
+                    logger.debug(f"Không thể click nút mở rộng đánh giá: {m_err}")
+
+        # 4. Kiểm tra điều kiện xác nhận đã ở tab đánh giá (siết chặt, không để 3 preview cards ở Tổng quan đánh lừa)
+        final_url = getattr(page, "url", "") or ""
+        if "!9m1!1b1" in final_url:
+            return True
+
+        try:
+            active_tab_final = page.locator('button[role="tab"][aria-selected="true"]').first
+            if active_tab_final.count() > 0:
+                f_txt = (active_tab_final.inner_text() or "").lower()
+                f_aria = (active_tab_final.get_attribute("aria-label") or "").lower()
+                if "đánh giá" in f_txt or "reviews" in f_txt or "đánh giá" in f_aria or "reviews" in f_aria:
+                    return True
+        except Exception:
+            pass
+
+        try:
+            if page.locator('div[role="feed"]').count() > 0:
+                return True
+        except Exception:
+            pass
+
+        if tab_clicked:
             return True
 
         return False
@@ -514,11 +654,13 @@ def harvest_all_reviews(
 ) -> List[Dict[str, Any]]:
     """
     Thu thập tối đa số lượng bài đánh giá từ Google Maps:
-    1. Cuộn container ảo (div.m6QErb.DxyBCb hoặc div[role="feed"]) trực tiếp theo từng đợt 800-1200px.
-    2. Click nút 'Xem thêm' (button.w8nwRe) để mở rộng toàn văn.
-    3. Trích xuất ngay danh sách thẻ bài viết (div.jftiEf) và khử trùng lặp theo ID/nội dung.
-    4. Cơ chế dừng sớm (Early Stopping): Dừng ngay nếu đủ max_reviews hoặc sau 2 lượt cuộn số lượng không đổi.
-    5. Kiểm soát deadline an toàn (Internal Timeout Guard).
+    1. Tự động kiểm tra và click nút mở rộng bài đánh giá nếu xuất hiện.
+    2. Cuộn container ảo (div.m6QErb.DxyBCb, div[role="feed"] hoặc ancestor cuộn được) gán scrollTop = scrollHeight.
+    3. Cuộn card cuối cùng vào tầm nhìn và kích hoạt tải batchexecute.
+    4. Click nút 'Xem thêm' (button.w8nwRe) để mở rộng toàn văn bài viết.
+    5. Bóc tách thẻ bài viết (div.jftiEf, div[data-review-id]) và khử trùng lặp theo ID / nội dung.
+    6. Cơ chế dừng sớm (Early Stopping): Dừng khi đạt max_reviews hoặc sau stagnant_turns >= 4 lượt cuộn số lượng không đổi.
+    7. Giữ an toàn deadline (Internal Timeout Guard).
     """
     collected: Dict[str, Dict[str, Any]] = {}
 
@@ -583,6 +725,33 @@ def harvest_all_reviews(
                     "google_review_id": rev_id
                 }
 
+    # 1. Kiểm tra và tự động bấm nút mở rộng đánh giá (nếu vẫn ở màn hình preview)
+    try:
+        more_selectors = [
+            page.locator('button:has-text("Xem các bài đánh giá khác")'),
+            page.locator('button:has-text("Bài đánh giá khác")'),
+            page.locator('button[aria-label*="Xem các bài đánh giá khác" i]'),
+            page.locator('button[aria-label*="Bài đánh giá khác" i]'),
+            page.locator('button:has-text("More reviews")'),
+            page.locator('button[aria-label*="More reviews" i]'),
+            page.locator('button.uj73Ce:has-text("đánh giá")'),
+            page.locator('button.uj73Ce:has-text("reviews")'),
+            page.locator('button.uj73Ce'),
+        ]
+        for m_loc in more_selectors:
+            if m_loc.count() > 0 and m_loc.first.is_visible():
+                logger.info("Phát hiện nút mở rộng bài đánh giá, bấm để mở danh sách...")
+                try:
+                    m_loc.first.scroll_into_view_if_needed(timeout=500)
+                except Exception:
+                    pass
+                m_loc.first.click(timeout=1000)
+                page.wait_for_timeout(random.randint(1500, 2000))
+                handle_consent_and_modals(page)
+                break
+    except Exception as e:
+        logger.debug(f"Không thể click nút mở rộng bài đánh giá: {e}")
+
     # Trích xuất các bài đánh giá ban đầu
     extract_from_current_view()
     logger.info(f"Đã trích xuất {len(collected)} đánh giá ban đầu từ Google Maps.")
@@ -590,8 +759,8 @@ def harvest_all_reviews(
     if len(collected) >= max_reviews:
         return list(collected.values())[:max_reviews]
 
-    # Cuộn container ảo theo từng đợt 800 - 1200px với Early Stopping
-    max_scroll_turns = 25
+    # Cuộn container ảo theo từng đợt với Early Stopping (ngưỡng >= 4 lượt)
+    max_scroll_turns = 35
     prev_count = len(collected)
     stagnant_turns = 0
 
@@ -601,39 +770,58 @@ def harvest_all_reviews(
             logger.info("Chạm deadline an toàn trong quá trình cuộn, dừng thu thập sớm.")
             break
 
-        # Cuộn container ảo trực tiếp theo từng đợt 800 - 1200px
-        scroll_delta = random.randint(800, 1200)
+        # Cuộn container ảo: Tìm phần tử cha cuộn được và gán scrollTop = scrollHeight
         try:
-            page.evaluate(f"""() => {{
+            page.evaluate("""() => {
                 const containers = Array.from(document.querySelectorAll('div.m6QErb.DxyBCb, div[role="feed"]'));
-                for (const c of containers) {{
-                    if (c.scrollHeight > c.clientHeight) {{
-                        c.scrollTop += {scroll_delta};
-                    }}
-                }}
-            }}""")
+                let scrolled = false;
+                for (const c of containers) {
+                    if (c && c.scrollHeight > c.clientHeight) {
+                        c.scrollTop = c.scrollHeight;
+                        c.dispatchEvent(new Event('scroll', { bubbles: true }));
+                        scrolled = true;
+                    }
+                }
+                if (!scrolled) {
+                    const cards = document.querySelectorAll('div.jftiEf, div[data-review-id]');
+                    if (cards.length > 0) {
+                        let p = cards[cards.length - 1].parentElement;
+                        while (p && p !== document.body) {
+                            const style = window.getComputedStyle(p);
+                            if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && p.scrollHeight > p.clientHeight) {
+                                p.scrollTop = p.scrollHeight;
+                                p.dispatchEvent(new Event('scroll', { bubbles: true }));
+                                break;
+                            }
+                            p = p.parentElement;
+                        }
+                    }
+                }
+            }""")
         except Exception:
             pass
 
-        # Cuộn thẻ card cuối cùng vào tầm nhìn để trigger lazy load
+        # Cuộn thẻ card cuối cùng vào tầm nhìn để trigger lazy load / batchexecute
         try:
             cards = page.locator("div.jftiEf, div[data-review-id]").all()
             if cards:
-                cards[-1].scroll_into_view_if_needed(timeout=400)
+                cards[-1].scroll_into_view_if_needed(timeout=600)
         except Exception:
             pass
 
-        # Delay ngắn với random jitter (250ms - 450ms)
-        page.wait_for_timeout(random.randint(250, 450))
-
-        # Kiểm tra nếu xuất hiện nút 'Xem các bài đánh giá khác'
+        # Kiểm tra nếu xuất hiện nút 'Xem các bài đánh giá khác' trong quá trình cuộn
         try:
-            more_btn = page.locator('button[aria-label*="Xem các bài đánh giá khác"], button[aria-label*="More reviews"]').first
+            more_btn = page.locator('button:has-text("Xem các bài đánh giá khác"), button:has-text("Bài đánh giá khác"), button.uj73Ce').first
             if more_btn.count() > 0 and more_btn.is_visible():
-                more_btn.click(timeout=500)
-                page.wait_for_timeout(400)
+                more_btn.click(timeout=600)
+                page.wait_for_timeout(800)
+                handle_consent_and_modals(page)
         except Exception:
             pass
+
+        # Chờ mạng tải dữ liệu (1800ms - 2400ms) để Google Maps batchexecute kịp fetch và render lô đánh giá kế tiếp
+        page.wait_for_timeout(random.randint(1800, 2400))
+        handle_consent_and_modals(page)
 
         # Trích xuất sau mỗi lượt cuộn
         extract_from_current_view()
@@ -644,12 +832,12 @@ def harvest_all_reviews(
             logger.info(f"Đã thu thập đủ {current_count}/{max_reviews} bài đánh giá. Dừng cuộn.")
             break
 
-        # Điều kiện dừng 2: Early Stopping nếu sau 2 lượt cuộn liên tiếp không tăng thêm
+        # Điều kiện dừng 2: Early Stopping nếu sau 4 lượt cuộn liên tiếp không tăng thêm
         if current_count == prev_count:
             stagnant_turns += 1
-            if stagnant_turns >= 2:
+            if stagnant_turns >= 4:
                 logger.info(
-                    f"Kích hoạt Early Stopping: Số bài đánh giá không tăng sau 2 lượt cuộn liên tiếp "
+                    f"Kích hoạt Early Stopping: Số bài đánh giá không tăng sau 4 lượt cuộn liên tiếp "
                     f"({current_count} bài). Dừng cuộn."
                 )
                 break

@@ -10,6 +10,7 @@ import type {
   CrawlGoogleMapsResponse
 } from '../types/restaurant';
 import { parseSearchQuery, isRestaurantInCity, matchesRestaurantKeyword, removeVietnameseAccents } from '../utils/cityUtils';
+import { MOCK_RESTAURANTS } from '../data/mockRestaurants';
 
 export { removeVietnameseAccents };
 
@@ -59,9 +60,11 @@ export const sanitizeRestaurant = (restaurant: Restaurant): Restaurant => {
   const anyRes = restaurant as any;
   const sanitized = { ...restaurant };
 
-  if (Array.isArray(sanitized.reviews)) {
-    sanitized.reviews = sanitizeReviews(sanitized.reviews);
-  }
+  sanitized.reviews = Array.isArray(sanitized.reviews) ? sanitizeReviews(sanitized.reviews) : [];
+  sanitized.keyFindings = Array.isArray(sanitized.keyFindings) ? sanitized.keyFindings : [];
+  sanitized.strengths = Array.isArray(sanitized.strengths) ? sanitized.strengths : [];
+  sanitized.attentionAreas = Array.isArray(sanitized.attentionAreas) ? sanitized.attentionAreas : [];
+
   if (Array.isArray(anyRes.recentReviews)) {
     anyRes.recentReviews = sanitizeReviews(anyRes.recentReviews);
   }
@@ -173,10 +176,10 @@ class RestaurantService {
       return [];
     }
 
-    // Nếu fetch thất bại (mạng đứt, chưa bật port 8000), đánh dấu mất kết nối và trả về mảng rỗng []
-    this.cachedRestaurants = [];
+    // Nếu fetch thất bại (mạng đứt, chưa bật port 8000), đánh dấu mất kết nối và fallback về MOCK_RESTAURANTS
+    this.cachedRestaurants = [...MOCK_RESTAURANTS];
     this.isBackendConnected = false;
-    return [];
+    return [...MOCK_RESTAURANTS];
   }
 
   public async getRestaurantByIdOrSlug(identifier: string): Promise<Restaurant | undefined> {
@@ -193,7 +196,12 @@ class RestaurantService {
     const cached = this.cachedRestaurants.find(
       (r) => r.id === identifier || r.slug === identifier || r.id.toLowerCase() === identifier.toLowerCase()
     );
-    return cached ? sanitizeRestaurant(cached) : undefined;
+    if (cached) return sanitizeRestaurant(cached);
+
+    const fallback = MOCK_RESTAURANTS.find(
+      (r) => r.id === identifier || r.slug === identifier || r.id.toLowerCase() === identifier.toLowerCase()
+    );
+    return fallback ? sanitizeRestaurant(fallback) : undefined;
   }
 
   public async analyzeFoodyUrl(url: string, maxReviews: number = 30): Promise<{ success: boolean; message: string; restaurant?: Restaurant }> {
@@ -535,12 +543,15 @@ class RestaurantService {
     sourceFilter: 'all' | 'Foody' | 'GoogleMaps' | string = 'all'
   ): CustomerReview[] {
     const cleanReviews = sanitizeReviews(reviews || []);
+    const trimmedKw = searchKeyword ? searchKeyword.trim() : '';
+    const normKw = trimmedKw ? removeVietnameseAccents(trimmedKw) : '';
+
     return cleanReviews.filter((rev) => {
       if (sentimentFilter !== 'all' && rev.overallSentiment !== sentimentFilter) {
         return false;
       }
       if (aspectFilter !== 'all') {
-        const hasAspect = rev.aspects?.some((a) => a.aspect === aspectFilter);
+        const hasAspect = (rev.aspects || []).some((a) => a.aspect === aspectFilter);
         if (!hasAspect) return false;
       }
       if (sourceFilter !== 'all') {
@@ -556,11 +567,10 @@ class RestaurantService {
           return false;
         }
       }
-      if (searchKeyword && searchKeyword.trim() !== '') {
-        const normKw = removeVietnameseAccents(searchKeyword);
-        const normText = removeVietnameseAccents(rev.text);
-        const normAuthor = removeVietnameseAccents(rev.author);
-        const inAspects = rev.aspects?.some((a) => removeVietnameseAccents(a.phrase).includes(normKw));
+      if (normKw) {
+        const normText = removeVietnameseAccents(rev.text || '');
+        const normAuthor = removeVietnameseAccents(rev.author || '');
+        const inAspects = (rev.aspects || []).some((a) => removeVietnameseAccents(a.phrase || '').includes(normKw));
         
         if (!normText.includes(normKw) && !normAuthor.includes(normKw) && !inAspects) {
           return false;

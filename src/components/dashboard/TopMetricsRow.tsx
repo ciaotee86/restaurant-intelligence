@@ -8,6 +8,28 @@ interface TopMetricsRowProps {
 }
 
 export const TopMetricsRow: React.FC<TopMetricsRowProps> = ({ restaurant }) => {
+  const sourceLabel = React.useMemo(() => {
+    const foodyCount = restaurant.sourceBreakdown?.foody ?? (restaurant.foodyUrl ? restaurant.totalReviews : 0);
+    const gMapsCount = restaurant.sourceBreakdown?.googleMaps ?? (restaurant.googleMapsUrl ? restaurant.totalReviews : 0);
+
+    if (foodyCount > 0 && gMapsCount > 0) {
+      return 'Đa nguồn';
+    }
+    if (gMapsCount > 0 && foodyCount === 0) {
+      return 'Google Maps';
+    }
+    if (foodyCount > 0 && gMapsCount === 0) {
+      return 'Foody';
+    }
+    if (restaurant.dataSource) {
+      if (restaurant.dataSource.includes('+') || restaurant.dataSource.toLowerCase().includes('đa nguồn')) {
+        return 'Đa nguồn';
+      }
+      return restaurant.dataSource;
+    }
+    return 'Xác thực';
+  }, [restaurant]);
+
   return (
     <section aria-label="Chỉ số hiệu suất phân tích">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -24,7 +46,7 @@ export const TopMetricsRow: React.FC<TopMetricsRowProps> = ({ restaurant }) => {
           label="Tổng đánh giá"
           value={formatNumber(restaurant.totalReviews)}
           subtext="đã phân tích"
-          trendText="Foody"
+          trendText={sourceLabel}
         />
 
         {/* Metric 3: Cảm xúc tích cực */}

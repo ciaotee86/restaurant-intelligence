@@ -316,10 +316,15 @@ def format_restaurant_full(restaurant: DBRestaurant, db) -> dict:
         })
 
     # Tỷ lệ cảm xúc tổng thể thực tế
-    denom = max(1, pos_count + neg_count + neu_count)
-    pos_pct = round((pos_count / denom) * 100)
-    neg_pct = round((neg_count / denom) * 100)
-    neu_pct = max(0, 100 - pos_pct - neg_pct)
+    if total_reviews == 0:
+        pos_pct = 0
+        neg_pct = 0
+        neu_pct = 0
+    else:
+        denom = max(1, pos_count + neg_count + neu_count)
+        pos_pct = round((pos_count / denom) * 100)
+        neg_pct = round((neg_count / denom) * 100)
+        neu_pct = max(0, 100 - pos_pct - neg_pct)
 
     # Tổng hợp danh sách khía cạnh
     aspect_list = []
@@ -331,17 +336,17 @@ def format_restaurant_full(restaurant: DBRestaurant, db) -> dict:
             ne_pct = max(0, 100 - p_pct - n_pct)
         else:
             # Nếu chưa có mention riêng, ước lượng theo tỷ lệ chung
-            p_pct = pos_pct
-            n_pct = neg_pct
-            ne_pct = neu_pct
+            p_pct = 0 if total_reviews == 0 else pos_pct
+            n_pct = 0 if total_reviews == 0 else neg_pct
+            ne_pct = 0 if total_reviews == 0 else neu_pct
 
         all_aspect_texts = data["texts_pos"] + data["texts_neg"]
-        kw = extract_keywords_from_texts(all_aspect_texts)
+        kw = extract_keywords_from_texts(all_aspect_texts) if total_reviews > 0 else []
 
         aspect_list.append({
             "category": cat,
             "mentionCount": total_m,
-            "mentionPercentage": min(100, round((total_m / max(1, total_reviews)) * 100)) if total_reviews > 0 else 20,
+            "mentionPercentage": min(100, round((total_m / total_reviews) * 100)) if total_reviews > 0 else 0,
             "positivePercentage": p_pct,
             "neutralPercentage": ne_pct,
             "negativePercentage": n_pct,
@@ -358,119 +363,117 @@ def format_restaurant_full(restaurant: DBRestaurant, db) -> dict:
         key=lambda x: (x["positivePercentage"], x["mentionCount"]),
         reverse=True
     )
-
-    strengths = []
-    for a in sorted_aspects_by_pos[:2]:
-        aspect_name = a["category"]
-        if aspect_name == "Món ăn":
-            title = f"Chất lượng hương vị ẩm thực ({restaurant.name.split('-')[0].strip()})"
-            desc = f"Món ăn nhận được {a['positivePercentage']}% phản hồi tích cực từ thực khách, được đánh giá cao về cách nêm nếm và độ tươi ngon."
-        elif aspect_name == "Giá cả":
-            title = "Mức giá hợp lý so với khẩu phần"
-            desc = f"Tỷ lệ {a['positivePercentage']}% khách hàng cho rằng giá cả tương xứng và phù hợp túi tiền."
-        elif aspect_name == "Không gian":
-            title = "Không gian thoải mái, địa điểm thuận tiện"
-            desc = f"Không gian quán được {a['positivePercentage']}% thực khách khen ngợi về độ thoáng mát và sự tiện lợi khi ghé ăn."
-        elif aspect_name == "Dịch vụ":
-            title = "Dịch vụ tiếp đón và hỗ trợ nhiệt tình"
-            desc = f"Nhân viên phục vụ nhận được {a['positivePercentage']}% đánh giá hài lòng về thái độ cởi mở và chu đáo."
-        else:
-            title = f"Vệ sinh và quy cách phục vụ sạch sẽ"
-            desc = f"Khách hàng ghi nhận quán đảm bảo an toàn vệ sinh thực phẩm với {a['positivePercentage']}% ý kiến tán thành."
-
-        strengths.append({
-            "aspect": aspect_name,
-            "positivePercentage": a["positivePercentage"],
-            "mentionCount": a["mentionCount"],
-            "title": title,
-            "description": desc,
-            "sampleKeywords": a["sampleKeywords"]
-        })
-
-    # ==================== ĐỘNG HÓA ATTENTION AREAS (ĐIỂM CẦN LƯU Ý) ====================
-    # Tìm khía cạnh có nhiều lời chê nhất hoặc có cảnh báo khẩn
     sorted_aspects_by_neg = sorted(
         aspect_list,
         key=lambda x: (x["negativePercentage"], x["mentionCount"]),
         reverse=True
     )
 
-    attention_areas = []
-    top_neg_aspect = sorted_aspects_by_neg[0] if sorted_aspects_by_neg else None
+    strengths = []
+    if total_reviews > 0:
+        for a in sorted_aspects_by_pos[:2]:
+            aspect_name = a["category"]
+            if aspect_name == "Món ăn":
+                title = f"Chất lượng hương vị ẩm thực ({restaurant.name.split('-')[0].strip()})"
+                desc = f"Món ăn nhận được {a['positivePercentage']}% phản hồi tích cực từ thực khách, được đánh giá cao về cách nêm nếm và độ tươi ngon."
+            elif aspect_name == "Giá cả":
+                title = "Mức giá hợp lý so với khẩu phần"
+                desc = f"Tỷ lệ {a['positivePercentage']}% khách hàng cho rằng giá cả tương xứng và phù hợp túi tiền."
+            elif aspect_name == "Không gian":
+                title = "Không gian thoải mái, địa điểm thuận tiện"
+                desc = f"Không gian quán được {a['positivePercentage']}% thực khách khen ngợi về độ thoáng mát và sự tiện lợi khi ghé ăn."
+            elif aspect_name == "Dịch vụ":
+                title = "Dịch vụ tiếp đón và hỗ trợ nhiệt tình"
+                desc = f"Nhân viên phục vụ nhận được {a['positivePercentage']}% đánh giá hài lòng về thái độ cởi mở và chu đáo."
+            else:
+                title = f"Vệ sinh và quy cách phục vụ sạch sẽ"
+                desc = f"Khách hàng ghi nhận quán đảm bảo an toàn vệ sinh thực phẩm với {a['positivePercentage']}% ý kiến tán thành."
 
-    # Thu thập các câu trích dẫn chê THẬT từ negative_reviews
+            strengths.append({
+                "aspect": aspect_name,
+                "positivePercentage": a["positivePercentage"],
+                "mentionCount": a["mentionCount"],
+                "title": title,
+                "description": desc,
+                "sampleKeywords": a["sampleKeywords"]
+            })
+
+    top_neg_aspect = sorted_aspects_by_neg[0] if sorted_aspects_by_neg else None
     real_negative_quotes = []
     for nr in negative_reviews:
         txt = nr["text"].strip()
         if len(txt) > 15:
             real_negative_quotes.append(txt[:140] + ("..." if len(txt) > 140 else ""))
 
-    if top_neg_aspect and top_neg_aspect["negativePercentage"] > 0:
-        neg_cat = top_neg_aspect["category"]
-        
-        # Sinh danh sách vấn đề thường gặp theo đúng dữ liệu của quán
-        complaints_list = []
-        if urgent_count > 0:
-            complaints_list.append(f"Ghi nhận {urgent_count} phản ánh nghiêm trọng về chất lượng hoặc vệ sinh")
-        
-        if neg_cat == "Món ăn":
-            complaints_list.extend([
-                "Khách hàng phản ánh độ đậm nhạt hoặc độ tươi ngon của nguyên liệu chưa đồng đều",
-                "Cần kiểm tra kỹ nguyên liệu sơ chế và khẩu phần từng đĩa"
-            ])
-            rec_action = "Kiểm tra lại công thức chuẩn bị món ăn và nguồn nhập nguyên liệu hàng ngày."
-        elif neg_cat == "Dịch vụ":
-            complaints_list.extend([
-                "Phản ánh về thời gian chờ đợi hoặc tốc độ lên món khi quán đông",
-                "Nhân viên cần tăng cường sự chủ động và lịch sự khi giao tiếp"
-            ])
-            rec_action = "Bố trí thêm nhân sự chạy bàn trong các khung giờ cao điểm và đào tạo kỹ năng tiếp đón."
-        elif neg_cat == "Giá cả":
-            complaints_list.extend([
-                "Một số khách cho rằng giá hơi cao so với lượng đồ ăn nhận được",
-                "Cần cân đối lại định lượng khẩu phần cho phù hợp mức giá"
-            ])
-            rec_action = "Xem xét bổ sung thêm đồ ăn kèm hoặc công khai rõ ràng định lượng món ăn trên menu."
-        elif neg_cat == "Vệ sinh":
-            complaints_list.extend([
-                "Phản ánh cần lau dọn bàn ghế và dụng cụ ăn uống sạch sẽ hơn",
-                "Cần bảo đảm vệ sinh khu vực chuẩn bị đồ ăn và đóng gói"
-            ])
-            rec_action = "Thiết lập quy trình kiểm tra vệ sinh khử khuẩn bàn ghế định kỳ 15 phút/lần."
+    # ==================== ĐỘNG HÓA ATTENTION AREAS (ĐIỂM CẦN LƯU Ý) ====================
+    attention_areas = []
+    if total_reviews > 0:
+        if top_neg_aspect and top_neg_aspect["negativePercentage"] > 0:
+            neg_cat = top_neg_aspect["category"]
+            
+            # Sinh danh sách vấn đề thường gặp theo đúng dữ liệu của quán
+            complaints_list = []
+            if urgent_count > 0:
+                complaints_list.append(f"Ghi nhận {urgent_count} phản ánh nghiêm trọng về chất lượng hoặc vệ sinh")
+            
+            if neg_cat == "Món ăn":
+                complaints_list.extend([
+                    "Khách hàng phản ánh độ đậm nhạt hoặc độ tươi ngon của nguyên liệu chưa đồng đều",
+                    "Cần kiểm tra kỹ nguyên liệu sơ chế và khẩu phần từng đĩa"
+                ])
+                rec_action = "Kiểm tra lại công thức chuẩn bị món ăn và nguồn nhập nguyên liệu hàng ngày."
+            elif neg_cat == "Dịch vụ":
+                complaints_list.extend([
+                    "Phản ánh về thời gian chờ đợi hoặc tốc độ lên món khi quán đông",
+                    "Nhân viên cần tăng cường sự chủ động và lịch sự khi giao tiếp"
+                ])
+                rec_action = "Bố trí thêm nhân sự chạy bàn trong các khung giờ cao điểm và đào tạo kỹ năng tiếp đón."
+            elif neg_cat == "Giá cả":
+                complaints_list.extend([
+                    "Một số khách cho rằng giá hơi cao so với lượng đồ ăn nhận được",
+                    "Cần cân đối lại định lượng khẩu phần cho phù hợp mức giá"
+                ])
+                rec_action = "Xem xét bổ sung thêm đồ ăn kèm hoặc công khai rõ ràng định lượng món ăn trên menu."
+            elif neg_cat == "Vệ sinh":
+                complaints_list.extend([
+                    "Phản ánh cần lau dọn bàn ghế và dụng cụ ăn uống sạch sẽ hơn",
+                    "Cần bảo đảm vệ sinh khu vực chuẩn bị đồ ăn và đóng gói"
+                ])
+                rec_action = "Thiết lập quy trình kiểm tra vệ sinh khử khuẩn bàn ghế định kỳ 15 phút/lần."
+            else:
+                complaints_list.extend([
+                    "Khách hàng góp ý về không gian quán hoặc chỗ để xe khi đông đúc",
+                    "Cần cải thiện độ thông thoáng và sắp xếp bàn ghế hợp lý hơn"
+                ])
+                rec_action = "Bố trí lại vị trí bàn ghế và cử người hỗ trợ sắp xếp xe cho khách vào giờ cao điểm."
+
+            # Trích dẫn bài review chê THẬT
+            sample_quote = real_negative_quotes[0] if real_negative_quotes else (
+                f"Cần cải thiện chất lượng {neg_cat.lower()} để phục vụ khách hàng tốt hơn."
+            )
+
+            attention_areas.append({
+                "aspect": neg_cat,
+                "negativePercentage": top_neg_aspect["negativePercentage"],
+                "complaintCount": max(len(negative_reviews), 1),
+                "commonComplaints": complaints_list,
+                "sampleReviewQuotes": [sample_quote],
+                "recommendedAction": rec_action
+            })
         else:
-            complaints_list.extend([
-                "Khách hàng góp ý về không gian quán hoặc chỗ để xe khi đông đúc",
-                "Cần cải thiện độ thông thoáng và sắp xếp bàn ghế hợp lý hơn"
-            ])
-            rec_action = "Bố trí lại vị trí bàn ghế và cử người hỗ trợ sắp xếp xe cho khách vào giờ cao điểm."
-
-        # Trích dẫn bài review chê THẬT
-        sample_quote = real_negative_quotes[0] if real_negative_quotes else (
-            f"Cần cải thiện chất lượng {neg_cat.lower()} để phục vụ khách hàng tốt hơn."
-        )
-
-        attention_areas.append({
-            "aspect": neg_cat,
-            "negativePercentage": top_neg_aspect["negativePercentage"],
-            "complaintCount": max(len(negative_reviews), 1),
-            "commonComplaints": complaints_list,
-            "sampleReviewQuotes": [sample_quote],
-            "recommendedAction": rec_action
-        })
-    else:
-        # Nếu quán gần như không có phản hồi tiêu cực
-        sample_q = positive_reviews[0]["text"][:120] + "..." if positive_reviews else "Quán duy trì chất lượng phục vụ rất tốt."
-        attention_areas.append({
-            "aspect": "Vận hành chung",
-            "negativePercentage": neg_pct,
-            "complaintCount": len(negative_reviews),
-            "commonComplaints": [
-                "Quán duy trì phong độ tốt, chưa ghi nhận phản ánh tiêu cực đáng kể",
-                "Cần tiếp tục duy trì tính ổn định của các món ăn chủ đạo"
-            ],
-            "sampleReviewQuotes": [sample_q],
-            "recommendedAction": "Tiếp tục duy trì quy chuẩn chế biến và phát huy các điểm mạnh hiện có."
-        })
+            # Nếu quán gần như không có phản hồi tiêu cực
+            sample_q = positive_reviews[0]["text"][:120] + "..." if positive_reviews else "Quán duy trì chất lượng phục vụ rất tốt."
+            attention_areas.append({
+                "aspect": "Vận hành chung",
+                "negativePercentage": neg_pct,
+                "complaintCount": len(negative_reviews),
+                "commonComplaints": [
+                    "Quán duy trì phong độ tốt, chưa ghi nhận phản ánh tiêu cực đáng kể",
+                    "Cần tiếp tục duy trì tính ổn định của các món ăn chủ đạo"
+                ],
+                "sampleReviewQuotes": [sample_q],
+                "recommendedAction": "Tiếp tục duy trì quy chuẩn chế biến và phát huy các điểm mạnh hiện có."
+            })
 
     # ==================== ĐỘNG HÓA KEY FINDINGS (PHÁT HIỆN CỐT LÕI) ====================
     best_aspect = sorted_aspects_by_pos[0]["category"] if sorted_aspects_by_pos else "Món ăn"
@@ -662,27 +665,40 @@ def format_restaurant_full(restaurant: DBRestaurant, db) -> dict:
             "neutral": neu_pct,
             "negative": neg_pct
         },
-        "sentimentSummarySentence": f"Dựa trên {total_reviews} đánh giá {summary_source}, quán có tỷ lệ khách hàng hài lòng {pos_pct}%, với {neg_pct}% phản hồi cần cải thiện về {worst_aspect.lower()}.",
+        "sentimentSummarySentence": (
+            "Quán chưa có bài đánh giá nào từ thực khách."
+            if total_reviews == 0 else
+            f"Dựa trên {total_reviews} đánh giá {summary_source}, quán có tỷ lệ khách hàng hài lòng {pos_pct}%, với {neg_pct}% phản hồi cần cải thiện về {worst_aspect.lower()}."
+        ),
         "aspects": aspect_list,
-        "trendData": {
-            "3m": [
-                {"period": "T6/2026", "positive": max(5, pos_pct - 3), "neutral": neu_pct + 1, "negative": neg_pct + 2, "totalReviews": max(1, total_reviews // 3), "averageRating": display_rating},
-                {"period": "T7/2026", "positive": max(5, pos_pct - 1), "neutral": neu_pct, "negative": neg_pct + 1, "totalReviews": max(2, total_reviews // 2), "averageRating": display_rating},
-                {"period": "T8/2026", "positive": pos_pct, "neutral": neu_pct, "negative": neg_pct, "totalReviews": total_reviews, "averageRating": display_rating}
-            ],
-            "6m": [
-                {"period": "T3/2026", "positive": max(5, pos_pct - 4), "neutral": neu_pct + 2, "negative": neg_pct + 2, "totalReviews": max(1, total_reviews // 4), "averageRating": display_rating},
-                {"period": "T5/2026", "positive": max(5, pos_pct - 2), "neutral": neu_pct + 1, "negative": neg_pct + 1, "totalReviews": max(2, total_reviews // 2), "averageRating": display_rating},
-                {"period": "T8/2026", "positive": pos_pct, "neutral": neu_pct, "negative": neg_pct, "totalReviews": total_reviews, "averageRating": display_rating}
-            ],
-            "1y": [
-                {"period": "2025", "positive": max(5, pos_pct - 2), "neutral": neu_pct + 1, "negative": neg_pct + 1, "totalReviews": max(1, total_reviews // 2), "averageRating": display_rating},
-                {"period": "2026", "positive": pos_pct, "neutral": neu_pct, "negative": neg_pct, "totalReviews": total_reviews, "averageRating": display_rating}
-            ],
-            "all": [
-                {"period": "Toàn thời gian", "positive": pos_pct, "neutral": neu_pct, "negative": neg_pct, "totalReviews": total_reviews, "averageRating": display_rating}
-            ]
-        },
+        "trendData": (
+            {
+                "3m": [],
+                "6m": [],
+                "1y": [],
+                "all": []
+            }
+            if total_reviews == 0 else
+            {
+                "3m": [
+                    {"period": "T6/2026", "positive": max(5, pos_pct - 3), "neutral": neu_pct + 1, "negative": neg_pct + 2, "totalReviews": max(1, total_reviews // 3), "averageRating": display_rating},
+                    {"period": "T7/2026", "positive": max(5, pos_pct - 1), "neutral": neu_pct, "negative": neg_pct + 1, "totalReviews": max(2, total_reviews // 2), "averageRating": display_rating},
+                    {"period": "T8/2026", "positive": pos_pct, "neutral": neu_pct, "negative": neg_pct, "totalReviews": total_reviews, "averageRating": display_rating}
+                ],
+                "6m": [
+                    {"period": "T3/2026", "positive": max(5, pos_pct - 4), "neutral": neu_pct + 2, "negative": neg_pct + 2, "totalReviews": max(1, total_reviews // 4), "averageRating": display_rating},
+                    {"period": "T5/2026", "positive": max(5, pos_pct - 2), "neutral": neu_pct + 1, "negative": neg_pct + 1, "totalReviews": max(2, total_reviews // 2), "averageRating": display_rating},
+                    {"period": "T8/2026", "positive": pos_pct, "neutral": neu_pct, "negative": neg_pct, "totalReviews": total_reviews, "averageRating": display_rating}
+                ],
+                "1y": [
+                    {"period": "2025", "positive": max(5, pos_pct - 2), "neutral": neu_pct + 1, "negative": neg_pct + 1, "totalReviews": max(1, total_reviews // 2), "averageRating": display_rating},
+                    {"period": "2026", "positive": pos_pct, "neutral": neu_pct, "negative": neg_pct, "totalReviews": total_reviews, "averageRating": display_rating}
+                ],
+                "all": [
+                    {"period": "Toàn thời gian", "positive": pos_pct, "neutral": neu_pct, "negative": neg_pct, "totalReviews": total_reviews, "averageRating": display_rating}
+                ]
+            }
+        ),
         "strengths": strengths,
         "attentionAreas": attention_areas,
         "keyFindings": key_findings,
