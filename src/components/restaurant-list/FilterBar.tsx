@@ -118,7 +118,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, onReset
             className="w-full bg-[#FAF7F2] border border-[#E8E4DC] rounded-xl px-3 py-2 text-xs text-[#1C1917] focus:outline-none focus:border-[#991B1B]"
           >
             <option value="all">Tất cả mức độ</option>
-            <option value="high_positive">Được khen nhiều (≥ 70% hài lòng)</option>
+            <option value="high_positive">Được khen nhiều (&gt;75% hài lòng)</option>
             <option value="balanced">Bình thường</option>
             <option value="needs_attention">Nhiều phàn nàn (&gt;12% chê)</option>
           </select>

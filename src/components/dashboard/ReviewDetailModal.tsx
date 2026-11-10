@@ -100,11 +100,11 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, on
           {/* Phần 2: Bảng các tiêu chí trích xuất */}
           <div className="space-y-2.5">
             <h4 className="text-xs font-bold text-[#18181B] uppercase tracking-wider">
-              Các tiêu chí được nhận xét ({(review.aspects || []).length})
+              Các tiêu chí được nhận xét ({review.aspects.length})
             </h4>
 
             <div className="border border-zinc-200 rounded-lg overflow-hidden divide-y divide-zinc-100">
-              {(review.aspects || []).map((item, idx) => (
+              {review.aspects.map((item, idx) => (
                 <div key={idx} className="p-3.5 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-zinc-50 transition-colors">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">

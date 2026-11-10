@@ -54,6 +54,9 @@ def rebuild_restaurants_table(db_path: str) -> Dict[str, Any]:
     if not os.path.exists(db_path):
         raise FileNotFoundError(f"Không tìm thấy file database tại: {db_path}")
 
+    # 1. Tạo bản sao lưu dự phòng an toàn
+    backup_file = create_db_backup(db_path)
+
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -68,18 +71,13 @@ def rebuild_restaurants_table(db_path: str) -> Dict[str, Any]:
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='restaurants';")
         if not cursor.fetchone():
             print(f"-> [Skip] Bảng restaurants không tồn tại trong database: {db_path}")
-            return {"status": "skipped", "reason": "restaurants table not found", "db_path": db_path}
+            return {"status": "skipped", "reason": "restaurants table not found"}
 
         # Kiểm tra trạng thái hiện tại của cột foody_url
         cursor.execute("PRAGMA table_info(restaurants);")
         old_cols_info = cursor.fetchall()
         old_col_names = [row["name"] for row in old_cols_info]
         foody_col_info = next((row for row in old_cols_info if row["name"] == "foody_url"), None)
-
-        # Thoát sớm nếu foody_url đã ở trạng thái nullable (notnull == 0)
-        if foody_col_info is not None and foody_col_info["notnull"] == 0:
-            print(f"-> [Skip] foody_url is already nullable trong database: {db_path}")
-            return {"status": "skipped", "reason": "foody_url is already nullable", "db_path": db_path}
 
         # Đếm số bản ghi trước khi rebuild
         cursor.execute("SELECT COUNT(*) FROM restaurants;")
@@ -91,8 +89,8 @@ def rebuild_restaurants_table(db_path: str) -> Dict[str, Any]:
             cursor.execute("SELECT COUNT(*) FROM reviews;")
             reviews_count_before = cursor.fetchone()[0]
 
-        # 1. Tạo bản sao lưu dự phòng an toàn trước khi thực hiện rebuild
-        backup_file = create_db_backup(db_path)
+        # Kiểm tra nếu foody_url đã là nullable (notnull == 0) và bảng đã có đủ cột
+        already_nullable = (foody_col_info is not None and foody_col_info["notnull"] == 0)
 
         # 2. Tắt foreign keys trước khi mở transaction
         cursor.execute("PRAGMA foreign_keys = OFF;")
@@ -156,6 +154,7 @@ def rebuild_restaurants_table(db_path: str) -> Dict[str, Any]:
         cursor.execute("ALTER TABLE restaurants_new RENAME TO restaurants;")
 
         # 8. Tái tạo các chỉ mục cần thiết
+        cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_restaurants_google_maps_url ON restaurants(google_maps_url) WHERE google_maps_url IS NOT NULL;")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_restaurants_google_place_id ON restaurants(google_place_id);")
 
         # 9. Kiểm tra toàn vẹn khóa ngoại (Foreign key integrity check)
@@ -190,12 +189,23 @@ def rebuild_restaurants_table(db_path: str) -> Dict[str, Any]:
             if reviews_count_before != reviews_count_after:
                 raise RuntimeError(f"Lệch số lượng reviews: Trước = {reviews_count_before}, Sau = {reviews_count_after}")
 
+        # Thử nghiệm chèn thử một bản ghi test với foody_url = None
+        test_gmap_url = "https://maps.google.com/?cid=test_migration_probe_99999"
+        cursor.execute("""
+            INSERT INTO restaurants (name, foody_url, google_maps_url, address, review_count)
+            VALUES (?, NULL, ?, ?, 0);
+        """, ("Quán Probe Nullable Test", test_gmap_url, "Địa chỉ test probe"))
+        probe_id = cursor.lastrowid
+        cursor.execute("DELETE FROM restaurants WHERE id = ?;", (probe_id,))
+        conn.commit()
+
         result = {
             "status": "success",
             "db_path": db_path,
             "backup_file": backup_file,
             "restaurants_count": restaurants_count_after,
             "foody_url_notnull": new_foody_info["notnull"],
+            "already_nullable": already_nullable,
         }
         print(f"-> [Migration Success] {db_path}: {restaurants_count_after} nhà hàng, foody_url notnull={new_foody_info['notnull']} (nullable).")
         return result

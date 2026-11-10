@@ -3,7 +3,6 @@ Router xử lý các tác vụ cào dữ liệu (Crawler) bằng Selenium,
 hàng đợi cào ngầm (Crawl Queue) và phân tích NLP Aspect-Based Sentiment với Gemini AI.
 """
 
-import os
 import ipaddress
 import json
 import re
@@ -13,25 +12,11 @@ import time
 from datetime import datetime
 from typing import Optional, List, Tuple, Dict, Any
 from urllib.parse import urlparse
-from fastapi import APIRouter, HTTPException, Header, Depends, Request
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 # Giới hạn tối đa 2 tác vụ crawl headless đồng thời trong backend nhằm chống tràn RAM máy chủ [SEC-04]
 CRAWLER_SEMAPHORE = threading.Semaphore(2)
-
-def verify_admin_key_if_configured(x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")):
-    """
-    [TASK-P0-06] Kiểm tra quyền quản trị tùy chọn qua header X-Admin-Key:
-    Nếu biến môi trường ADMIN_API_KEY được cấu hình, bắt buộc request phải có X-Admin-Key hợp lệ.
-    """
-    admin_key = os.getenv("ADMIN_API_KEY")
-    if admin_key:
-        if not x_admin_key or x_admin_key.strip() != admin_key.strip():
-            raise HTTPException(
-                status_code=403,
-                detail="Yêu cầu khóa quản trị viên hợp lệ (X-Admin-Key)."
-            )
-    return x_admin_key
 
 from database.models import (
     Restaurant as DBRestaurant,
@@ -506,7 +491,7 @@ def save_and_analyze_google_maps_reviews(
 
 
 @router.post("/analyze-url")
-def analyze_restaurant_url(req: AnalyzeRequest, _admin=Depends(verify_admin_key_if_configured)):
+def analyze_restaurant_url(req: AnalyzeRequest):
     """
     Tiếp nhận URL quán ăn mới từ người dùng (Foody hoặc Google Maps):
     1. Nhận diện loại URL (Foody vs Google Maps).
@@ -550,10 +535,7 @@ def analyze_restaurant_url(req: AnalyzeRequest, _admin=Depends(verify_admin_key_
                 if exist_rest:
                     known_fps = get_restaurant_existing_fingerprints(db, exist_rest.id)
 
-            acquired = CRAWLER_SEMAPHORE.acquire(timeout=5.0)
-            if not acquired:
-                raise HTTPException(status_code=429, detail="Hệ thống cào dữ liệu đang bận. Vui lòng thử lại sau 30 giây.")
-            try:
+            with CRAWLER_SEMAPHORE:
                 crawl_data = foody_crawler.crawl_restaurant(
                     url,
                     max_reviews=req.max_reviews or 30,
@@ -561,8 +543,6 @@ def analyze_restaurant_url(req: AnalyzeRequest, _admin=Depends(verify_admin_key_
                     known_fingerprints=known_fps,
                     max_consecutive_existing=3
                 )
-            finally:
-                CRAWLER_SEMAPHORE.release()
 
             if not crawl_data or not crawl_data.get("name") or crawl_data.get("not_found"):
                 raise HTTPException(
@@ -606,13 +586,8 @@ def analyze_restaurant_url(req: AnalyzeRequest, _admin=Depends(verify_admin_key_
             elif max_revs > 100:
                 max_revs = 100
 
-            acquired = CRAWLER_SEMAPHORE.acquire(timeout=5.0)
-            if not acquired:
-                raise HTTPException(status_code=429, detail="Hệ thống cào dữ liệu đang bận. Vui lòng thử lại sau 30 giây.")
-            try:
+            with CRAWLER_SEMAPHORE:
                 crawl_data = google_maps_crawler.crawl_google_maps_reviews(url=url, max_reviews=max_revs, headless=True)
-            finally:
-                CRAWLER_SEMAPHORE.release()
 
             if not crawl_data or not crawl_data.get("success"):
                 err_msg = crawl_data.get("error") if crawl_data else "Không nhận được phản hồi từ Google Maps."
@@ -878,7 +853,7 @@ def get_foody_city_slug(city_input: str) -> str:
 
 
 @router.post("/search-and-crawl")
-def search_and_crawl_restaurant(req: SearchAndCrawlRequest, _admin=Depends(verify_admin_key_if_configured)):
+def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
     """
     Quy trình tìm kiếm và cào dữ liệu thông minh theo từ khóa và nguồn:
     1. Nhận từ khóa tìm kiếm (ví dụ: 'bánh tráng', 'bún huế') và tham số source ('auto' | 'foody' | 'google_maps').
@@ -1019,18 +994,13 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest, _admin=Depends(verif
                     print(f"-> [Search & Crawl] [Dual-Source] Quán '{matching_res.name}' trong DB chưa có review Google Maps. Bắt đầu cào bổ sung từ Google Maps cho '{gmap_query}'...")
                     gmaps_crawled_ok = False
                     try:
-                        acquired = CRAWLER_SEMAPHORE.acquire(timeout=5.0)
-                        if not acquired:
-                            raise HTTPException(status_code=429, detail="Hệ thống cào dữ liệu đang bận. Vui lòng thử lại sau 30 giây.")
-                        try:
+                        with CRAWLER_SEMAPHORE:
                             gmaps_data = google_maps_crawler.search_and_crawl_google_maps(
                                 query=gmap_query,
                                 city=gmap_city,
                                 max_reviews=15,
                                 headless=True
                             )
-                        finally:
-                            CRAWLER_SEMAPHORE.release()
                         if gmaps_data and gmaps_data.get("success") and gmaps_data.get("restaurant_name"):
                             matching_res, new_count, dup_count = save_and_analyze_google_maps_reviews(
                                 db=db,
@@ -1065,18 +1035,13 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest, _admin=Depends(verif
         def crawl_gmaps():
             gmap_city = gmaps_city
             print(f"-> [Search & Crawl] Bắt đầu tìm kiếm & cào Google Maps cho từ khóa '{search_keyword}' (thành phố: {gmap_city or 'Toàn quốc'})...")
-            acquired = CRAWLER_SEMAPHORE.acquire(timeout=5.0)
-            if not acquired:
-                raise HTTPException(status_code=429, detail="Hệ thống cào dữ liệu đang bận. Vui lòng thử lại sau 30 giây.")
-            try:
+            with CRAWLER_SEMAPHORE:
                 gmaps_data = google_maps_crawler.search_and_crawl_google_maps(
                     query=search_keyword,
                     city=gmap_city,
                     max_reviews=req.max_reviews or 25,
                     headless=True
                 )
-            finally:
-                CRAWLER_SEMAPHORE.release()
             if not gmaps_data or not gmaps_data.get("success") or not gmaps_data.get("restaurant_name"):
                 err_detail = gmaps_data.get("error") if gmaps_data else "Không nhận được phản hồi từ Google Maps."
                 raise HTTPException(
@@ -1135,18 +1100,13 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest, _admin=Depends(verif
                                 gm_city = gmaps_city or get_google_maps_location(existing_by_url.city or "")
                                 gm_crawled_ok = False
                                 try:
-                                    acquired = CRAWLER_SEMAPHORE.acquire(timeout=5.0)
-                                    if not acquired:
-                                        raise HTTPException(status_code=429, detail="Hệ thống cào dữ liệu đang bận. Vui lòng thử lại sau 30 giây.")
-                                    try:
+                                    with CRAWLER_SEMAPHORE:
                                         gm_data = google_maps_crawler.search_and_crawl_google_maps(
                                             query=gm_query,
                                             city=gm_city,
                                             max_reviews=15,
                                             headless=True
                                         )
-                                    finally:
-                                        CRAWLER_SEMAPHORE.release()
                                     if gm_data and gm_data.get("success") and gm_data.get("restaurant_name"):
                                         existing_by_url, new_gm_cnt, _ = save_and_analyze_google_maps_reviews(
                                             db=db,
@@ -1233,18 +1193,13 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest, _admin=Depends(verif
                     gm_query = f"{target_place['name']} {target_place.get('address', '')}".strip()
                     print(f"-> [Search & Crawl] [Dual-Source] Đã cào Foody xong ({foody_rev_count} nhận xét). Tiếp tục cào Google Maps cho '{gm_query}'...")
                     try:
-                        acquired = CRAWLER_SEMAPHORE.acquire(timeout=5.0)
-                        if not acquired:
-                            raise HTTPException(status_code=429, detail="Hệ thống cào dữ liệu đang bận. Vui lòng thử lại sau 30 giây.")
-                        try:
+                        with CRAWLER_SEMAPHORE:
                             gm_data = google_maps_crawler.search_and_crawl_google_maps(
                                 query=gm_query,
                                 city=gmaps_city,
                                 max_reviews=15,
                                 headless=True
                             )
-                        finally:
-                            CRAWLER_SEMAPHORE.release()
                         if gm_data and gm_data.get("success") and gm_data.get("restaurant_name"):
                             restaurant, new_gmaps_cnt, _ = save_and_analyze_google_maps_reviews(
                                 db=db,
@@ -1378,7 +1333,7 @@ def list_crawl_requests():
 
 @router.post("/crawler/google-maps")
 @router.post("/google-maps")
-def crawl_google_maps_endpoint(req: CrawlGoogleMapsRequest, _admin=Depends(verify_admin_key_if_configured)):
+def crawl_google_maps_endpoint(req: CrawlGoogleMapsRequest):
     """
     Endpoint thu thập dữ liệu và đánh giá từ Google Maps:
     1. Xác thực tham số và URL (Anti-SSRF, DNS Rebinding).
@@ -1460,10 +1415,7 @@ def crawl_google_maps_endpoint(req: CrawlGoogleMapsRequest, _admin=Depends(verif
     # Thực hiện cào dữ liệu qua Playwright (Giới hạn tối đa 2 tác vụ crawl đồng thời [SEC-04])
     crawl_data = None
     try:
-        acquired = CRAWLER_SEMAPHORE.acquire(timeout=5.0)
-        if not acquired:
-            raise HTTPException(status_code=429, detail="Hệ thống cào dữ liệu đang bận. Vui lòng thử lại sau 30 giây.")
-        try:
+        with CRAWLER_SEMAPHORE:
             # Xác định thành phố mục tiêu cho tìm kiếm: ưu tiên target_rest_city, rồi bóc tách từ target_rest_addr, fallback ""
             resolved_city = target_rest_city or ""
             if not resolved_city and target_rest_addr:
@@ -1518,8 +1470,6 @@ def crawl_google_maps_endpoint(req: CrawlGoogleMapsRequest, _admin=Depends(verif
                         headless=True,
                         target_address=target_address
                     )
-        finally:
-            CRAWLER_SEMAPHORE.release()
     except HTTPException:
         raise
     except Exception as e:

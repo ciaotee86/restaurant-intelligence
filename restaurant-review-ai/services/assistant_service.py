@@ -31,66 +31,38 @@ from services.bi_service import format_restaurant_full, remove_accents
 # In-memory FAQ & Question Cache: key = f"{restaurant_id}:{normalized_question}"
 _QUESTION_CACHE: Dict[str, Dict[str, Any]] = {}
 
-def _is_blocked_env_key(k: str) -> bool:
-    k_upper = k.strip().upper()
-    return any(b in k_upper for b in ("_DIR", "_PATH", "_HOME", "ANTIGRAVITY_"))
-
-def _is_file_path_value(v: str) -> bool:
-    if not v:
-        return True
-    if any(sep in v for sep in ("\\", "/", ":")):
-        return True
-    try:
-        if os.path.exists(v):
-            return True
-    except Exception:
-        pass
-    return False
-
-def get_gemini_api_key() -> str | None:
+def get_gemini_api_key() -> Optional[str]:
     """
     Lấy API Key linh hoạt từ biến môi trường với cơ chế tự động nhận diện và khôi phục:
     1. Kiểm tra GEMINI_API_KEY hoặc GOOGLE_API_KEY chuẩn.
     2. Nạp lại từ các file .env nếu bị thiếu lúc runtime.
     3. Tự động quét os.environ:
-       - Bỏ qua các key chứa _DIR, _PATH, _HOME, ANTIGRAVITY_.
-       - Bỏ qua các giá trị là đường dẫn file/thư mục.
-       - Ưu tiên key bắt đầu bằng AIzaSy hoặc AQ.
+       - Trường hợp người dùng vô tình nhập Key vào cột Tên (Key column) trên Render Dashboard.
+       - Trường hợp tên biến có chữ 'gemini' hoặc 'google_api'.
+       - Trường hợp giá trị hoặc tên bắt đầu bằng 'AIzaSy' hoặc 'AQ.'.
+    4. Cảnh báo định dạng nếu phát hiện token dạng 'AQ.' thay vì API Key chuẩn 'AIzaSy...'.
     """
     key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    if key and _is_file_path_value(key):
-        key = None
 
     if not key:
-        # Pass 1: Người dùng paste nhầm API Key vào cột Key/Name trên Render
+        # Cơ chế dò tìm thông minh đề phòng cấu hình nhầm cột trên Render Dashboard
         for k, v in os.environ.items():
             k_clean = k.strip()
-            if _is_blocked_env_key(k_clean):
-                continue
+            v_clean = v.strip() if v else ""
+
+            # Case A: Người dùng paste nhầm API Key vào cột Key/Name trên Render
             if k_clean.lower().startswith("aizasy") or k_clean.lower().startswith("aq."):
                 print(f"[Gemini API Info] Phát hiện API Key được cấu hình ở cột Tên/Key '{k_clean[:10]}...' trên Render. Đang tự động khôi phục...")
                 key = k_clean
                 break
 
-    if not key:
-        # Pass 2: Giá trị bắt đầu bằng AIzaSy hoặc AQ. hợp lệ
-        for k, v in os.environ.items():
-            k_clean = k.strip()
-            v_clean = v.strip() if v else ""
-            if _is_blocked_env_key(k_clean) or _is_file_path_value(v_clean):
-                continue
-            if v_clean.startswith("AIzaSy") or v_clean.startswith("AQ."):
+            # Case B: Tên biến có chứa gemini hoặc google_api
+            if ("gemini" in k_clean.lower() or "google_api" in k_clean.lower()) and len(v_clean) > 15:
                 key = v_clean
                 break
 
-    if not key:
-        # Pass 3: Tên biến có chứa gemini hoặc google_api
-        for k, v in os.environ.items():
-            k_clean = k.strip()
-            v_clean = v.strip() if v else ""
-            if _is_blocked_env_key(k_clean) or _is_file_path_value(v_clean):
-                continue
-            if ("gemini" in k_clean.lower() or "google_api" in k_clean.lower()) and len(v_clean) > 15:
+            # Case C: Giá trị bắt đầu bằng AIzaSy hoặc AQ.
+            if v_clean.startswith("AIzaSy") or v_clean.startswith("AQ."):
                 key = v_clean
                 break
 
@@ -757,18 +729,18 @@ def call_gemini_assistant_raw(restaurant_data: Dict[str, Any], question: str) ->
 
     sample_pos_quotes = []
     for r in pos_reviews[:6]:
-        author = str(r.get("author", "Thực khách")).replace("<", "&lt;").replace(">", "&gt;")
+        author = r.get("author", "Thực khách")
         rating_val = r.get("rating", 5.0)
-        txt = r.get("text", "").strip().replace("\n", " ").replace("<", "&lt;").replace(">", "&gt;")
+        txt = r.get("text", "").strip().replace("\n", " ")
         if len(txt) > 160:
             txt = txt[:160] + "..."
         sample_pos_quotes.append(f'  • [{author} - {rating_val}/5★]: "{txt}"')
 
     sample_neg_quotes = []
     for r in neg_reviews[:6]:
-        author = str(r.get("author", "Thực khách")).replace("<", "&lt;").replace(">", "&gt;")
+        author = r.get("author", "Thực khách")
         rating_val = r.get("rating", 1.0)
-        txt = r.get("text", "").strip().replace("\n", " ").replace("<", "&lt;").replace(">", "&gt;")
+        txt = r.get("text", "").strip().replace("\n", " ")
         if len(txt) > 160:
             txt = txt[:160] + "..."
         sample_neg_quotes.append(f'  • [{author} - {rating_val}/5★]: "{txt}"')
@@ -803,8 +775,12 @@ CÁC ĐIỂM CẦN LƯU Ý & PHÀN NÀN (ATTENTION AREAS):
 CHECKLIST VẬN HÀNH ĐỀ XUẤT CHO QUÁN:
 {checklist_str}
 
-DỮ LIỆU ĐÁNH GIÁ THỰC TẾ TỪ THỰC KHÁCH:
-- Dữ liệu trích dẫn đánh giá thực tế (tích cực và phàn nàn) được cung cấp trong thẻ <data_reference_context> của nội dung câu hỏi.
+MẪU ĐÁNH GIÁ THỰC TẾ TỪ THỰC KHÁCH:
++ Đánh giá tích cực tiêu biểu:
+{pos_quotes_str}
+
++ Đánh giá tiêu cực / phàn nàn tiêu biểu:
+{neg_quotes_str}
 
 QUY TẮC PHÂN TÍCH & GUARDRAILS ĐỘC LẬP CỦA NỀN TẢNG (BẮT BUỘC TUÂN THỦ NGHIÊM NGẶT):
 1. ĐỘC LẬP & KHÁCH QUAN:
@@ -827,20 +803,10 @@ QUY TẮC PHÂN TÍCH & GUARDRAILS ĐỘC LẬP CỦA NỀN TẢNG (BẮT BUỘC
         from google.genai import types
         client = genai.Client(api_key=api_key)
 
-        # Khử mã ký tự XML và đóng gói vào các thẻ phân tách an toàn chống prompt injection [SEC-07]
-        clean_q = str(question or "").strip().replace("<", "&lt;").replace(">", "&gt;")
-        user_contents = f"""Dưới đây là dữ liệu tham khảo trích xuất từ đánh giá thực khách:
-<data_reference_context>
-+ Mẫu đánh giá tích cực tiêu biểu:
-{pos_quotes_str}
-
-+ Mẫu đánh giá tiêu cực / phàn nàn tiêu biểu:
-{neg_quotes_str}
-</data_reference_context>
-
-Dưới đây là câu hỏi từ người dùng cần bạn phân tích:
+        # Bọc câu hỏi người dùng vào thẻ phân tách XML để chống prompt injection [SEC-07]
+        user_contents = f"""Dưới đây là câu hỏi từ người dùng cần bạn phân tích:
 <user_question>
-{clean_q}
+{question.strip()}
 </user_question>
 
 Hãy phân tích câu hỏi trên dựa trên dữ liệu đánh giá thực tế và tuân thủ các quy tắc trong system instruction."""
@@ -916,25 +882,7 @@ def ask_assistant(
     restaurant_data = format_restaurant_full(restaurant, db)
     intent = detect_question_intent(q_clean) or "overview"
 
-    # Khi không ép buộc dùng AI (force_ai=False): Tổng hợp bằng Local BI Engine [TASK-P1-03]
-    if not force_ai:
-        answer = synthesize_local_answer(restaurant_data, intent)
-        source = "local_bi"
-        success = True
-        _QUESTION_CACHE[cache_key] = {
-            "answer": answer,
-            "intent": intent,
-            "source": source
-        }
-        return {
-            "success": success,
-            "answer": answer,
-            "source": source,
-            "detected_intent": intent,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-
-    # 3. Chuyển cho Gemini AI xử lý cùng Rich Context và Guardrails khi force_ai=True
+    # 3. 100% Chuyển cho Gemini AI xử lý cùng Rich Context và Guardrails
     ai_resp = call_gemini_assistant_raw(restaurant_data, q_clean)
 
     if ai_resp:

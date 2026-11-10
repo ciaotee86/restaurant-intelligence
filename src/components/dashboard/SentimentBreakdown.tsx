@@ -7,7 +7,7 @@ interface SentimentBreakdownProps {
 }
 
 export const SentimentBreakdown: React.FC<SentimentBreakdownProps> = ({ restaurant }) => {
-  const { positive = 0, neutral = 0, negative = 0 } = restaurant.sentimentDistribution || {};
+  const { positive, neutral, negative } = restaurant.sentimentDistribution;
 
   return (
     <div className="bg-white border border-[#E4E4E7] rounded-lg p-5 sm:p-6">

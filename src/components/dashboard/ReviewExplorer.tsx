@@ -93,16 +93,12 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
     return { all: cleanReviews.length, foody, googleMaps };
   }, [cleanReviews]);
 
-  const filteredReviews = useMemo(
-    () =>
-      restaurantService.filterReviews(
-        cleanReviews,
-        sentimentFilter,
-        aspectFilter,
-        searchKeyword,
-        sourceFilter
-      ),
-    [cleanReviews, sentimentFilter, aspectFilter, searchKeyword, sourceFilter]
+  const filteredReviews = restaurantService.filterReviews(
+    cleanReviews,
+    sentimentFilter,
+    aspectFilter,
+    searchKeyword,
+    sourceFilter
   );
 
   const aspectsList: AspectCategory[] = ['Món ăn', 'Dịch vụ', 'Giá cả', 'Không gian', 'Vị trí'];

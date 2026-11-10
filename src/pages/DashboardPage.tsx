@@ -162,7 +162,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             }`}
           >
             <MessageSquare className="w-4 h-4" />
-            <span>Tất cả nhận xét gốc ({(restaurant.reviews || []).length})</span>
+            <span>Tất cả nhận xét gốc ({restaurant.reviews.length})</span>
           </button>
         </div>
       </div>
@@ -201,7 +201,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   Muốn đọc chi tiết nhận xét từng khách hàng?
                 </h3>
                 <p className="text-xs text-zinc-600 mt-0.5">
-                  Xem toàn bộ {(restaurant.reviews || []).length} đánh giá gốc đã được phân loại theo món ăn và cảm xúc.
+                  Xem toàn bộ {restaurant.reviews.length} đánh giá gốc đã được phân loại theo món ăn và cảm xúc.
                 </p>
               </div>
               <button
@@ -266,7 +266,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         {activeTab === 'reviews' && (
           <div className="animate-in fade-in duration-200">
             <ReviewExplorer
-              reviews={restaurant.reviews || []}
+              reviews={restaurant.reviews}
               initialAspect={selectedAspect}
               restaurantId={restaurant.id}
               restaurantName={restaurant.name}

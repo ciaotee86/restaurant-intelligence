@@ -10,7 +10,7 @@ export default defineConfig({
   ],
   cacheDir: './.vite_cache',
   build: {
-    emptyOutDir: true,
+    emptyOutDir: false,
   },
   server: {
     proxy: {

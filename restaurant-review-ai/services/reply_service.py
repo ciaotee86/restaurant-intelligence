@@ -45,65 +45,35 @@ CANDIDATE_MODELS = [
 ]
 
 
-def _is_blocked_env_key(k: str) -> bool:
-    k_upper = k.strip().upper()
-    return any(b in k_upper for b in ("_DIR", "_PATH", "_HOME", "ANTIGRAVITY_"))
-
-def _is_file_path_value(v: str) -> bool:
-    if not v:
-        return True
-    if any(sep in v for sep in ("\\", "/", ":")):
-        return True
-    try:
-        if os.path.exists(v):
-            return True
-    except Exception:
-        pass
-    return False
-
 def get_gemini_api_key() -> Optional[str]:
     """
     Lấy API Key linh hoạt từ biến môi trường với cơ chế tự động nhận diện và khôi phục:
     1. Kiểm tra GEMINI_API_KEY hoặc GOOGLE_API_KEY chuẩn.
     2. Nạp lại từ các file .env nếu bị thiếu lúc runtime.
     3. Tự động quét os.environ:
-       - Bỏ qua các key chứa _DIR, _PATH, _HOME, ANTIGRAVITY_.
-       - Bỏ qua các giá trị là đường dẫn file/thư mục.
-       - Ưu tiên key bắt đầu bằng AIzaSy hoặc AQ.
+       - Trường hợp người dùng vô tình nhập Key vào cột Tên (Key column) trên Render Dashboard.
+       - Trường hợp tên biến có chữ 'gemini' hoặc 'google_api'.
+       - Trường hợp giá trị hoặc tên bắt đầu bằng 'AIzaSy' hoặc 'AQ.'.
     """
     key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    if key and _is_file_path_value(key):
-        key = None
 
     if not key:
-        # Pass 1: Người dùng paste nhầm API Key vào cột Key/Name trên Render
         for k, v in os.environ.items():
             k_clean = k.strip()
-            if _is_blocked_env_key(k_clean):
-                continue
+            v_clean = v.strip() if v else ""
+
+            # Case A: Người dùng paste nhầm API Key vào cột Key/Name trên Render
             if k_clean.lower().startswith("aizasy") or k_clean.lower().startswith("aq."):
                 key = k_clean
                 break
 
-    if not key:
-        # Pass 2: Giá trị bắt đầu bằng AIzaSy hoặc AQ. hợp lệ
-        for k, v in os.environ.items():
-            k_clean = k.strip()
-            v_clean = v.strip() if v else ""
-            if _is_blocked_env_key(k_clean) or _is_file_path_value(v_clean):
-                continue
-            if v_clean.startswith("AIzaSy") or v_clean.startswith("AQ."):
+            # Case B: Tên biến có chứa gemini hoặc google_api
+            if ("gemini" in k_clean.lower() or "google_api" in k_clean.lower()) and len(v_clean) > 15:
                 key = v_clean
                 break
 
-    if not key:
-        # Pass 3: Tên biến có chứa gemini hoặc google_api
-        for k, v in os.environ.items():
-            k_clean = k.strip()
-            v_clean = v.strip() if v else ""
-            if _is_blocked_env_key(k_clean) or _is_file_path_value(v_clean):
-                continue
-            if ("gemini" in k_clean.lower() or "google_api" in k_clean.lower()) and len(v_clean) > 15:
+            # Case C: Giá trị bắt đầu bằng AIzaSy hoặc AQ.
+            if v_clean.startswith("AIzaSy") or v_clean.startswith("AQ."):
                 key = v_clean
                 break
 
@@ -326,13 +296,10 @@ def call_gemini_reply(
         print("[Gemini Reply Info] Không tìm thấy API Key. Chuyển sang Fallback Template.")
         return None, None
 
-    clean_author = str(author or "Quý khách").replace("<", "&lt;").replace(">", "&gt;")
-    clean_review = str(review_text or "").strip().replace("<", "&lt;").replace(">", "&gt;")
-
     aspects_addressed = extract_aspects_addressed(aspects, review_text)
     system_instruction = build_system_prompt(
         restaurant_name=restaurant_name,
-        author=clean_author,
+        author=author,
         rating=rating,
         tone=tone,
         aspects_addressed=aspects_addressed,
@@ -342,16 +309,16 @@ def call_gemini_reply(
 
     # Đóng gói nhận xét của thực khách vào thẻ XML phân tách để chống prompt injection [SEC-07]
     user_content = f"""THÔNG TIN ĐÁNH GIÁ CỦA THỰC KHÁCH:
-- Tác giả đánh giá: {clean_author}
+- Tác giả đánh giá: {author}
 - Điểm đánh giá: {rating}/5.0 (hoặc thang điểm 10 tương ứng)
 - Phân loại cảm xúc: {overall_sentiment or 'Không xác định'}
 - Các khía cạnh nổi bật: {', '.join(aspects_addressed)}
 - Toàn văn nhận xét gốc của thực khách:
 <review_text>
-{clean_review}
+{review_text.strip()}
 </review_text>
 
-YÊU CẦU: Hãy soạn thư phản hồi gửi tới {clean_author} theo đúng kim chỉ nam tông giọng đã hướng dẫn trong system instruction."""
+YÊU CẦU: Hãy soạn thư phản hồi gửi tới {author} theo đúng kim chỉ nam tông giọng đã hướng dẫn trong system instruction."""
 
     try:
         from google import genai

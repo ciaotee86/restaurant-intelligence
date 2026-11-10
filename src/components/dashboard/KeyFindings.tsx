@@ -23,7 +23,7 @@ export const KeyFindings: React.FC<KeyFindingsProps> = ({ restaurant }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {(restaurant.keyFindings || []).map((finding) => {
+        {restaurant.keyFindings.map((finding) => {
           let accentBorder = 'border-l-zinc-900';
           let numColor = 'text-zinc-400';
           if (finding.sentimentTrend === 'positive') {
