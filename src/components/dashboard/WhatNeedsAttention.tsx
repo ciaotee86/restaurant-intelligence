@@ -2,12 +2,15 @@ import React from 'react';
 import type { Restaurant } from '../../types/restaurant';
 import { AlertTriangle } from 'lucide-react';
 import { formatNumber } from '../../utils/sentimentUtils';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface WhatNeedsAttentionProps {
   restaurant: Restaurant;
 }
 
 export const WhatNeedsAttention: React.FC<WhatNeedsAttentionProps> = ({ restaurant }) => {
+  const { t, tAspect } = useLanguage();
+
   return (
     <div className="bg-white border border-[#E4E4E7] rounded-lg p-5 sm:p-6 flex flex-col justify-between">
       <div>
@@ -16,7 +19,7 @@ export const WhatNeedsAttention: React.FC<WhatNeedsAttentionProps> = ({ restaura
             <AlertTriangle className="w-3.5 h-3.5" />
           </div>
           <h2 className="text-base sm:text-lg font-bold text-[#18181B] tracking-tight">
-            Điểm cần chú ý & cải thiện
+            {t('attention.title')}
           </h2>
         </div>
 
@@ -31,25 +34,25 @@ export const WhatNeedsAttention: React.FC<WhatNeedsAttentionProps> = ({ restaura
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider text-red-900 bg-red-100/80 px-2 py-0.5 rounded">
-                    {area.aspect}
+                    {tAspect(area.aspect)}
                   </span>
                   <h3 className="text-sm font-bold text-red-950 mt-1">
-                    {area.negativePercentage}% đánh giá về {area.aspect.toLowerCase()} là tiêu cực
+                    {t('attention.negativeRatio', { pct: area.negativePercentage, aspect: tAspect(area.aspect).toLowerCase() })}
                   </h3>
                 </div>
 
                 <div className="text-right shrink-0">
                   <span className="text-xs font-bold text-red-800 bg-white/80 px-2 py-0.5 rounded border border-red-200">
-                    {formatNumber(area.complaintCount)} đánh giá
+                    {t('attention.complaintLabel', { count: formatNumber(area.complaintCount) })}
                   </span>
-                  <div className="text-[10px] text-red-700 mt-0.5">phản hồi góp ý</div>
+                  <div className="text-[10px] text-red-700 mt-0.5">{t('attention.complaintSub')}</div>
                 </div>
               </div>
 
               {/* Danh sách khiếu nại phổ biến */}
               <div className="mt-3">
                 <span className="text-xs font-semibold text-red-900 block mb-1">
-                  Các vấn đề thường gặp nhất:
+                  {t('attention.commonIssues')}
                 </span>
                 <ul className="space-y-1 text-xs text-red-950/90 pl-3 list-disc">
                   {area.commonComplaints.map((complaint, cIdx) => (
@@ -72,7 +75,7 @@ export const WhatNeedsAttention: React.FC<WhatNeedsAttentionProps> = ({ restaura
       </div>
 
       <div className="mt-4 pt-3 border-t border-zinc-100 text-xs text-[#71717A]">
-        Điểm nghẽn vận hành được phát hiện từ các khiếu nại lặp lại của thực khách
+        {t('attention.footer')}
       </div>
     </div>
   );

@@ -19,6 +19,7 @@ import {
   FileEdit,
   ShieldCheck
 } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 export interface ReviewReplyModalProps {
   review: CustomerReview | null;
@@ -38,49 +39,6 @@ interface ToneConfig {
   activeBorder: string;
   activeBg: string;
 }
-
-const TONE_CONFIGS: ToneConfig[] = [
-  {
-    id: 'apology',
-    label: 'Chân thành & Nhận lỗi',
-    sublabel: 'Xoa dịu bức xúc',
-    description: 'Thừa nhận thiếu sót, cam kết chấn chỉnh dịch vụ và cung cấp hotline hỗ trợ trực tiếp.',
-    icon: HeartHandshake,
-    accentColor: 'text-red-700',
-    activeBorder: 'border-red-600',
-    activeBg: 'bg-red-50/70'
-  },
-  {
-    id: 'voucher',
-    label: 'Lịch sự & Tặng Voucher',
-    sublabel: 'Đền bù ưu đãi 15%',
-    description: 'Bày tỏ tiếc nuối và khéo léo gửi tặng mã giảm giá ưu đãi để mời thực khách quay lại.',
-    icon: Ticket,
-    accentColor: 'text-amber-800',
-    activeBorder: 'border-amber-600',
-    activeBg: 'bg-amber-50/80'
-  },
-  {
-    id: 'gratitude',
-    label: 'Tri ân & Thân thiện',
-    sublabel: 'Cảm ơn & Gắn kết',
-    description: 'Cảm ơn ấm áp, nhắc lại món ăn được khen ngợi và duy trì tình cảm thân thiết với khách quen.',
-    icon: Heart,
-    accentColor: 'text-emerald-800',
-    activeBorder: 'border-emerald-600',
-    activeBg: 'bg-emerald-50/80'
-  },
-  {
-    id: 'clarification',
-    label: 'Giải thích & Cầu thị',
-    sublabel: 'Minh bạch lý do',
-    description: 'Trình bày nhã nhặn về định lượng, quy chuẩn bếp hoặc giờ cao điểm với thái độ tôn trọng.',
-    icon: Info,
-    accentColor: 'text-stone-800',
-    activeBorder: 'border-stone-600',
-    activeBg: 'bg-stone-100/80'
-  }
-];
 
 function determineInitialTone(rev: CustomerReview): ReplyTone {
   if (rev.rating <= 2 || rev.overallSentiment === 'negative') {
@@ -105,6 +63,7 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
   restaurantName,
   onClose
 }) => {
+  const { t } = useLanguage();
   const initialTone = useMemo(() => determineInitialTone(review), [review]);
   const [selectedTone, setSelectedTone] = useState<ReplyTone>(initialTone);
   const [replyText, setReplyText] = useState<string>('');
@@ -115,6 +74,49 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasCopied, setHasCopied] = useState<boolean>(false);
   const [hasCopiedVoucher, setHasCopiedVoucher] = useState<boolean>(false);
+
+  const toneConfigs: ToneConfig[] = useMemo(() => [
+    {
+      id: 'apology',
+      label: t('replyModal.toneApology'),
+      sublabel: t('replyModal.toneApologySub'),
+      description: t('replyModal.toneApologyDesc'),
+      icon: HeartHandshake,
+      accentColor: 'text-red-700',
+      activeBorder: 'border-red-600',
+      activeBg: 'bg-red-50/70'
+    },
+    {
+      id: 'voucher',
+      label: t('replyModal.toneVoucher'),
+      sublabel: t('replyModal.toneVoucherSub'),
+      description: t('replyModal.toneVoucherDesc'),
+      icon: Ticket,
+      accentColor: 'text-amber-800',
+      activeBorder: 'border-amber-600',
+      activeBg: 'bg-amber-50/80'
+    },
+    {
+      id: 'gratitude',
+      label: t('replyModal.toneGratitude'),
+      sublabel: t('replyModal.toneGratitudeSub'),
+      description: t('replyModal.toneGratitudeDesc'),
+      icon: Heart,
+      accentColor: 'text-emerald-800',
+      activeBorder: 'border-emerald-600',
+      activeBg: 'bg-emerald-50/80'
+    },
+    {
+      id: 'clarification',
+      label: t('replyModal.toneClarification'),
+      sublabel: t('replyModal.toneClarificationSub'),
+      description: t('replyModal.toneClarificationDesc'),
+      icon: Info,
+      accentColor: 'text-stone-800',
+      activeBorder: 'border-stone-600',
+      activeBg: 'bg-stone-100/80'
+    }
+  ], [t]);
 
   // Hàm sinh phản hồi từ API Backend / Gemini
   const fetchReply = useCallback(
@@ -160,13 +162,13 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
       } catch (err: any) {
         console.error('[ReviewReplyModal] Lỗi sinh phản hồi AI:', err);
         setErrorMessage(
-          err?.message || 'Không thể tạo bản thảo phản hồi từ AI. Vui lòng bấm thử lại.'
+          err?.message || t('replyModal.errorGenerateFailed')
         );
       } finally {
         setIsLoading(false);
       }
     },
-    [review, restaurantId, restaurantName, cachedReplies]
+    [review, restaurantId, restaurantName, cachedReplies, t]
   );
 
   // Tự động tải phản hồi khi đổi selectedTone
@@ -261,14 +263,14 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-mono uppercase font-bold tracking-wider text-[#C2410C] bg-[#C2410C]/10 px-2 py-0.5 rounded">
-                  Hỗ trợ bởi AI
+                  {t('replyModal.badge')}
                 </span>
                 <span className="text-xs text-zinc-400 font-mono">
-                  Đánh giá của {review.author}
+                  {t('replyModal.authorReview', { author: review.author })}
                 </span>
               </div>
               <h3 id="reply-modal-title" className="text-lg sm:text-xl font-black text-[#18181B] tracking-tight font-serif">
-                Soạn Thư Phản Hồi Thực Khách
+                {t('replyModal.title')}
               </h3>
             </div>
           </div>
@@ -277,7 +279,7 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
             type="button"
             onClick={onClose}
             className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-[#18181B] hover:bg-zinc-100 transition-colors"
-            title="Đóng hộp thoại (ESC)"
+            title={t('replyModal.closeEsc')}
           >
             <X className="w-5 h-5" />
           </button>
@@ -297,7 +299,7 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
                 <span className="text-xs font-bold text-[#18181B] flex items-center gap-1">
                   <span>{review.author}</span>
                   {review.verifiedVisit && (
-                    <span title="Đã xác thực"><ShieldCheck className="w-3.5 h-3.5 text-emerald-600 inline" /></span>
+                    <span title={t('explorer.verifiedDiner')}><ShieldCheck className="w-3.5 h-3.5 text-emerald-600 inline" /></span>
                   )}
                 </span>
                 <span className="text-xs text-[#71717A] font-medium font-mono">
@@ -315,7 +317,7 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
             {review.aspects && review.aspects.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 <span className="text-[11px] font-bold text-zinc-400 mr-1 uppercase font-mono">
-                  Khía cạnh ghi nhận:
+                  {t('replyModal.aspectsCaptured')}
                 </span>
                 {review.aspects.map((asp, idx) => (
                   <AspectPill key={idx} aspect={asp.aspect} sentiment={asp.sentiment} />
@@ -329,15 +331,15 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-zinc-700 uppercase tracking-wider flex items-center gap-1.5">
                 <MessageSquare className="w-3.5 h-3.5 text-[#C2410C]" />
-                <span>Chọn tông giọng phản hồi:</span>
+                <span>{t('replyModal.chooseTone')}</span>
               </label>
               <span className="text-[11px] text-zinc-500 font-mono">
-                Tự động điều chỉnh theo từng tình huống
+                {t('replyModal.toneAutoHint')}
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {TONE_CONFIGS.map((toneCfg) => {
+              {toneConfigs.map((toneCfg) => {
                 const IconComponent = toneCfg.icon;
                 const isSelected = selectedTone === toneCfg.id;
 
@@ -390,7 +392,7 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <label className="text-xs font-bold text-zinc-700 uppercase tracking-wider flex items-center gap-1.5">
                 <FileEdit className="w-3.5 h-3.5 text-[#C2410C]" />
-                <span>Bản nháp phản hồi đề xuất (Chỉnh sửa trực tiếp):</span>
+                <span>{t('replyModal.draftLabel')}</span>
               </label>
 
               {/* Thông tin phản hồi đề xuất */}
@@ -399,12 +401,12 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
                   {currentResponseMeta.engineUsed === 'gemini_cache' ? (
                     <>
                       <Zap className="w-3 h-3 text-blue-600" />
-                      <span>Đã lưu sẵn</span>
+                      <span>{t('replyModal.cached')}</span>
                     </>
                   ) : (
                     <>
                       <Sparkles className="w-3 h-3 text-[#C2410C]" />
-                      <span>Phản hồi gợi ý từ AI</span>
+                      <span>{t('replyModal.suggested')}</span>
                     </>
                   )}
                 </div>
@@ -417,7 +419,7 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
                 <div className="flex items-center gap-2">
                   <Ticket className="w-4 h-4 text-amber-700" />
                   <span>
-                    Mã ưu đãi đã chèn: <strong className="font-mono text-amber-950 font-bold">{currentResponseMeta.generatedVoucherCode}</strong> (Ưu đãi 15%)
+                    {t('replyModal.voucherApplied', { code: currentResponseMeta.generatedVoucherCode })}
                   </span>
                 </div>
                 <button
@@ -425,7 +427,7 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
                   onClick={handleCopyVoucherCode}
                   className="px-2 py-0.5 bg-white border border-amber-300 hover:bg-amber-100 rounded text-[11px] font-bold text-amber-900 transition-colors"
                 >
-                  {hasCopiedVoucher ? 'Đã chép mã!' : 'Chép mã'}
+                  {hasCopiedVoucher ? t('replyModal.voucherCopied') : t('replyModal.copyVoucher')}
                 </button>
               </div>
             )}
@@ -435,7 +437,7 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
               <div className="bg-red-50 border border-red-200 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-red-800">
                 <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <p className="font-bold">Không thể tạo phản hồi tự động</p>
+                  <p className="font-bold">{t('replyModal.errorBannerTitle')}</p>
                   <p className="mt-0.5 text-red-700">{errorMessage}</p>
                 </div>
                 <button
@@ -443,7 +445,7 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
                   onClick={() => fetchReply(selectedTone, true)}
                   className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[11px] font-bold transition-colors"
                 >
-                  Thử lại
+                  {t('replyModal.retry')}
                 </button>
               </div>
             )}
@@ -453,7 +455,7 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
               <div className="bg-white border border-[#E5E3DE] rounded-xl p-5 space-y-3 animate-pulse">
                 <div className="flex items-center gap-2 text-xs font-mono text-zinc-400 pb-2 border-b border-zinc-100">
                   <Sparkles className="w-4 h-4 text-[#C2410C] animate-spin" />
-                  <span>Đang chuẩn bị nội dung phản hồi phù hợp...</span>
+                  <span>{t('replyModal.loadingDraft')}</span>
                 </div>
                 <div className="h-4 bg-zinc-100 rounded w-3/4" />
                 <div className="h-4 bg-zinc-100 rounded w-full" />
@@ -465,16 +467,16 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
                 <textarea
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
-                  placeholder="Nội dung thư phản hồi thực khách..."
+                  placeholder={t('replyModal.placeholder')}
                   rows={8}
                   className="w-full bg-white border border-[#E5E3DE] rounded-xl p-4 text-xs sm:text-sm text-[#18181B] leading-relaxed focus:outline-none focus:border-[#C2410C] focus:ring-1 focus:ring-[#C2410C] transition-all resize-y font-sans shadow-inner"
                 />
                 
                 {/* Thanh đếm ký tự & từ ngữ */}
                 <div className="absolute right-3 bottom-3 flex items-center gap-2 text-[10px] font-mono text-zinc-400 bg-white/90 backdrop-blur-xs px-2 py-0.5 rounded border border-[#E5E3DE]/70">
-                  <span>{textStats.wordCount} từ</span>
+                  <span>{t('replyModal.words', { count: textStats.wordCount })}</span>
                   <span>•</span>
-                  <span>{textStats.charCount} ký tự</span>
+                  <span>{t('replyModal.chars', { count: textStats.charCount })}</span>
                 </div>
               </div>
             )}
@@ -493,7 +495,7 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
             className="px-3.5 py-2 bg-white border border-[#E5E3DE] hover:border-zinc-800 text-zinc-800 hover:text-black rounded-xl text-xs font-bold transition-all shadow-craft-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             <Sparkles className={`w-3.5 h-3.5 text-[#C2410C] ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Gợi ý câu khác</span>
+            <span>{t('replyModal.regenerate')}</span>
           </button>
 
           {/* Nhóm nút Đóng & Sao chép */}
@@ -503,7 +505,7 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
               onClick={onClose}
               className="px-4 py-2 bg-transparent hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900 rounded-xl text-xs font-bold transition-colors"
             >
-              Đóng (ESC)
+              {t('replyModal.closeEsc')}
             </button>
 
             <button
@@ -519,12 +521,12 @@ const ReviewReplyDialogContent: React.FC<ModalContentProps> = ({
               {hasCopied ? (
                 <>
                   <Check className="w-4 h-4 text-white" />
-                  <span>Đã sao chép!</span>
+                  <span>{t('replyModal.copied')}</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-4 h-4" />
-                  <span>Sao chép phản hồi</span>
+                  <span>{t('replyModal.copyReply')}</span>
                 </>
               )}
             </button>

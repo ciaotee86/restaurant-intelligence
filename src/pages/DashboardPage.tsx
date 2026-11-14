@@ -14,6 +14,7 @@ import { AiAssistantWidget } from '../components/dashboard/AiAssistantWidget';
 import { LinkGoogleMapsModal } from '../components/dashboard/LinkGoogleMapsModal';
 import { NewBadge } from '../components/common/NewBadge';
 import { restaurantService } from '../services/restaurantService';
+import { useLanguage } from '../context/LanguageContext';
 import { Utensils, Store, MessageSquare, ArrowRight, Sparkles } from 'lucide-react';
 
 interface DashboardPageProps {
@@ -25,6 +26,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   restaurantId,
   onBackToExplore
 }) => {
+  const { t } = useLanguage();
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedAspect, setSelectedAspect] = useState<AspectCategory | 'all'>('all');
@@ -73,7 +75,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 text-center">
         <div className="inline-block w-8 h-8 border-2 border-[#C2410C] border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-sm font-medium text-zinc-600">Đang chuẩn bị báo cáo đánh giá quán ăn...</p>
+        <p className="text-sm font-medium text-zinc-600">{t('dashboard.loading')}</p>
       </div>
     );
   }
@@ -81,15 +83,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   if (!restaurant) {
     return (
       <div className="max-w-xl mx-auto px-4 py-24 text-center">
-        <h2 className="text-xl font-bold text-zinc-900 mb-2">Không tìm thấy quán ăn</h2>
+        <h2 className="text-xl font-bold text-zinc-900 mb-2">{t('dashboard.notFoundTitle')}</h2>
         <p className="text-sm text-zinc-600 mb-6">
-          Quán ăn bạn tìm kiếm hiện chưa có dữ liệu đánh giá hoặc đường dẫn không chính xác.
+          {t('dashboard.notFoundDesc')}
         </p>
         <button
           onClick={onBackToExplore}
-          className="px-4 py-2 bg-[#18181B] hover:bg-[#C2410C] text-white rounded-md text-xs font-semibold transition-colors"
+          className="px-4 py-2 bg-[#18181B] hover:bg-[#C2410C] text-white rounded-md text-xs font-semibold transition-colors cursor-pointer"
         >
-          Quay lại danh sách quán
+          {t('dashboard.backToExplore')}
         </button>
       </div>
     );
@@ -111,40 +113,40 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('diner')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'diner'
                 ? 'bg-[#991B1B] text-white shadow-editorial-sm'
                 : 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#1C1917]/5'
             }`}
           >
             <Utensils className="w-4 h-4" />
-            <span>Dành cho Thực khách (Món ngon & Lưu ý)</span>
+            <span>{t('dashboard.tabDiner')}</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('owner')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'owner'
                 ? 'bg-[#1C1917] text-white shadow-editorial-sm'
                 : 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#1C1917]/5'
             }`}
           >
             <Store className="w-4 h-4" />
-            <span>Dành cho Quản lý & Chủ quán (Vận hành)</span>
+            <span>{t('dashboard.tabOwner')}</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('assistant')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'assistant'
                 ? 'bg-[#1C1917] text-white shadow-editorial-sm'
                 : 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#1C1917]/5'
             }`}
           >
             <Sparkles className="w-4 h-4 text-[#D97706]" />
-            <span>Trợ lý Thông tin Nền tảng (Hỏi - Đáp)</span>
+            <span>{t('dashboard.tabAssistant')}</span>
             <NewBadge
               featureId="ai-assistant-tab"
               releaseDate="2026-10-24"
@@ -155,14 +157,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('reviews')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'reviews'
                 ? 'bg-[#1C1917] text-white shadow-editorial-sm'
                 : 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#1C1917]/5'
             }`}
           >
             <MessageSquare className="w-4 h-4" />
-            <span>Tất cả nhận xét gốc ({restaurant.reviews.length})</span>
+            <span>{t('dashboard.tabReviews', { count: restaurant.reviews.length })}</span>
           </button>
         </div>
       </div>
@@ -198,18 +200,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <div className="p-6 bg-orange-50/60 border border-orange-200/80 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
               <div>
                 <h3 className="text-sm font-bold text-[#18181B]">
-                  Muốn đọc chi tiết nhận xét từng khách hàng?
+                  {t('dashboard.ctaReviewsTitle')}
                 </h3>
                 <p className="text-xs text-zinc-600 mt-0.5">
-                  Xem toàn bộ {restaurant.reviews.length} đánh giá gốc đã được phân loại theo món ăn và cảm xúc.
+                  {t('dashboard.ctaReviewsDesc', { count: restaurant.reviews.length })}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setActiveTab('reviews')}
-                className="px-4 py-2.5 bg-[#C2410C] hover:bg-[#9a3412] text-white text-xs font-semibold rounded-lg shrink-0 flex items-center gap-1.5 transition-colors shadow-2xs"
+                className="px-4 py-2.5 bg-[#C2410C] hover:bg-[#9a3412] text-white text-xs font-semibold rounded-lg shrink-0 flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
               >
-                <span>Xem tất cả nhận xét gốc</span>
+                <span>{t('dashboard.ctaReviewsButton')}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>

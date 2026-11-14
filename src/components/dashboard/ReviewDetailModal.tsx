@@ -4,6 +4,7 @@ import { TextHighlighter } from '../../utils/textHighlighter';
 import { SentimentBadge } from '../common/SentimentBadge';
 import { AspectPill } from '../common/AspectPill';
 import { X, Calendar, User, Star, ShieldCheck, CheckCircle2, AlertCircle, Zap } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface ReviewDetailModalProps {
   review: CustomerReview | null;
@@ -12,6 +13,7 @@ interface ReviewDetailModalProps {
 }
 
 export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, onClose, onOpenReplyModal }) => {
+  const { t } = useLanguage();
   if (!review) return null;
 
   return (
@@ -23,15 +25,16 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, on
         <div className="sticky top-0 bg-white border-b border-[#E4E4E7] px-6 py-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-bold text-[#18181B] tracking-tight">
-              Chi tiết cảm nhận thực khách
+              {t('detail.title')}
             </h3>
             <span className="text-xs font-mono text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded">
-              Mã: {review.id}
+              {t('detail.idCode', { id: review.id })}
             </span>
           </div>
 
           <button
             onClick={onClose}
+            aria-label={t('common.close')}
             className="w-8 h-8 rounded-md flex items-center justify-center text-zinc-400 hover:text-[#18181B] hover:bg-zinc-100 transition-colors"
           >
             <X className="w-4 h-4" />
@@ -53,7 +56,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, on
                   {review.verifiedVisit && (
                     <span className="inline-flex items-center gap-0.5 text-[11px] text-emerald-700 font-medium">
                       <ShieldCheck className="w-3.5 h-3.5" />
-                      Đã xác thực trải nghiệm
+                      {t('detail.verifiedVisit')}
                     </span>
                   )}
                 </div>
@@ -63,7 +66,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, on
                     {review.dateDisplay}
                   </span>
                   <span>•</span>
-                  <span>Nguồn: {review.source}</span>
+                  <span>{t('detail.source', { source: review.source })}</span>
                 </div>
               </div>
             </div>
@@ -81,10 +84,10 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, on
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold text-[#18181B] uppercase tracking-wider">
-                Đánh giá gốc (Làm nổi bật ý kiến theo tiêu chí)
+                {t('detail.originalReview')}
               </h4>
               <span className="text-[11px] text-zinc-500">
-                Màu sắc phản ánh mức độ cảm xúc
+                {t('detail.colorMeaning')}
               </span>
             </div>
 
@@ -100,7 +103,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, on
           {/* Phần 2: Bảng các tiêu chí trích xuất */}
           <div className="space-y-2.5">
             <h4 className="text-xs font-bold text-[#18181B] uppercase tracking-wider">
-              Các tiêu chí được nhận xét ({review.aspects.length})
+              {t('detail.criteriaReviewed', { count: review.aspects.length })}
             </h4>
 
             <div className="border border-zinc-200 rounded-lg overflow-hidden divide-y divide-zinc-100">
@@ -113,7 +116,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, on
                         sentiment={item.sentiment}
                       />
                       <span className="text-xs font-mono text-zinc-400">
-                        Độ tin cậy: {(item.confidence * 100).toFixed(0)}%
+                        {t('detail.confidence', { score: (item.confidence * 100).toFixed(0) })}
                       </span>
                     </div>
                     <p className="text-xs text-[#52525B] font-mono bg-zinc-50 p-1.5 rounded border border-zinc-200 inline-block">
@@ -125,18 +128,18 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, on
                     {item.sentiment === 'positive' && (
                       <span className="text-emerald-700 flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        Phản hồi hài lòng
+                        {t('detail.satisfiedFeedback')}
                       </span>
                     )}
                     {item.sentiment === 'negative' && (
                       <span className="text-red-700 flex items-center gap-1">
                         <AlertCircle className="w-3.5 h-3.5 text-red-600" />
-                        Phản ánh cần cải thiện
+                        {t('detail.needsImprovement')}
                       </span>
                     )}
                     {item.sentiment === 'neutral' && (
                       <span className="text-amber-700 flex items-center gap-1">
-                        Ghi nhận trung lập
+                        {t('detail.neutralNote')}
                       </span>
                     )}
                   </div>
@@ -147,9 +150,9 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, on
 
           {/* Phần 3: Chú thích phương pháp luận */}
           <div className="p-3 bg-zinc-100/70 rounded-lg text-xs text-[#71717A] flex items-start gap-2">
-            <span className="font-semibold text-zinc-800 shrink-0">Ý nghĩa:</span>
+            <span className="font-semibold text-zinc-800 shrink-0">{t('detail.meaningTitle')}</span>
             <span>
-              Đánh giá đa tiêu chí giúp làm rõ việc một bài nhận xét có thể vừa khen ngợi hương vị món ăn nhưng đồng thời chỉ ra điểm chưa hài lòng về thời gian chờ hoặc phong cách phục vụ.
+              {t('detail.meaningDesc')}
             </span>
           </div>
 
@@ -166,7 +169,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, on
               className="px-3.5 py-1.5 bg-[#C2410C] hover:bg-[#9A3412] text-white rounded-md text-xs font-bold transition-all shadow-craft-sm flex items-center gap-1.5"
             >
               <Zap className="w-3.5 h-3.5" />
-              <span>Soạn phản hồi</span>
+              <span>{t('explorer.composeReply')}</span>
             </button>
           ) : (
             <div />
@@ -176,7 +179,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({ review, on
             onClick={onClose}
             className="px-4 py-1.5 bg-[#18181B] hover:bg-zinc-800 text-white rounded-md text-xs font-medium transition-colors"
           >
-            Đóng
+            {t('common.close')}
           </button>
         </div>
 

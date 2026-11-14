@@ -9,6 +9,7 @@ import {
   Lightbulb,
   ShieldCheck
 } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface AiAssistantWidgetProps {
   restaurant: Restaurant;
@@ -26,6 +27,7 @@ interface Message {
 const getNow = () => Date.now();
 
 export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant }) => {
+  const { t } = useLanguage();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputQuestion, setInputQuestion] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -51,7 +53,7 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
           {
             id: 'welcome',
             sender: 'assistant',
-            text: `Xin chào! Tôi là Trợ lý Thông tin của nền tảng **Restaurant Intelligence**. Tôi cung cấp góc nhìn phân tích độc lập, khách quan dựa trên **${restaurant.totalReviews} nhận xét thực tế** của thực khách tại **${restaurant.name}**. Bạn cần tra cứu món ngon, tiêu chí phục vụ, giá cả hay không gian quán?`,
+            text: t('ai.welcome', { count: restaurant.totalReviews, name: restaurant.name }),
             source: 'gemini_ai',
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             latencyMs: 15
@@ -63,7 +65,7 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
     return () => {
       isMounted = false;
     };
-  }, [restaurant.id, restaurant.name, restaurant.totalReviews]);
+  }, [restaurant.id, restaurant.name, restaurant.totalReviews, t]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -110,7 +112,7 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
         {
           id: createMsgId('ai-err'),
           sender: 'assistant',
-          text: '> [!WARNING]\n> *Hiện tại hệ thống chưa thể kết nối đến máy chủ phân tích. Vui lòng thử lại sau giây lát.*',
+          text: t('ai.serverError'),
           source: 'gemini_ai',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           latencyMs: Math.max(1, endTs - startTs)
@@ -128,7 +130,7 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
       {
         id: createMsgId('welcome'),
         sender: 'assistant',
-        text: `Đã làm mới phiên trò chuyện. Tôi là Trợ lý Thông tin của nền tảng **Restaurant Intelligence**, sẵn sàng giải đáp và phân tích dữ liệu đánh giá thực tế của **${restaurant.name}**!`,
+        text: t('ai.refreshSession', { name: restaurant.name }),
         source: 'gemini_ai',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         latencyMs: 10
@@ -285,15 +287,15 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-base font-black text-[#18181B] tracking-tight">
-                Trợ lý Thông tin Nền tảng
+                {t('ai.title')}
               </h3>
               <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
                 <ShieldCheck className="w-2.5 h-2.5" />
-                Độc lập & Khách quan
+                {t('ai.independent')}
               </span>
             </div>
             <p className="text-xs text-zinc-500">
-              Phân tích khách quan dựa trên {restaurant.totalReviews} đánh giá thực tế
+              {t('ai.analyzedCount', { count: restaurant.totalReviews })}
             </p>
           </div>
         </div>
@@ -302,7 +304,7 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
           {/* TC29: Nút làm mới */}
           <button
             onClick={handleClearHistory}
-            title="Làm mới cuộc trò chuyện"
+            title={t('ai.resetConversation')}
             className="p-1.5 rounded-lg border border-[#E5E3DE] bg-white text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50 transition-colors shadow-2xs cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -337,13 +339,13 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
                 {msg.source === 'cache' && (
                   <span className="flex items-center gap-1 text-blue-700 font-semibold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                     <Zap className="w-2.5 h-2.5" />
-                    Phản hồi tức thì
+                    {t('ai.instantResponse')}
                   </span>
                 )}
                 {msg.source === 'gemini_ai' && (
                   <span className="flex items-center gap-1 text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                     <Sparkles className="w-2.5 h-2.5" />
-                    Trợ lý AI
+                    {t('ai.aiAssistant')}
                   </span>
                 )}
                 <span>{msg.timestamp}</span>
@@ -355,7 +357,7 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
         {isLoading && (
           <div className="flex items-center gap-2.5 text-xs text-zinc-500 bg-white border border-[#E5E3DE] rounded-xl px-4 py-3 w-fit shadow-2xs">
             <div className="w-3.5 h-3.5 border-2 border-[#C2410C] border-t-transparent rounded-full animate-spin" />
-            <span>Đang tổng hợp ý kiến thực khách...</span>
+            <span>{t('ai.summarizing')}</span>
           </div>
         )}
 
@@ -367,7 +369,7 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
         <div className="px-4 sm:px-6 py-3 bg-[#FAF9F5] border-t border-[#E5E3DE]/70">
           <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-2">
             <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-            <span>Câu hỏi gợi ý nhanh từ nền tảng:</span>
+            <span>{t('ai.suggestedQuestions')}</span>
           </div>
           <div className="flex flex-wrap gap-1.5 sm:gap-2">
             {quickQuestions.map((q, qIdx) => (
@@ -399,7 +401,7 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
                 type="text"
                 value={inputQuestion}
                 onChange={(e) => setInputQuestion(e.target.value)}
-                placeholder={`Tra cứu dữ liệu về ${restaurant.name} (ví dụ: món nào ngon, dịch vụ ra sao, số lượng đánh giá...)...`}
+                placeholder={t('ai.inputPlaceholder', { name: restaurant.name })}
                 disabled={isLoading}
                 maxLength={MAX_INPUT_LENGTH}
                 className="w-full bg-[#FAF9F5] border border-[#D4D4D8] rounded-xl px-4 py-2.5 text-xs sm:text-sm text-[#18181B] placeholder-zinc-400 focus:outline-none focus:border-[#C2410C] focus:bg-white transition-all shadow-2xs disabled:opacity-60 disabled:cursor-not-allowed"
@@ -412,14 +414,14 @@ export const AiAssistantWidget: React.FC<AiAssistantWidgetProps> = ({ restaurant
               disabled={!inputQuestion.trim() || isLoading}
               className="inline-flex items-center justify-center gap-1.5 px-4 sm:px-5 py-2.5 rounded-xl bg-[#18181B] hover:bg-[#C2410C] text-white text-xs sm:text-sm font-bold transition-all shadow-craft-sm disabled:opacity-40 disabled:hover:bg-[#18181B] disabled:cursor-not-allowed cursor-pointer"
             >
-              <span>Hỏi</span>
+              <span>{t('ai.askButton')}</span>
               <Send className="w-3.5 h-3.5" />
             </button>
           </div>
 
           {/* TC26: Bộ đếm ký tự & chú thích */}
           <div className="flex items-center justify-between px-1 text-[11px] text-zinc-400">
-            <span>Hỗ trợ tiếng Việt có dấu. Phân tích độc lập dựa trên nhận xét thực tế.</span>
+            <span>{t('ai.inputSupport')}</span>
             <span className={inputQuestion.length >= MAX_INPUT_LENGTH ? 'text-red-500 font-bold' : ''}>
               {inputQuestion.length}/{MAX_INPUT_LENGTH}
             </span>

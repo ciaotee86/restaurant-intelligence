@@ -2,6 +2,7 @@ import React from 'react';
 import type { Restaurant } from '../../types/restaurant';
 import { MapPin, Star, ArrowRight, MessageSquare, ThumbsUp, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { formatNumber } from '../../utils/sentimentUtils';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
@@ -9,6 +10,7 @@ interface RestaurantCardProps {
 }
 
 export const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurant, onSelect }) => {
+  const { t, tAspect, tSentiment } = useLanguage();
   if (!restaurant) return null;
 
   // Trích xuất món nên thử hàng đầu
@@ -20,7 +22,7 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurant, onSe
   const sampleReview = restaurant.reviews?.[0]?.text || restaurant.sentimentSummarySentence || '';
   const quoteText = sampleReview && sampleReview.length > 115 
     ? `${sampleReview.slice(0, 112)}...` 
-    : (sampleReview || 'Đang cập nhật đánh giá thực tế...');
+    : (sampleReview || t('card.updatingReview'));
 
   // Lấy chỉ số 3 yếu tố quan trọng nhất: Món ăn, Dịch vụ, Giá cả
   const foodAspect = restaurant.aspects?.find(a => a.category === 'Món ăn');
@@ -30,6 +32,16 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurant, onSe
   const posPct = restaurant.sentimentDistribution?.positive ?? 0;
   const neuPct = restaurant.sentimentDistribution?.neutral ?? 0;
   const negPct = restaurant.sentimentDistribution?.negative ?? 0;
+
+  const displayPriceRange = restaurant.priceRange
+    ? restaurant.priceRange === 'Bình dân'
+      ? t('common.priceCasual')
+      : restaurant.priceRange === 'Trung bình'
+      ? t('common.priceMid')
+      : restaurant.priceRange === 'Cao cấp'
+      ? t('common.priceFine')
+      : restaurant.priceRange
+    : t('common.priceCasual');
 
   return (
     <article 
@@ -41,10 +53,10 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurant, onSe
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[11px] font-bold text-[#991B1B] bg-[#FDF2F2] px-2.5 py-0.5 rounded-full border border-[#FECACA] tracking-tight">
-              {restaurant.cuisine || 'Ẩm thực'}
+              {restaurant.cuisine || t('common.cuisineFallback')}
             </span>
             <span className="text-[11px] font-medium text-[#57534E] bg-[#F2EFE9] px-2 py-0.5 rounded-full border border-[#E8E4DC]">
-              {restaurant.priceLevel || '$$'} · {restaurant.priceRange || 'Bình dân'}
+              {restaurant.priceLevel || '$$'} · {displayPriceRange}
             </span>
           </div>
 
@@ -69,26 +81,26 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurant, onSe
 
             <div className="flex items-center gap-1 text-[#57534E] text-xs">
               <MessageSquare className="w-3.5 h-3.5 text-[#A8A29E]" />
-              <span>{formatNumber(restaurant.totalReviews || 0)} đánh giá</span>
+              <span>{formatNumber(restaurant.totalReviews || 0)} {t('common.reviews')}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-1 text-[11px] font-bold text-[#065F46] bg-[#ECFDF5] border border-[#A7F3D0] px-2.5 py-0.5 rounded-md">
             <ShieldCheck className="w-3 h-3 text-[#065F46]" />
-            <span>{posPct}% Hài lòng</span>
+            <span>{posPct}% {t('card.satisfaction')}</span>
           </div>
         </div>
 
         {/* Thanh xếp tầng phân bổ cảm xúc thực tế (Positive - Neutral - Negative Bar) */}
         <div className="mb-3.5">
           <div className="flex items-center justify-between text-[10px] text-[#8C857B] font-medium mb-1">
-            <span>Phân bổ phản hồi:</span>
-            <span>{posPct}% Khen · {neuPct}% Ổn · {negPct}% Chê</span>
+            <span>{t('card.feedbackDistribution')}</span>
+            <span>{t('card.sentimentBreakdown', { pos: posPct, neu: neuPct, neg: negPct })}</span>
           </div>
           <div className="h-1.5 w-full bg-[#F2EFE9] rounded-full overflow-hidden flex">
-            <div style={{ width: `${posPct}%` }} className="bg-[#065F46] h-full" title={`Hài lòng: ${posPct}%`} />
-            <div style={{ width: `${neuPct}%` }} className="bg-[#D97706] h-full" title={`Trung lập: ${neuPct}%`} />
-            <div style={{ width: `${negPct}%` }} className="bg-[#991B1B] h-full" title={`Không hài lòng: ${negPct}%`} />
+            <div style={{ width: `${posPct}%` }} className="bg-[#065F46] h-full" title={`${tSentiment('positive')}: ${posPct}%`} />
+            <div style={{ width: `${neuPct}%` }} className="bg-[#D97706] h-full" title={`${tSentiment('neutral')}: ${neuPct}%`} />
+            <div style={{ width: `${negPct}%` }} className="bg-[#991B1B] h-full" title={`${tSentiment('negative')}: ${negPct}%`} />
           </div>
         </div>
 
@@ -105,7 +117,7 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurant, onSe
             <div className="flex items-center gap-1.5 text-[#065F46] font-medium">
               <ThumbsUp className="w-3.5 h-3.5 shrink-0 text-[#065F46]" />
               <span className="truncate">
-                <strong className="font-bold">Nên gọi:</strong> {topStrength.title}
+                <strong className="font-bold">{t('card.mustTry')}</strong> {topStrength.title}
               </span>
             </div>
           )}
@@ -114,7 +126,7 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurant, onSe
             <div className="flex items-center gap-1.5 text-[#92400E] font-medium">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-[#D97706]" />
               <span className="truncate">
-                <strong className="font-bold">Lưu ý:</strong> {topComplaint}
+                <strong className="font-bold">{t('card.caution')}</strong> {topComplaint}
               </span>
             </div>
           )}
@@ -123,19 +135,19 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurant, onSe
         {/* 3 Thước đo khía cạnh cốt lõi */}
         <div className="grid grid-cols-3 gap-2 pt-3 border-t border-[#E8E4DC] text-[11px] text-[#57534E] mb-4">
           <div className="bg-[#FAF7F2] p-1.5 rounded-lg text-center border border-[#E8E4DC]">
-            <span className="block text-[10px] text-[#8C857B] uppercase font-semibold">Món ăn</span>
+            <span className="block text-[10px] text-[#8C857B] uppercase font-semibold">{tAspect('Món ăn')}</span>
             <span className="font-bold text-[#1C1917] text-xs">
               {foodAspect ? `${foodAspect.positivePercentage}%` : 'N/A'}
             </span>
           </div>
           <div className="bg-[#FAF7F2] p-1.5 rounded-lg text-center border border-[#E8E4DC]">
-            <span className="block text-[10px] text-[#8C857B] uppercase font-semibold">Phục vụ</span>
+            <span className="block text-[10px] text-[#8C857B] uppercase font-semibold">{tAspect('Dịch vụ')}</span>
             <span className="font-bold text-[#1C1917] text-xs">
               {serviceAspect ? `${serviceAspect.positivePercentage}%` : 'N/A'}
             </span>
           </div>
           <div className="bg-[#FAF7F2] p-1.5 rounded-lg text-center border border-[#E8E4DC]">
-            <span className="block text-[10px] text-[#8C857B] uppercase font-semibold">Giá cả</span>
+            <span className="block text-[10px] text-[#8C857B] uppercase font-semibold">{tAspect('Giá cả')}</span>
             <span className="font-bold text-[#1C1917] text-xs">
               {priceAspect ? `${priceAspect.positivePercentage}%` : 'N/A'}
             </span>
@@ -153,7 +165,7 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurant, onSe
           }}
           className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#1C1917] group-hover:bg-[#991B1B] text-white rounded-xl text-xs font-bold tracking-wide transition-all duration-150 shadow-editorial-sm"
         >
-          <span>Xem báo cáo chi tiết</span>
+          <span>{t('card.viewDetailedReport')}</span>
           <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
         </button>
       </div>

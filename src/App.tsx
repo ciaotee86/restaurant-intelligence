@@ -6,6 +6,7 @@ import { ExplorePage } from './pages/ExplorePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { HowItWorksPage } from './pages/HowItWorksPage';
 import { AnalyzeUrlModal } from './components/common/AnalyzeUrlModal';
+import { LanguageProvider } from './context/LanguageContext';
 import { restaurantService } from './services/restaurantService';
 import type { Restaurant } from './types/restaurant';
 
@@ -103,59 +104,61 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8F6F0] text-[#1C1917]">
-      {/* Top Navigation */}
-      <Navbar
-        currentView={currentView}
-        onNavigate={navigateTo}
-        onOpenSearch={() => navigateTo('explore')}
-        onOpenAnalyzeModal={() => setIsAnalyzeModalOpen(true)}
-      />
+    <LanguageProvider>
+      <div className="min-h-screen flex flex-col bg-[#F8F6F0] text-[#1C1917]">
+        {/* Top Navigation */}
+        <Navbar
+          currentView={currentView}
+          onNavigate={navigateTo}
+          onOpenSearch={() => navigateTo('explore')}
+          onOpenAnalyzeModal={() => setIsAnalyzeModalOpen(true)}
+        />
 
-      {/* Main Content Area */}
-      <main className="flex-1">
-        {currentView === 'home' && (
-          <HomePage
-            restaurants={allRestaurants}
-            onSelectRestaurant={handleSelectRestaurant}
-            onSearch={handleHeroSearch}
-            onNavigateExplore={() => navigateTo('explore')}
-            onNavigateHowItWorks={() => navigateTo('how-it-works')}
-          />
-        )}
+        {/* Main Content Area */}
+        <main className="flex-1">
+          {currentView === 'home' && (
+            <HomePage
+              restaurants={allRestaurants}
+              onSelectRestaurant={handleSelectRestaurant}
+              onSearch={handleHeroSearch}
+              onNavigateExplore={() => navigateTo('explore')}
+              onNavigateHowItWorks={() => navigateTo('how-it-works')}
+            />
+          )}
 
-        {currentView === 'explore' && (
-          <ExplorePage
-            initialQuery={searchQuery}
-            onSelectRestaurant={handleSelectRestaurant}
-            onOpenAnalyzeModal={() => setIsAnalyzeModalOpen(true)}
-          />
-        )}
+          {currentView === 'explore' && (
+            <ExplorePage
+              initialQuery={searchQuery}
+              onSelectRestaurant={handleSelectRestaurant}
+              onOpenAnalyzeModal={() => setIsAnalyzeModalOpen(true)}
+            />
+          )}
 
-        {currentView === 'dashboard' && (
-          <DashboardPage
-            restaurantId={selectedRestaurantId}
-            onBackToExplore={() => navigateTo('explore')}
-          />
-        )}
+          {currentView === 'dashboard' && (
+            <DashboardPage
+              restaurantId={selectedRestaurantId}
+              onBackToExplore={() => navigateTo('explore')}
+            />
+          )}
 
-        {currentView === 'how-it-works' && (
-          <HowItWorksPage
-            onNavigateExplore={() => navigateTo('explore')}
-          />
-        )}
-      </main>
+          {currentView === 'how-it-works' && (
+            <HowItWorksPage
+              onNavigateExplore={() => navigateTo('explore')}
+            />
+          )}
+        </main>
 
-      {/* Modal Phân tích link Foody mới */}
-      <AnalyzeUrlModal
-        isOpen={isAnalyzeModalOpen}
-        onClose={() => setIsAnalyzeModalOpen(false)}
-        onSuccess={handleAnalysisSuccess}
-      />
+        {/* Modal Phân tích link Foody mới */}
+        <AnalyzeUrlModal
+          isOpen={isAnalyzeModalOpen}
+          onClose={() => setIsAnalyzeModalOpen(false)}
+          onSuccess={handleAnalysisSuccess}
+        />
 
-      {/* Footer */}
-      <Footer onNavigate={navigateTo} />
-    </div>
+        {/* Footer */}
+        <Footer onNavigate={navigateTo} />
+      </div>
+    </LanguageProvider>
   );
 }
 

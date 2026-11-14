@@ -2,6 +2,7 @@ import React from 'react';
 import type { Restaurant, AspectCategory } from '../../types/restaurant';
 import { formatNumber } from '../../utils/sentimentUtils';
 import { BarChart2 } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface AspectAnalysisProps {
   restaurant: Restaurant;
@@ -14,23 +15,25 @@ export const AspectAnalysis: React.FC<AspectAnalysisProps> = ({
   selectedAspect,
   onSelectAspect
 }) => {
+  const { t, tAspect, tSentiment } = useLanguage();
+
   return (
     <div className="bg-white border border-[#E5E3DE] rounded-xl p-5 sm:p-7 shadow-craft-sm">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6 pb-4 border-b border-[#E5E3DE]">
         <div>
           <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#C2410C] mb-1">
             <BarChart2 className="w-3.5 h-3.5" />
-            <span>Đánh giá theo 5 tiêu chí cốt lõi</span>
+            <span>{t('aspects.badge')}</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-[#18181B] tracking-tight">
-            Khách hàng nói gì nhiều nhất?
+            {t('aspects.title')}
           </h2>
           <p className="text-xs text-[#71717A] mt-0.5">
-            Mức độ quan tâm và tỷ lệ khen - chê của thực khách phân tách theo 5 chủ đề cốt lõi
+            {t('aspects.desc')}
           </p>
         </div>
         <span className="text-xs font-bold text-zinc-700 self-start sm:self-auto bg-[#FAF9F5] px-3 py-1.5 rounded-lg border border-[#E5E3DE]">
-          5 Tiêu chí đánh giá
+          {t('aspects.fiveCriteria')}
         </span>
       </div>
 
@@ -52,17 +55,17 @@ export const AspectAnalysis: React.FC<AspectAnalysisProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2.5">
                   <span className="text-base font-black text-[#18181B]">
-                    {aspect.category}
+                    {tAspect(aspect.category)}
                   </span>
                   <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">
-                    {aspect.positivePercentage}% tích cực
+                    {t('aspects.positivePct', { pct: aspect.positivePercentage })}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-2 text-xs text-[#71717A]">
-                  <span>Xuất hiện trong <strong className="font-extrabold text-zinc-900">{aspect.mentionPercentage}%</strong> bài đánh giá</span>
+                  <span>{t('aspects.mentionRatio', { pct: aspect.mentionPercentage })}</span>
                   <span className="text-zinc-300">•</span>
-                  <span className="font-mono text-[11px] text-zinc-500">({formatNumber(aspect.mentionCount)} lượt nhắc)</span>
+                  <span className="font-mono text-[11px] text-zinc-500">{t('aspects.mentionCount', { count: formatNumber(aspect.mentionCount) })}</span>
                 </div>
               </div>
 
@@ -71,23 +74,23 @@ export const AspectAnalysis: React.FC<AspectAnalysisProps> = ({
                 <div
                   style={{ width: `${aspect.positivePercentage}%` }}
                   className="bg-emerald-600 h-full"
-                  title={`Tích cực: ${aspect.positivePercentage}%`}
+                  title={`${tSentiment('positive')}: ${aspect.positivePercentage}%`}
                 />
                 <div
                   style={{ width: `${aspect.neutralPercentage}%` }}
                   className="bg-amber-500 h-full"
-                  title={`Trung lập: ${aspect.neutralPercentage}%`}
+                  title={`${tSentiment('neutral')}: ${aspect.neutralPercentage}%`}
                 />
                 <div
                   style={{ width: `${aspect.negativePercentage}%` }}
                   className="bg-red-600 h-full"
-                  title={`Tiêu cực: ${aspect.negativePercentage}%`}
+                  title={`${tSentiment('negative')}: ${aspect.negativePercentage}%`}
                 />
               </div>
 
               {/* Cụm từ trích xuất phổ biến */}
               <div className="flex flex-wrap items-center gap-1.5 text-xs text-[#71717A]">
-                <span className="text-zinc-500 font-semibold text-[11px]">Từ khóa tiêu biểu:</span>
+                <span className="text-zinc-500 font-semibold text-[11px]">{t('aspects.sampleKeywords')}</span>
                 {(aspect.sampleKeywords || []).map((kw, i) => (
                   <span
                     key={i}
@@ -103,11 +106,11 @@ export const AspectAnalysis: React.FC<AspectAnalysisProps> = ({
       </div>
 
       <div className="mt-5 pt-4 border-t border-[#E5E3DE] flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500">
-        <span className="font-medium">Nhấp vào từng tiêu chí để xem ngay các đánh giá liên quan</span>
+        <span className="font-medium">{t('aspects.clickHint')}</span>
         <div className="flex items-center gap-4 text-xs font-semibold">
-          <span className="flex items-center gap-1.5 text-emerald-800"><span className="w-2.5 h-2.5 rounded-full bg-emerald-600" /> Tích cực</span>
-          <span className="flex items-center gap-1.5 text-amber-800"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Trung lập</span>
-          <span className="flex items-center gap-1.5 text-red-800"><span className="w-2.5 h-2.5 rounded-full bg-red-600" /> Tiêu cực</span>
+          <span className="flex items-center gap-1.5 text-emerald-800"><span className="w-2.5 h-2.5 rounded-full bg-emerald-600" /> {tSentiment('positive')}</span>
+          <span className="flex items-center gap-1.5 text-amber-800"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> {tSentiment('neutral')}</span>
+          <span className="flex items-center gap-1.5 text-red-800"><span className="w-2.5 h-2.5 rounded-full bg-red-600" /> {tSentiment('negative')}</span>
         </div>
       </div>
     </div>

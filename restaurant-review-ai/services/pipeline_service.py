@@ -20,16 +20,43 @@ def save_and_analyze_reviews(
     crawl_data: Dict[str, Any],
     foody_url: str,
     default_name: str = "Quán mới",
-    default_address: str = ""
-) -> DBRestaurant:
+    default_address: str = "",
+    min_viable_reviews: int = 1
+) -> Optional[DBRestaurant]:
     """
     Tiếp nhận dữ liệu thô từ crawler:
-    1. Tạo hoặc lấy bản ghi DBRestaurant
-    2. Lưu danh sách review (kèm fingerprint, spam rating)
-    3. Gửi các review hợp lệ chưa phân tích sang Gemini ABSA
-    4. Lưu kết quả khía cạnh & sentiment vào bảng review_analysis
-    5. Commit transaction và trả về restaurant
+    1. Kiểm tra số lượng đánh giá hợp lệ. Nếu 0 review hoặc ít hơn min_viable_reviews -> KHÔNG LƯU DB để tránh rác.
+    2. Tạo hoặc lấy bản ghi DBRestaurant khi đã có đủ đánh giá hợp lệ.
+    3. Lưu danh sách review (kèm fingerprint, spam rating)
+    4. Gửi các review hợp lệ chưa phân tích sang Gemini ABSA
+    5. Lưu kết quả khía cạnh & sentiment vào bảng review_analysis
+    6. Commit transaction và trả về restaurant
     """
+    raw_reviews = crawl_data.get("reviews", [])
+    valid_raw_reviews = []
+    for rv in raw_reviews:
+        author = (rv.get("author") or "Khách hàng").strip()
+        text = (rv.get("text") or "").strip()
+        review_date = (rv.get("date") or "Gần đây").strip()
+
+        # KIỂM TRA PHÒNG THỦ: Tuyệt đối KHÔNG chấp nhận review có author/text/date chứa {{ hoặc common_delete hoặc text rỗng
+        if not text or len(text) < 5:
+            continue
+
+        fields_to_check = [text, author, review_date]
+        if any("{{" in f or "}}" in f or "model." in f.lower() for f in fields_to_check):
+            continue
+        if any("common_delete" in f.lower() or "sửacommon_delete" in f.lower() or "suacommon_delete" in f.lower() for f in fields_to_check):
+            continue
+
+        valid_raw_reviews.append(rv)
+
+    # Chặn thực thể rác: Nếu không có bất kỳ bài đánh giá nào hoặc không đủ số lượng tối thiểu để phân tích -> Không đẩy vào DB
+    if len(valid_raw_reviews) < min_viable_reviews:
+        place_name = crawl_data.get("name") or default_name
+        print(f"⚠️ [Pipeline Guard] Bỏ qua quán '{place_name}': Chỉ có {len(valid_raw_reviews)} đánh giá hợp lệ (yêu cầu tối thiểu >= {min_viable_reviews}). Không lưu thực thể rác vào DB.")
+        return None
+
     restaurant = get_or_create_restaurant(
         db,
         name=crawl_data.get("name", default_name),
@@ -39,20 +66,10 @@ def save_and_analyze_reviews(
     )
 
     new_review_ids: List[tuple] = []
-    for rv in crawl_data.get("reviews", []):
+    for rv in valid_raw_reviews:
         author = (rv.get("author") or "Khách hàng").strip()
         text = (rv.get("text") or "").strip()
         review_date = (rv.get("date") or "Gần đây").strip()
-
-        # KIỂM TRA PHÒNG THỦ: Tuyệt đối KHÔNG lưu vào DB bất kỳ review nào có author/text/date chứa {{ hoặc common_delete hoặc text rỗng
-        if not text or len(text) < 5:
-            continue
-
-        fields_to_check = [text, author, review_date]
-        if any("{{" in f or "}}" in f or "model." in f.lower() for f in fields_to_check):
-            continue
-        if any("common_delete" in f.lower() or "sửacommon_delete" in f.lower() or "suacommon_delete" in f.lower() for f in fields_to_check):
-            continue
 
         saved = save_review(
             db,

@@ -1,6 +1,8 @@
 import React from 'react';
 import { Search, Compass, HelpCircle, PlusCircle, Sparkles } from 'lucide-react';
 import { BrandMark } from '../common/BrandLogo';
+import { useLanguage } from '../../context/LanguageContext';
+import { LanguageSwitcher } from '../common/LanguageSwitcher';
 
 interface NavbarProps {
   currentView: 'home' | 'explore' | 'dashboard' | 'how-it-works';
@@ -15,6 +17,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenSearch,
   onOpenAnalyzeModal
 }) => {
+  const { t } = useLanguage();
+
   return (
     <header className="sticky top-0 z-40 bg-[#F8F6F0]/92 backdrop-blur-md border-b border-[#E8E4DC] transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -35,12 +39,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Restaurant Intelligence
               </span>
               <span className="text-[10px] text-[#8C857B] tracking-wider uppercase font-medium mt-1">
-                Bản đồ đọc vị ẩm thực đa chiều
+                {t('nav.tagline')}
               </span>
             </div>
           </button>
 
-          {/* Navigation Links Tiếng Việt */}
+          {/* Navigation Links */}
           <nav className="hidden md:flex items-center gap-1.5 pl-3 border-l border-[#E8E4DC]">
             <button
               onClick={() => onNavigate('explore')}
@@ -51,7 +55,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Compass className="w-3.5 h-3.5" />
-              Khám phá quán
+              {t('nav.explore')}
             </button>
 
             <button
@@ -63,17 +67,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <HelpCircle className="w-3.5 h-3.5" />
-              Quy trình & Phương pháp
+              {t('nav.methodology')}
             </button>
           </nav>
         </div>
 
-        {/* Nút hành động phải: Tìm kiếm, Thêm quán từ link Foody */}
+        {/* Nút hành động phải: Tìm kiếm, LanguageSwitcher, Thêm quán từ link Foody */}
         <div className="flex items-center gap-2.5">
           {/* Badge minh bạch */}
           <div className="hidden xl:flex items-center gap-1.5 text-[11px] font-medium text-[#57534E] bg-white px-3 py-1.5 rounded-md border border-[#E8E4DC] shadow-editorial-sm">
             <Sparkles className="w-3.5 h-3.5 text-[#D97706]" />
-            <span>Đánh giá thực tế & Khách quan</span>
+            <span>{t('nav.badge')}</span>
           </div>
 
           {currentView !== 'home' && (
@@ -85,12 +89,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-white border border-[#E8E4DC] hover:border-[#1C1917]/40 rounded-md text-xs font-medium text-[#57534E] hover:text-[#1C1917] transition-colors shadow-editorial-sm"
             >
               <Search className="w-3.5 h-3.5 text-[#8C857B]" />
-              <span className="hidden md:inline">Tìm quán ăn...</span>
+              <span className="hidden md:inline">{t('nav.searchPlaceholder')}</span>
               <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-[10px] bg-[#F2EFE9] border border-[#E8E4DC] rounded text-[#8C857B] font-mono">
                 ⌘K
               </kbd>
             </button>
           )}
+
+          {/* Language Switcher Desktop */}
+          <div className="hidden sm:flex items-center">
+            <LanguageSwitcher variant="segmented" size="sm" />
+          </div>
 
           {onOpenAnalyzeModal && (
             <button
@@ -98,7 +107,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#991B1B] hover:bg-[#7F1D1D] text-white rounded-md text-xs font-bold shadow-editorial-sm transition-all transform active:scale-95"
             >
               <PlusCircle className="w-3.5 h-3.5" />
-              <span>+ Khảo sát quán mới</span>
+              <span>{t('nav.addRestaurant')}</span>
             </button>
           )}
         </div>
@@ -114,7 +123,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               currentView === 'home' ? 'bg-[#1C1917] text-white' : 'text-[#57534E]'
             }`}
           >
-            Trang chủ
+            {t('nav.home')}
           </button>
           <button
             onClick={() => onNavigate('explore')}
@@ -122,7 +131,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               currentView === 'explore' ? 'bg-[#1C1917] text-white' : 'text-[#57534E]'
             }`}
           >
-            Khám phá
+            {t('nav.exploreShort')}
           </button>
           <button
             onClick={() => onNavigate('how-it-works')}
@@ -130,18 +139,23 @@ export const Navbar: React.FC<NavbarProps> = ({
               currentView === 'how-it-works' ? 'bg-[#1C1917] text-white' : 'text-[#57534E]'
             }`}
           >
-            Quy trình
+            {t('nav.methodologyShort')}
           </button>
         </div>
 
-        {onOpenAnalyzeModal && (
-          <button
-            onClick={onOpenAnalyzeModal}
-            className="px-2.5 py-1 bg-[#991B1B] text-white rounded font-bold text-[11px]"
-          >
-            + Thêm quán
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Language Switcher on Mobile */}
+          <LanguageSwitcher variant="toggle" size="sm" />
+
+          {onOpenAnalyzeModal && (
+            <button
+              onClick={onOpenAnalyzeModal}
+              className="px-2.5 py-1 bg-[#991B1B] text-white rounded font-bold text-[11px]"
+            >
+              {t('nav.addRestaurantShort')}
+            </button>
+          )}
+        </div>
       </div>
     </header>
   );

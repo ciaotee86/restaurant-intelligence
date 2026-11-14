@@ -7,6 +7,7 @@ import { ReviewReplyModal } from './ReviewReplyModal';
 import { Search, Star, Filter, MessageSquare, Maximize2, ShieldCheck, Zap, Layers, MapPin } from 'lucide-react';
 import { restaurantService } from '../../services/restaurantService';
 import { formatNumber } from '../../utils/sentimentUtils';
+import { useLanguage } from '../../context/LanguageContext';
 
 /**
  * Làm sạch tên tác giả một cách an toàn:
@@ -68,12 +69,20 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
   restaurantId,
   restaurantName
 }) => {
+  const { t, tAspect, tSentiment } = useLanguage();
   const [sentimentFilter, setSentimentFilter] = useState<'all' | SentimentType>('all');
   const [aspectFilter, setAspectFilter] = useState<'all' | AspectCategory>(initialAspect);
   const [sourceFilter, setSourceFilter] = useState<'all' | 'Foody' | 'GoogleMaps'>('all');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedReview, setSelectedReview] = useState<CustomerReview | null>(null);
   const [replyReview, setReplyReview] = useState<CustomerReview | null>(null);
+
+  const getAuthorDisplay = (authorName: string) => {
+    if (authorName === 'Khách Google') return t('explorer.guestGoogle');
+    if (authorName === 'Khách Foody') return t('explorer.guestFoody');
+    if (authorName === 'Khách đánh giá') return t('explorer.guestReviewer');
+    return authorName;
+  };
 
   // Lọc phòng vệ dữ liệu đầu vào: đảm bảo danh sách review không chứa bài viết rác
   const cleanReviews = useMemo(() => restaurantService.sanitizeReviews(reviews || []), [reviews]);
@@ -110,20 +119,20 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
         <div>
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#C2410C] mb-1">
             <MessageSquare className="w-3.5 h-3.5" />
-            <span>Nguồn dữ liệu gốc minh bạch</span>
+            <span>{t('explorer.badge')}</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-[#18181B] tracking-tight">
-            Đánh giá từ thực khách
+            {t('explorer.title')}
           </h2>
           <p className="text-xs text-[#71717A] mt-0.5">
-            Đọc từng nhận xét chân thực của thực khách theo từng tiêu chí cụ thể và nguồn thu thập
+            {t('explorer.desc')}
           </p>
         </div>
 
         <div className="flex items-center gap-2 text-xs font-mono text-zinc-600 bg-[#FAF9F5] px-3 py-1.5 rounded-lg border border-[#E5E3DE] self-start sm:self-auto font-bold">
           <span>{formatNumber(filteredReviews.length)}</span>
           <span className="text-zinc-400 font-normal">/</span>
-          <span>{formatNumber(cleanReviews.length)} đánh giá</span>
+          <span>{formatNumber(cleanReviews.length)} {t('common.reviews')}</span>
         </div>
       </div>
 
@@ -139,7 +148,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
               type="text"
               value={searchKeyword}
               onChange={(e) => setSearchKeyword(e.target.value)}
-              placeholder="Tìm theo món ăn hoặc từ khóa (vd: 'gà giòn', 'chờ lâu', 'phục vụ', 'view đẹp')..."
+              placeholder={t('explorer.searchPlaceholder')}
               className="w-full bg-white border border-[#E5E3DE] text-xs sm:text-sm pl-10 pr-4 py-2.5 rounded-lg focus:outline-none focus:border-zinc-900 transition-colors"
             />
           </div>
@@ -147,14 +156,14 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
           {/* Nút lọc cảm xúc */}
           <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-[#E5E3DE] self-start md:self-auto">
             <span className="text-[11px] font-bold text-zinc-400 px-2 uppercase tracking-wider hidden sm:inline">
-              Cảm xúc:
+              {t('explorer.sentimentLabel')}
             </span>
             {(
               [
-                { id: 'all', label: 'Tất cả' },
-                { id: 'positive', label: 'Tích cực' },
-                { id: 'neutral', label: 'Trung lập' },
-                { id: 'negative', label: 'Tiêu cực' }
+                { id: 'all', label: t('common.all') },
+                { id: 'positive', label: tSentiment('positive') },
+                { id: 'neutral', label: tSentiment('neutral') },
+                { id: 'negative', label: tSentiment('negative') }
               ] as const
             ).map((s) => {
               const isActive = sentimentFilter === s.id;
@@ -184,7 +193,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
         <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[#E5E3DE]/70">
           <span className="text-xs font-bold text-zinc-500 mr-1 flex items-center gap-1">
             <Layers className="w-3.5 h-3.5 text-zinc-400" />
-            Nguồn đánh giá:
+            {t('explorer.sourceLabel')}
           </span>
 
           <button
@@ -196,7 +205,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
                 : 'bg-white text-zinc-700 border border-[#E5E3DE] hover:border-zinc-500'
             }`}
           >
-            Tất cả ({sourceCounts.all})
+            {t('common.all')} ({sourceCounts.all})
           </button>
 
           <button
@@ -230,7 +239,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
         <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[#E5E3DE]/70">
           <span className="text-xs font-bold text-zinc-500 mr-1 flex items-center gap-1">
             <Filter className="w-3.5 h-3.5 text-zinc-400" />
-            Tiêu chí:
+            {t('explorer.criteriaLabel')}
           </span>
 
           <button
@@ -241,7 +250,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
                 : 'bg-white text-zinc-700 border border-[#E5E3DE] hover:border-zinc-500'
             }`}
           >
-            Tất cả tiêu chí
+            {t('explorer.allCriteria')}
           </button>
 
           {aspectsList.map((aspect) => {
@@ -256,7 +265,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
                     : 'bg-white text-zinc-700 border-[#E5E3DE] hover:border-zinc-500'
                 }`}
               >
-                {aspect}
+                {tAspect(aspect)}
               </button>
             );
           })}
@@ -268,8 +277,8 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
       {filteredReviews.length === 0 ? (
         <div className="text-center py-12 border border-dashed border-[#E5E3DE] rounded-xl bg-[#FAF9F5]">
           <MessageSquare className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
-          <p className="text-sm font-bold text-zinc-800">Không tìm thấy đánh giá phù hợp</p>
-          <p className="text-xs text-zinc-500 mt-1">Hãy thử xóa bộ lọc hoặc tìm kiếm từ khóa khác</p>
+          <p className="text-sm font-bold text-zinc-800">{t('explorer.noReviews')}</p>
+          <p className="text-xs text-zinc-500 mt-1">{t('explorer.noReviewsHint')}</p>
           <button
             onClick={() => {
               setSentimentFilter('all');
@@ -279,7 +288,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
             }}
             className="mt-3.5 px-4 py-2 bg-white border border-[#18181B] text-xs font-bold rounded-lg hover:bg-zinc-100 text-zinc-900 shadow-craft-sm transition-all cursor-pointer"
           >
-            Đặt lại tất cả bộ lọc
+            {t('explorer.resetAllFilters')}
           </button>
         </div>
       ) : (
@@ -310,8 +319,8 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
 
                     {/* Tác giả */}
                     <span className="text-xs font-bold text-[#1C1917] flex items-center gap-1">
-                      <span>{safeRev.author}</span>
-                      <span title="Khách hàng thật"><ShieldCheck className="w-3.5 h-3.5 text-emerald-600 inline" /></span>
+                      <span>{getAuthorDisplay(safeRev.author)}</span>
+                      <span title={t('explorer.verifiedDiner')}><ShieldCheck className="w-3.5 h-3.5 text-emerald-600 inline" /></span>
                     </span>
 
                     {/* Badge nhận diện nguồn trực quan (Foody: Cam, Google Maps: Xanh dương) */}
@@ -344,14 +353,14 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
                         e.stopPropagation();
                         setReplyReview(safeRev);
                       }}
-                      title="Soạn thư phản hồi thực khách"
+                      title={t('explorer.composeReply')}
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-[#FFF7ED] text-[#C2410C] border border-[#FFEDD5] hover:bg-[#C2410C] hover:text-white transition-all shadow-craft-sm cursor-pointer"
                     >
                       <Zap className="w-3 h-3" />
-                      <span>Soạn phản hồi</span>
+                      <span>{t('explorer.composeReply')}</span>
                     </button>
 
-                    <span className="text-zinc-400 group-hover:text-[#C2410C] transition-colors p-1" title="Xem chi tiết phân tích">
+                    <span className="text-zinc-400 group-hover:text-[#C2410C] transition-colors p-1" title={t('card.viewDetailedReport')}>
                       <Maximize2 className="w-3.5 h-3.5" />
                     </span>
                   </div>
@@ -366,7 +375,7 @@ export const ReviewExplorer: React.FC<ReviewExplorerProps> = ({
                 {rev.aspects && rev.aspects.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5 pt-2.5 border-t border-[#E5E3DE]">
                     <span className="text-[11px] font-bold text-zinc-400 mr-1 uppercase font-mono">
-                      Trích xuất:
+                      {t('explorer.extractedAspects')}
                     </span>
                     {rev.aspects.map((aspectItem, aIdx) => (
                       <AspectPill

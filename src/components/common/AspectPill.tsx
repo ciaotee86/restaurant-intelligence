@@ -1,6 +1,7 @@
 import React from 'react';
 import type { AspectCategory, SentimentType } from '../../types/restaurant';
 import { getSentimentLabel } from '../../utils/sentimentUtils';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface AspectPillProps {
   aspect: AspectCategory;
@@ -21,6 +22,7 @@ export const AspectPill: React.FC<AspectPillProps> = ({
   onClick,
   className = ''
 }) => {
+  const { tAspect, tSentiment } = useLanguage();
   let sentimentStyle = 'bg-zinc-100 text-zinc-800 border-zinc-200';
   let dotColor = 'bg-zinc-400';
 
@@ -39,13 +41,16 @@ export const AspectPill: React.FC<AspectPillProps> = ({
     active ? 'ring-2 ring-zinc-900 ring-offset-1 font-semibold' : ''
   } ${sentimentStyle} ${interactive ? 'cursor-pointer hover:opacity-90' : ''} ${className}`;
 
+  const displayedAspect = tAspect ? tAspect(aspect) : aspect;
+  const displayedSentiment = sentiment ? (tSentiment ? tSentiment(sentiment) : getSentimentLabel(sentiment)) : null;
+
   return (
     <span onClick={onClick} className={baseStyle}>
       <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
-      <span>{aspect}</span>
-      {sentiment && (
+      <span>{displayedAspect}</span>
+      {displayedSentiment && (
         <span className="opacity-70 font-normal">
-          · {getSentimentLabel(sentiment)}
+          · {displayedSentiment}
         </span>
       )}
       {confidence !== undefined && (

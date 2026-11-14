@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { Restaurant, SentimentTimePoint } from '../../types/restaurant';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface SentimentTrendChartProps {
   restaurant: Restaurant;
@@ -8,6 +9,7 @@ interface SentimentTrendChartProps {
 type TimeRange = '3m' | '6m' | '1y' | 'all';
 
 export const SentimentTrendChart: React.FC<SentimentTrendChartProps> = ({ restaurant }) => {
+  const { t, tSentiment } = useLanguage();
   const [timeRange, setTimeRange] = useState<TimeRange>('6m');
   const [activePoint, setActivePoint] = useState<SentimentTimePoint | null>(null);
 
@@ -49,10 +51,10 @@ export const SentimentTrendChart: React.FC<SentimentTrendChartProps> = ({ restau
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div>
           <h2 className="text-base sm:text-lg font-bold text-[#18181B] tracking-tight">
-            Xu hướng cảm xúc theo thời gian
+            {t('sentiment.trendTitle')}
           </h2>
           <p className="text-xs text-[#71717A] mt-0.5">
-            Biến động tỷ lệ đánh giá tích cực, trung lập và tiêu cực qua các tháng
+            {t('sentiment.trendDesc')}
           </p>
         </div>
 
@@ -60,17 +62,17 @@ export const SentimentTrendChart: React.FC<SentimentTrendChartProps> = ({ restau
         <div className="inline-flex bg-zinc-100 p-0.5 rounded-md self-start sm:self-auto border border-zinc-200">
           {(['3m', '6m', '1y', 'all'] as TimeRange[]).map((range) => {
             const labels: Record<TimeRange, string> = {
-              '3m': '3 tháng',
-              '6m': '6 tháng',
-              '1y': '1 năm',
-              'all': 'Toàn bộ'
+              '3m': t('sentiment.range3m'),
+              '6m': t('sentiment.range6m'),
+              '1y': t('sentiment.range1y'),
+              'all': t('sentiment.rangeAll')
             };
             const isActive = timeRange === range;
             return (
               <button
                 key={range}
                 onClick={() => setTimeRange(range)}
-                className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
+                className={`px-2.5 py-1 text-xs font-medium rounded transition-colors cursor-pointer ${
                   isActive
                     ? 'bg-white text-[#18181B] shadow-2xs font-semibold'
                     : 'text-[#71717A] hover:text-[#18181B]'
@@ -227,12 +229,12 @@ export const SentimentTrendChart: React.FC<SentimentTrendChartProps> = ({ restau
         {activePoint && (
           <div className="absolute top-2 right-2 bg-zinc-900/90 backdrop-blur-xs text-white p-2.5 rounded text-xs shadow-md border border-zinc-700 pointer-events-none transition-all">
             <div className="font-semibold border-b border-zinc-700 pb-1 mb-1 text-zinc-200">
-              {activePoint.period} ({activePoint.totalReviews} đánh giá)
+              {activePoint.period} {t('sentiment.tooltipReviews', { count: activePoint.totalReviews })}
             </div>
             <div className="grid grid-cols-3 gap-2 text-[11px]">
-              <span className="text-emerald-400 font-medium">Tích cực: {activePoint.positive}%</span>
-              <span className="text-amber-400 font-medium">Trung lập: {activePoint.neutral}%</span>
-              <span className="text-red-400 font-medium">Tiêu cực: {activePoint.negative}%</span>
+              <span className="text-emerald-400 font-medium">{tSentiment('positive')}: {activePoint.positive}%</span>
+              <span className="text-amber-400 font-medium">{tSentiment('neutral')}: {activePoint.neutral}%</span>
+              <span className="text-red-400 font-medium">{tSentiment('negative')}: {activePoint.negative}%</span>
             </div>
           </div>
         )}
@@ -242,15 +244,15 @@ export const SentimentTrendChart: React.FC<SentimentTrendChartProps> = ({ restau
       <div className="flex items-center justify-center gap-6 pt-3 border-t border-zinc-100 text-xs text-[#52525B]">
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-1 bg-emerald-600 rounded-full" />
-          <span>Tích cực</span>
+          <span>{tSentiment('positive')}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-1 bg-amber-500 rounded-full" />
-          <span>Trung lập</span>
+          <span>{tSentiment('neutral')}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-1 bg-red-600 rounded-full" />
-          <span>Tiêu cực</span>
+          <span>{tSentiment('negative')}</span>
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { FilterBar } from '../components/restaurant-list/FilterBar';
 import { SearchBar } from '../components/common/SearchBar';
 import { restaurantService } from '../services/restaurantService';
 import { parseSearchQuery, removeVietnameseAccents } from '../utils/cityUtils';
+import { useLanguage } from '../context/LanguageContext';
 import {
   Compass,
   PlusCircle,
@@ -25,16 +26,16 @@ interface ExplorePageProps {
 }
 
 const QUICK_CATEGORIES = [
-  { label: 'Tất cả', query: '' },
-  { label: 'Cơm gà', query: 'cơm gà' },
-  { label: 'Bánh tráng', query: 'bánh tráng' },
-  { label: 'Mì Quảng', query: 'mì quảng' },
-  { label: 'Phở', query: 'phở' },
-  { label: 'Cơm tấm', query: 'cơm tấm' },
-  { label: 'Hải sản', query: 'hải sản' },
-  { label: 'Bún bò', query: 'bún bò' },
-  { label: 'Bánh xèo', query: 'bánh xèo' },
-  { label: 'Cà phê', query: 'cà phê' },
+  { key: 'categoryAll', query: '' },
+  { key: 'categoryChickenRice', query: 'cơm gà' },
+  { key: 'categoryRicePaper', query: 'bánh tráng' },
+  { key: 'categoryQuangNoodles', query: 'mì quảng' },
+  { key: 'categoryPho', query: 'phở' },
+  { key: 'categoryBrokenRice', query: 'cơm tấm' },
+  { key: 'categorySeafood', query: 'hải sản' },
+  { key: 'categoryBeefNoodles', query: 'bún bò' },
+  { key: 'categoryCrispyPancake', query: 'bánh xèo' },
+  { key: 'categoryCoffee', query: 'cà phê' },
 ];
 
 export const ExplorePage: React.FC<ExplorePageProps> = ({
@@ -42,6 +43,7 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
   onSelectRestaurant,
   onOpenAnalyzeModal
 }) => {
+  const { t } = useLanguage();
   const [filters, setFilters] = useState<SearchFilterState>(() => {
     const parsed = parseSearchQuery(initialQuery);
     return {
@@ -213,13 +215,13 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
         <div>
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#991B1B] mb-1">
             <Compass className="w-4 h-4" />
-            <span>Danh mục quán ăn đã đánh giá</span>
+            <span>{t('explore.badge')}</span>
           </div>
           <h1 className="font-display font-bold text-3xl sm:text-4xl text-[#1C1917] tracking-tight">
-            {isSearchActive ? `Kết quả cho "${filters.query}"` : 'Khám phá quán ăn'}
+            {isSearchActive ? t('explore.resultsFor', { query: filters.query }) : t('explore.title')}
           </h1>
           <p className="text-xs sm:text-sm text-[#78716C] mt-1">
-            Tra cứu mức độ hài lòng thực tế và đánh giá chi tiết của thực khách tại các quán ăn trên toàn quốc.
+            {t('explore.subtitle')}
           </p>
         </div>
 
@@ -231,7 +233,7 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
               debounceLiveSearch={true}
               onSearch={handleSearchSubmit}
               onSelectRestaurant={onSelectRestaurant}
-              placeholder="Tìm theo tên, món ăn, địa chỉ..."
+              placeholder={t('explore.searchPlaceholder')}
             />
           </div>
         </div>
@@ -241,23 +243,24 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
         <span className="text-xs font-bold text-[#8C857B] shrink-0 flex items-center gap-1 mr-1">
           <Sparkles className="w-3.5 h-3.5 text-[#991B1B]" />
-          <span>Món phổ biến:</span>
+          <span>{t('explore.popularDishes')}</span>
         </span>
         {QUICK_CATEGORIES.map((cat) => {
           const isSelected =
             (cat.query === '' && filters.query === '') ||
             (cat.query !== '' && filters.query.toLowerCase() === cat.query.toLowerCase());
+          const catLabel = t(`explore.${cat.key}`);
           return (
             <button
-              key={cat.label}
+              key={cat.key}
               onClick={() => handleQuickCategoryClick(cat.query)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
                 isSelected
                   ? 'bg-[#1C1917] text-white shadow-editorial-sm'
                   : 'bg-white border border-[#E8E4DC] text-[#57534E] hover:border-[#991B1B]/40 hover:bg-[#FAF7F2]'
               }`}
             >
-              {cat.label}
+              {catLabel}
             </button>
           );
         })}
@@ -276,15 +279,15 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
           <div className="flex items-center gap-2.5">
             <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600 shrink-0" />
             <div>
-              <p className="font-semibold text-sm">Gửi yêu cầu thành công!</p>
-              <p className="text-[11px] text-emerald-800/90 mt-0.5">{queueMessage || 'Hệ thống sẽ cập nhật quán này trong thời gian sớm nhất.'}</p>
+              <p className="font-semibold text-sm">{t('explore.queueSuccess')}</p>
+              <p className="text-[11px] text-emerald-800/90 mt-0.5">{queueMessage || t('explore.queueSuccessDesc')}</p>
             </div>
           </div>
           <button
             onClick={() => setQueueStatus('idle')}
-            className="text-emerald-700 hover:text-emerald-900 font-semibold px-2 py-1 hover:underline"
+            className="text-emerald-700 hover:text-emerald-900 font-semibold px-2 py-1 hover:underline cursor-pointer"
           >
-            Đóng
+            {t('common.close')}
           </button>
         </div>
       )}
@@ -293,15 +296,15 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#71717A] pt-1">
         <div className="flex items-center gap-2">
           <span className="font-medium text-[#18181B]">
-            {loading ? 'Đang tìm kiếm quán ăn...' : `Tìm thấy ${restaurants.length} quán ăn phù hợp`}
+            {loading ? t('explore.searching') : t('explore.foundCount', { count: restaurants.length })}
           </span>
           {!loading && !restaurantService.isConnectedToBackend() && (
             <span
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200"
-              title="Đang hiển thị 6 quán mẫu ngoại tuyến do chưa kết nối máy chủ dữ liệu."
+              title={t('explore.offlineTooltip')}
             >
               <AlertCircle className="w-3 h-3 text-amber-600" />
-              Chế độ ngoại tuyến
+              {t('explore.offlineMode')}
             </span>
           )}
         </div>
@@ -309,9 +312,9 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
         {isSearchActive && (
           <button
             onClick={handleResetFilters}
-            className="text-zinc-500 hover:text-zinc-800 hover:underline underline-offset-2 font-medium"
+            className="text-zinc-500 hover:text-zinc-800 hover:underline underline-offset-2 font-medium cursor-pointer"
           >
-            Xóa bộ lọc
+            {t('explore.clearFilters')}
           </button>
         )}
       </div>
@@ -322,18 +325,18 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
           <div className="flex items-start sm:items-center gap-2.5">
             <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
             <div>
-              <p className="font-bold text-sm text-amber-900">Đang hiển thị dữ liệu mẫu ngoại tuyến</p>
+              <p className="font-bold text-sm text-amber-900">{t('explore.offlineBannerTitle')}</p>
               <p className="text-xs text-amber-800/90 mt-0.5">
-                Hệ thống đang tạm thời hiển thị {restaurants.length} nhà hàng mẫu ngoại tuyến do chưa kết nối được máy chủ dữ liệu trực tuyến. Bạn có thể bấm "Thử kết nối lại" để cập nhật dữ liệu mới nhất.
+                {t('explore.offlineBannerDesc', { count: restaurants.length })}
               </p>
             </div>
           </div>
           <button
             onClick={handleRetryBackend}
-            className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs shrink-0 flex items-center justify-center gap-1.5 transition-colors shadow-sm self-start sm:self-center"
+            className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs shrink-0 flex items-center justify-center gap-1.5 transition-colors shadow-sm self-start sm:self-center cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            Thử kết nối lại
+            {t('explore.retryConnection')}
           </button>
         </div>
       )}
@@ -357,10 +360,10 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
               <div className="py-6 space-y-3 text-center">
                 <Loader2 className="w-9 h-9 text-[#C2410C] animate-spin mx-auto" />
                 <h4 className="text-sm font-bold text-[#18181B]">
-                  Đang tổng hợp đánh giá thực tế từ thực khách...
+                  {t('explore.crawlingTitle')}
                 </h4>
                 <p className="text-xs text-zinc-500 max-w-md mx-auto leading-relaxed">
-                  {directCrawlMessage || 'Hệ thống đang tổng hợp các nhận xét thực tế từ thực khách và lập báo cáo chất lượng. Vui lòng đợi trong giây lát (~20 - 30 giây)...'}
+                  {directCrawlMessage || t('explore.crawlingDesc')}
                 </p>
               </div>
             ) : (
@@ -368,21 +371,21 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
                 <div>
                   <h3 className="text-base font-bold text-[#18181B] mb-1">
                     {!restaurantService.isConnectedToBackend()
-                      ? 'Mất kết nối tới máy chủ dữ liệu'
+                      ? t('explore.emptyNoServer')
                       : isSearchActive
-                      ? `Chưa có dữ liệu cho "${filters.query}"`
+                      ? t('explore.emptyNoDataForQuery', { query: filters.query })
                       : filters.city !== 'Tất cả địa điểm'
-                      ? `Chưa có dữ liệu cho khu vực "${filters.city}"`
-                      : 'Không tìm thấy quán ăn nào'}
+                      ? t('explore.emptyNoDataForCity', { city: filters.city })
+                      : t('explore.emptyNoResults')}
                   </h3>
                   <p className="text-xs text-[#71717A] max-w-md mx-auto leading-relaxed">
                     {!restaurantService.isConnectedToBackend()
-                      ? 'Không thể tải danh sách nhà hàng do chưa kết nối được máy chủ dữ liệu. Vui lòng bấm "Thử kết nối lại".'
+                      ? t('explore.emptyDescNoServer')
                       : isSearchActive
-                      ? `Quán ăn "${filters.query}" chưa có trong danh mục. Bạn có thể bấm nút bên dưới để hệ thống tổng hợp đánh giá và lập báo cáo ngay sau 25 giây, hoặc gửi yêu cầu cập nhật sau.`
+                      ? t('explore.emptyDescQuery', { query: filters.query })
                       : filters.city !== 'Tất cả địa điểm'
-                      ? `Khu vực "${filters.city}" chưa có quán ăn trong danh mục hiện tại. Bạn có thể bấm xem ngay các quán nổi bật tại ${filters.city} hoặc chọn "Tất cả địa điểm".`
-                      : 'Không có quán ăn nào khớp với các thiết lập bộ lọc hiện tại của bạn.'}
+                      ? t('explore.emptyDescCity', { city: filters.city })
+                      : t('explore.emptyDescFilter')}
                   </p>
                 </div>
 
@@ -397,15 +400,15 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
                   {/* Nút 1: Tổng hợp trực tiếp */}
                   <button
                     onClick={handleDirectCrawl}
-                    className="inline-flex items-center gap-1.5 px-4.5 py-2.5 bg-[#18181B] hover:bg-zinc-800 text-white text-xs font-semibold rounded-lg shadow-sm transition-all transform active:scale-95"
+                    className="inline-flex items-center gap-1.5 px-4.5 py-2.5 bg-[#18181B] hover:bg-zinc-800 text-white text-xs font-semibold rounded-lg shadow-sm transition-all transform active:scale-95 cursor-pointer"
                   >
                     <Zap className="w-3.5 h-3.5 text-amber-400" />
                     <span>
                       {isSearchActive
-                        ? `⚡ Tổng hợp đánh giá "${filters.query}" ngay (~25s)`
+                        ? t('explore.directCrawlQuery', { query: filters.query })
                         : filters.city !== 'Tất cả địa điểm'
-                        ? `⚡ Xem quán nổi bật tại ${filters.city} (~25s)`
-                        : '⚡ Tổng hợp đánh giá quán mới (~25s)'}
+                        ? t('explore.directCrawlCity', { city: filters.city })
+                        : t('explore.directCrawlNew')}
                     </span>
                   </button>
 
@@ -415,18 +418,18 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
                       <button
                         onClick={handleSubmitQueueRequest}
                         disabled={queueStatus === 'submitting'}
-                        className="inline-flex items-center gap-1.5 px-4.5 py-2.5 bg-[#C2410C] hover:bg-[#9a3412] text-white text-xs font-semibold rounded-lg shadow-sm transition-all transform active:scale-95 disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 px-4.5 py-2.5 bg-[#C2410C] hover:bg-[#9a3412] text-white text-xs font-semibold rounded-lg shadow-sm transition-all transform active:scale-95 disabled:opacity-50 cursor-pointer"
                       >
                         <SendHorizontal className="w-3.5 h-3.5" />
                         <span>
                           {queueStatus === 'submitting'
-                            ? 'Đang gửi...'
-                            : `📋 Yêu cầu thêm quán này`}
+                            ? t('explore.queueSubmitting')
+                            : t('explore.queueRequest')}
                         </span>
                       </button>
                     ) : (
                       <span className="text-xs text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-200">
-                        ✅ Đã ghi nhận yêu cầu của bạn!
+                        {t('explore.queueSubmittedBadge')}
                       </span>
                     )
                   )}
@@ -434,27 +437,27 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
                   {onOpenAnalyzeModal && (
                     <button
                       onClick={onOpenAnalyzeModal}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-medium rounded-lg transition-colors"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-medium rounded-lg transition-colors cursor-pointer"
                     >
                       <PlusCircle className="w-4 h-4" />
-                      <span>Dán link Foody trực tiếp</span>
+                      <span>{t('explore.pasteFoodyDirect')}</span>
                     </button>
                   )}
 
                   {filters.city !== 'Tất cả địa điểm' && (
                     <button
                       onClick={() => setFilters((prev) => ({ ...prev, query: '' }))}
-                      className="px-4 py-2 bg-orange-50 hover:bg-orange-100 text-[#C2410C] text-xs font-semibold rounded-lg border border-[#C2410C]/20 transition-colors"
+                      className="px-4 py-2 bg-orange-50 hover:bg-orange-100 text-[#C2410C] text-xs font-semibold rounded-lg border border-[#C2410C]/20 transition-colors cursor-pointer"
                     >
-                      Xem toàn bộ quán tại {filters.city}
+                      {t('explore.viewAllInCity', { city: filters.city })}
                     </button>
                   )}
 
                   <button
                     onClick={handleResetFilters}
-                    className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-medium rounded-lg transition-colors"
+                    className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-medium rounded-lg transition-colors cursor-pointer"
                   >
-                    Đặt lại bộ lọc
+                    {t('filter.reset')}
                   </button>
                 </div>
               </>
@@ -467,7 +470,7 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-[#18181B] flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-[#C2410C]" />
-                  <span>Gợi ý một số quán ăn nổi bật dành cho bạn:</span>
+                  <span>{t('explore.suggestedTitle')}</span>
                 </h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

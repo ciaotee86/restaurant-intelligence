@@ -1,24 +1,27 @@
 import React from 'react';
 import type { Restaurant } from '../../types/restaurant';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface KeyFindingsProps {
   restaurant: Restaurant;
 }
 
 export const KeyFindings: React.FC<KeyFindingsProps> = ({ restaurant }) => {
+  const { t, tAspect } = useLanguage();
+
   return (
     <div className="bg-white border border-[#E4E4E7] rounded-lg p-5 sm:p-6">
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="text-base sm:text-lg font-bold text-[#18181B] tracking-tight">
-            Phát hiện cốt lõi
+            {t('findings.title')}
           </h2>
           <p className="text-xs text-[#71717A] mt-0.5">
-            Tổng hợp nhận định định tính và định lượng từ dữ liệu phản hồi của khách hàng
+            {t('findings.desc')}
           </p>
         </div>
         <span className="text-xs font-mono text-zinc-500 bg-zinc-50 px-2 py-1 rounded border border-zinc-200">
-          Nhận định phân tích
+          {t('findings.badge')}
         </span>
       </div>
 
@@ -41,7 +44,7 @@ export const KeyFindings: React.FC<KeyFindingsProps> = ({ restaurant }) => {
             >
               <div>
                 <span className={`font-mono text-xs font-bold tracking-wider ${numColor} mb-1 block`}>
-                  {finding.number} — {finding.aspect.toUpperCase()}
+                  {finding.number} — {tAspect(finding.aspect).toUpperCase()}
                 </span>
                 <h3 className="text-sm font-bold text-[#18181B] leading-snug mb-2">
                   {finding.title}

@@ -1,6 +1,7 @@
 import React from 'react';
 import type { SentimentType } from '../../types/restaurant';
 import { getSentimentBadgeClass, getSentimentLabel } from '../../utils/sentimentUtils';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface SentimentBadgeProps {
   sentiment: SentimentType;
@@ -15,8 +16,9 @@ export const SentimentBadge: React.FC<SentimentBadgeProps> = ({
   size = 'md',
   className = ''
 }) => {
+  const { tSentiment } = useLanguage();
   const badgeClass = getSentimentBadgeClass(sentiment);
-  const label = getSentimentLabel(sentiment);
+  const label = tSentiment ? tSentiment(sentiment) : getSentimentLabel(sentiment);
   const sizeClass = size === 'sm' ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs';
 
   return (

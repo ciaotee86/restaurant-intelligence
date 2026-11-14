@@ -1,12 +1,15 @@
 import React from 'react';
 import type { Restaurant } from '../../types/restaurant';
 import { ThumbsUp, Check } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface WhatCustomersLoveProps {
   restaurant: Restaurant;
 }
 
 export const WhatCustomersLove: React.FC<WhatCustomersLoveProps> = ({ restaurant }) => {
+  const { t } = useLanguage();
+
   return (
     <div className="bg-white border border-[#E4E4E7] rounded-lg p-5 sm:p-6 flex flex-col justify-between">
       <div>
@@ -15,7 +18,7 @@ export const WhatCustomersLove: React.FC<WhatCustomersLoveProps> = ({ restaurant
             <ThumbsUp className="w-3.5 h-3.5" />
           </div>
           <h2 className="text-base sm:text-lg font-bold text-[#18181B] tracking-tight">
-            Điểm khách hàng yêu thích
+            {t('love.title')}
           </h2>
         </div>
 
@@ -33,7 +36,7 @@ export const WhatCustomersLove: React.FC<WhatCustomersLoveProps> = ({ restaurant
                   </h3>
                 </div>
                 <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                  {item.positivePercentage}% tích cực
+                  {item.positivePercentage}% {t('common.positive').toLowerCase()}
                 </span>
               </div>
 
@@ -59,7 +62,7 @@ export const WhatCustomersLove: React.FC<WhatCustomersLoveProps> = ({ restaurant
       </div>
 
       <div className="mt-4 pt-3 border-t border-zinc-100 text-xs text-[#71717A]">
-        Các yếu tố nổi bật được xếp hạng theo lượng phản hồi tích cực từ khách hàng
+        {t('love.footer')}
       </div>
     </div>
   );

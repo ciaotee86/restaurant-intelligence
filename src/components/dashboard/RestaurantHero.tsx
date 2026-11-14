@@ -2,6 +2,7 @@ import React from 'react';
 import { MapPin, Calendar, Layers, Star, ArrowLeft, ShieldCheck, Shield, AlertTriangle, Link2 } from 'lucide-react';
 import type { Restaurant } from '../../types/restaurant';
 import { formatNumber } from '../../utils/sentimentUtils';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface RestaurantHeroProps {
   restaurant: Restaurant;
@@ -14,6 +15,8 @@ export const RestaurantHero: React.FC<RestaurantHeroProps> = ({
   onBack,
   onOpenLinkGoogleMaps
 }) => {
+  const { t, tAspect } = useLanguage();
+
   // Tìm khía cạnh có phản hồi tiêu cực đáng chú ý (nếu > 12%)
   const urgentComplaintAspect = restaurant.aspects?.find((a) => a.negativePercentage >= 12);
   const complaintDetail = restaurant.attentionAreas?.[0]?.commonComplaints?.[0] || urgentComplaintAspect?.category;
@@ -40,17 +43,17 @@ export const RestaurantHero: React.FC<RestaurantHeroProps> = ({
 
   const credibilityConfig = {
     high: {
-      label: `Độ tin cậy mẫu cao: ${credibilityScore}% · Đủ mẫu phân tích`,
+      label: t('hero.highCredibility', { score: credibilityScore }),
       className: 'bg-[#ECFDF5] text-[#065F46] border-[#A7F3D0]',
       Icon: ShieldCheck
     },
     medium: {
-      label: `Độ tin cậy mẫu khá: ${credibilityScore}% · Tham khảo tốt`,
+      label: t('hero.mediumCredibility', { score: credibilityScore }),
       className: 'bg-[#FFFBEB] text-[#92400E] border-[#FDE68A]',
       Icon: Shield
     },
     low: {
-      label: `Mẫu nhỏ: ${credibilityScore}% · Khuyến nghị bổ sung`,
+      label: t('hero.lowCredibility', { score: credibilityScore }),
       className: 'bg-[#FEF2F2] text-[#991B1B] border-[#FECACA]',
       Icon: AlertTriangle
     }
@@ -81,6 +84,16 @@ export const RestaurantHero: React.FC<RestaurantHeroProps> = ({
 
   const hasMultiSource = foodyCount > 0 && googleMapsCount > 0;
 
+  const displayPriceRange = restaurant.priceRange
+    ? restaurant.priceRange === 'Bình dân'
+      ? t('common.priceCasual')
+      : restaurant.priceRange === 'Trung bình'
+      ? t('common.priceMid')
+      : restaurant.priceRange === 'Cao cấp'
+      ? t('common.priceFine')
+      : restaurant.priceRange
+    : t('common.priceCasual');
+
   return (
     <div className="bg-white border-b border-[#E8E4DC] pt-8 pb-7 shadow-editorial-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -90,7 +103,7 @@ export const RestaurantHero: React.FC<RestaurantHeroProps> = ({
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#8C857B] hover:text-[#991B1B] mb-5 transition-colors group cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          <span>Quay lại danh sách nhà hàng</span>
+          <span>{t('hero.back')}</span>
         </button>
 
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
@@ -98,14 +111,14 @@ export const RestaurantHero: React.FC<RestaurantHeroProps> = ({
           <div className="space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-bold text-[#991B1B] bg-[#FDF2F2] border border-[#FECACA] px-3 py-0.5 rounded-full">
-                {restaurant.cuisine}
+                {restaurant.cuisine || t('common.cuisineFallback')}
               </span>
               <span className="text-xs font-medium text-[#57534E] bg-[#F2EFE9] px-2.5 py-0.5 rounded-full border border-[#E8E4DC]">
-                {restaurant.priceLevel || '$$'} · {restaurant.priceRange}
+                {restaurant.priceLevel || '$$'} · {displayPriceRange}
               </span>
               <span className="text-xs text-[#8C857B] font-medium flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5 text-[#A8A29E]" />
-                {restaurant.address}
+                {restaurant.address || t('common.addressFallback')}
               </span>
             </div>
 
@@ -122,13 +135,13 @@ export const RestaurantHero: React.FC<RestaurantHeroProps> = ({
               </div>
 
               <span>
-                Dựa trên <strong className="font-bold text-[#1C1917]">{formatNumber(restaurant.totalReviews)} đánh giá thực tế</strong> từ thực khách
+                {t('hero.basedOnReviews', { count: formatNumber(restaurant.totalReviews) })}
               </span>
 
               {/* Huy hiệu Độ tin cậy mẫu trực quan (MOD-03) */}
               <div
                 className={`flex items-center gap-1.5 text-xs font-bold border px-3 py-1 rounded-lg transition-colors ${credibilityConfig.className}`}
-                title={`Chỉ số tin cậy mẫu: ${credibilityScore}%`}
+                title={t('hero.credibilityTooltip', { score: credibilityScore })}
               >
                 <credibilityConfig.Icon className="w-3.5 h-3.5 shrink-0" />
                 <span>{credibilityConfig.label}</span>
@@ -141,13 +154,13 @@ export const RestaurantHero: React.FC<RestaurantHeroProps> = ({
             <div className="flex flex-wrap items-center gap-2 text-xs text-[#78716C]">
               <div className="flex items-center gap-1.5 bg-[#FAF7F2] px-3 py-1.5 rounded-xl border border-[#E8E4DC]">
                 <Calendar className="w-3.5 h-3.5 text-[#A8A29E]" />
-                <span>Cập nhật: <strong className="font-semibold text-[#1C1917]">{restaurant.lastAnalyzedDate}</strong></span>
+                <span>{t('hero.updated', { date: restaurant.lastAnalyzedDate })}</span>
               </div>
 
               {/* Tỷ lệ đóng góp của các nguồn */}
               <div className="flex items-center gap-1.5 bg-[#FAF7F2] px-3 py-1.5 rounded-xl border border-[#E8E4DC]">
                 <Layers className="w-3.5 h-3.5 text-[#A8A29E]" />
-                <span>Nguồn: </span>
+                <span>{t('hero.source')}</span>
                 {hasMultiSource ? (
                   <span className="font-semibold text-[#1C1917] inline-flex items-center gap-1.5">
                     <span className="text-[#EA580C] font-bold">{formatNumber(foodyCount)} Foody</span>
@@ -170,10 +183,10 @@ export const RestaurantHero: React.FC<RestaurantHeroProps> = ({
                 type="button"
                 onClick={onOpenLinkGoogleMaps}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-[#991B1B] hover:bg-[#7F1D1D] text-white shadow-editorial-sm transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-                title="Bổ sung đánh giá từ Google Maps để làm giàu dữ liệu và nâng cao độ tin cậy mẫu"
+                title={t('hero.linkGoogleMapsTooltip')}
               >
                 <Link2 className="w-4 h-4 text-[#FECACA]" />
-                <span>🔗 Bổ sung từ Google Maps</span>
+                <span>{t('hero.linkGoogleMapsBtn')}</span>
               </button>
             )}
           </div>
@@ -185,9 +198,8 @@ export const RestaurantHero: React.FC<RestaurantHeroProps> = ({
             <div className="flex items-center gap-2.5">
               <AlertTriangle className="w-4 h-4 text-[#991B1B] shrink-0" />
               <span>
-                <strong>Cảnh báo cỡ mẫu nhỏ ({totalReviews} đánh giá):</strong>{' '}
-                {restaurant.sampleWarning ||
-                  'Dữ liệu hiện tại chưa đủ lớn để đảm bảo độ tin cậy cao cho phân tích xu hướng. Khuyến nghị nạp thêm đánh giá từ Google Maps để tăng tính đại diện!'}
+                <strong>{t('hero.lowSampleWarningTitle', { count: totalReviews })}</strong>{' '}
+                {restaurant.sampleWarning || t('hero.lowSampleWarningDesc')}
               </span>
             </div>
             {onOpenLinkGoogleMaps && (
@@ -197,7 +209,7 @@ export const RestaurantHero: React.FC<RestaurantHeroProps> = ({
                 className="px-3 py-1.5 bg-[#991B1B] text-white text-xs font-bold rounded-lg hover:bg-[#7F1D1D] shrink-0 transition-colors inline-flex items-center gap-1.5 shadow-editorial-sm cursor-pointer"
               >
                 <Link2 className="w-3.5 h-3.5" />
-                <span>Nạp từ Google Maps ngay</span>
+                <span>{t('hero.enrichNowBtn')}</span>
               </button>
             )}
           </div>
@@ -209,12 +221,16 @@ export const RestaurantHero: React.FC<RestaurantHeroProps> = ({
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-[#D97706] shrink-0" />
               <span>
-                <strong>Lưu ý từ thực khách:</strong> Có {urgentComplaintAspect.negativePercentage}% phản hồi chưa hài lòng về{' '}
-                <strong>{urgentComplaintAspect.category}</strong> ({complaintDetail}).
+                <strong>{t('hero.attentionNotice')}</strong>{' '}
+                {t('hero.attentionDetail', {
+                  percent: urgentComplaintAspect.negativePercentage,
+                  aspect: tAspect(urgentComplaintAspect.category),
+                  complaint: complaintDetail || ''
+                })}
               </span>
             </div>
             <span className="text-[11px] font-mono text-[#B45309] font-semibold shrink-0 hidden sm:inline">
-              Tiêu chí cần cải thiện
+              {t('hero.needsImprovementBadge')}
             </span>
           </div>
         )}

@@ -18,6 +18,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { formatNumber } from '../utils/sentimentUtils';
+import { useLanguage } from '../context/LanguageContext';
 
 interface HomePageProps {
   restaurants: Restaurant[];
@@ -34,6 +35,8 @@ export const HomePage: React.FC<HomePageProps> = ({
   onNavigateExplore,
   onNavigateHowItWorks
 }) => {
+  const { t, tAspect, language } = useLanguage();
+
   // Quán mẫu được chọn trong Live Spotlight Bento ở Hero
   const [selectedSampleIndex, setSelectedSampleIndex] = useState(0);
   
@@ -57,7 +60,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   const activeSample = sampleRestaurants[selectedSampleIndex] || sampleRestaurants[0] || null;
 
   // Mẫu trích dẫn của quán đang chọn
-  const activeQuote = activeSample?.reviews?.[0]?.text || activeSample?.sentimentSummarySentence || 'Nhận xét chân thực từ thực khách thực tế.';
+  const activeQuote = activeSample?.reviews?.[0]?.text || activeSample?.sentimentSummarySentence || t('home.defaultDinerQuote');
   const displayQuote = activeQuote && activeQuote.length > 140 ? `${activeQuote.slice(0, 137)}...` : (activeQuote || '');
 
   // Dữ liệu so sánh 2 quán
@@ -81,18 +84,26 @@ export const HomePage: React.FC<HomePageProps> = ({
             {/* Editorial Category Pill */}
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/90 backdrop-blur-sm border border-[#E8E4DC] text-xs font-semibold text-[#991B1B] shadow-editorial-sm">
               <span className="w-2 h-2 rounded-full bg-[#991B1B] animate-pulse" />
-              <span>Bản đồ đọc vị ẩm thực từ thực khách thực tế</span>
+              <span>{t('home.heroBadge')}</span>
             </div>
 
             {/* Display Headline (Spectral Serif) */}
             <h1 className="font-display font-bold text-3xl sm:text-5xl lg:text-[56px] text-[#1C1917] tracking-tight leading-[1.12]">
-              Đọc vị mọi bàn ăn. <br />
-              <span className="italic font-normal text-[#991B1B]">Thấy rõ điều thực khách thực sự nghĩ.</span>
+              {t('home.heroTitleLine1')} <br />
+              <span className="italic font-normal text-[#991B1B]">{t('home.heroTitleLine2')}</span>
             </h1>
 
             {/* Subheading */}
             <p className="text-base sm:text-lg text-[#57534E] max-w-2xl mx-auto leading-relaxed">
-              Thay vì mất 30 phút đọc hàng trăm bình luận lẫn lộn — xem ngay bức tranh toàn cảnh về <strong className="text-[#1C1917] font-semibold">Món ăn</strong>, <strong className="text-[#1C1917] font-semibold">Giá cả</strong>, <strong className="text-[#1C1917] font-semibold">Thái độ phục vụ</strong> và <strong className="text-[#1C1917] font-semibold">Không gian</strong> được bóc tách khoa học.
+              {language === 'vi' ? (
+                <>
+                  Thay vì mất 30 phút đọc hàng trăm bình luận lẫn lộn — xem ngay bức tranh toàn cảnh về <strong className="text-[#1C1917] font-semibold">{tAspect('Món ăn')}</strong>, <strong className="text-[#1C1917] font-semibold">{tAspect('Giá cả')}</strong>, <strong className="text-[#1C1917] font-semibold">{tAspect('Dịch vụ')}</strong> và <strong className="text-[#1C1917] font-semibold">{tAspect('Không gian')}</strong> được bóc tách khoa học.
+                </>
+              ) : (
+                <>
+                  Instead of spending 30 minutes reading through scattered comments — get an objective, multidimensional panorama of <strong className="text-[#1C1917] font-semibold">{tAspect('Món ăn')}</strong>, <strong className="text-[#1C1917] font-semibold">{tAspect('Giá cả')}</strong>, <strong className="text-[#1C1917] font-semibold">{tAspect('Dịch vụ')}</strong>, and <strong className="text-[#1C1917] font-semibold">{tAspect('Không gian')}</strong> parsed scientifically.
+                </>
+              )}
             </p>
 
             {/* Floating Search Console */}
@@ -101,47 +112,47 @@ export const HomePage: React.FC<HomePageProps> = ({
                 size="large"
                 onSearch={onSearch}
                 onSelectRestaurant={onSelectRestaurant}
-                placeholder="Tìm món ngon hoặc quán ăn (vd: Pizza 4P's, Phở Thìn, Cơm Gà 9 Ly)..."
+                placeholder={t('home.searchPlaceholder')}
               />
             </div>
 
             {/* Quick Demand Tags */}
             <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-xs">
-              <span className="text-[#8C857B] font-medium mr-1">Dịp ăn uống:</span>
+              <span className="text-[#8C857B] font-medium mr-1">{t('home.diningOccasion')}</span>
               <button
                 type="button"
                 onClick={() => onSearch('gia đình')}
                 className="px-3 py-1.5 bg-white hover:bg-[#FDF2F2] hover:text-[#991B1B] hover:border-[#FECACA] text-[#57534E] rounded-lg border border-[#E8E4DC] font-medium transition-all shadow-editorial-sm"
               >
-                👨‍👩‍👧 Bữa cơm gia đình
+                {t('home.tagFamily')}
               </button>
               <button
                 type="button"
                 onClick={() => onSearch('hẹn hò')}
                 className="px-3 py-1.5 bg-white hover:bg-[#FDF2F2] hover:text-[#991B1B] hover:border-[#FECACA] text-[#57534E] rounded-lg border border-[#E8E4DC] font-medium transition-all shadow-editorial-sm"
               >
-                🍷 Tiếp khách & Hẹn hò
+                {t('home.tagDating')}
               </button>
               <button
                 type="button"
                 onClick={() => onSearch('cơm')}
                 className="px-3 py-1.5 bg-white hover:bg-[#FDF2F2] hover:text-[#991B1B] hover:border-[#FECACA] text-[#57534E] rounded-lg border border-[#E8E4DC] font-medium transition-all shadow-editorial-sm"
               >
-                ⚡ Phục vụ nhanh
+                {t('home.tagFast')}
               </button>
               <button
                 type="button"
                 onClick={() => onSearch('bình dân')}
                 className="px-3 py-1.5 bg-white hover:bg-[#FDF2F2] hover:text-[#991B1B] hover:border-[#FECACA] text-[#57534E] rounded-lg border border-[#E8E4DC] font-medium transition-all shadow-editorial-sm"
               >
-                💰 Ngon bình dân
+                {t('home.tagBudget')}
               </button>
               <button
                 type="button"
                 onClick={() => onSearch('đặc sản')}
                 className="px-3 py-1.5 bg-white hover:bg-[#FDF2F2] hover:text-[#991B1B] hover:border-[#FECACA] text-[#57534E] rounded-lg border border-[#E8E4DC] font-medium transition-all shadow-editorial-sm"
               >
-                🍜 Đặc sản vùng miền
+                {t('home.tagSpecialty')}
               </button>
             </div>
 
@@ -149,15 +160,15 @@ export const HomePage: React.FC<HomePageProps> = ({
             <div className="pt-4 flex flex-wrap items-center justify-center gap-6 sm:gap-8 text-xs text-[#78716C]">
               <span className="flex items-center gap-2 font-medium">
                 <ShieldCheck className="w-4 h-4 text-[#065F46] shrink-0" />
-                Không cần đăng nhập tài khoản
+                {t('home.trustNoLogin')}
               </span>
               <span className="flex items-center gap-2 font-medium">
                 <CheckCircle2 className="w-4 h-4 text-[#991B1B] shrink-0" />
-                Loại bỏ nhận xét giả & đánh giá ảo
+                {t('home.trustFilterSpam')}
               </span>
               <span className="flex items-center gap-2 font-medium">
                 <BarChart3 className="w-4 h-4 text-[#D97706] shrink-0" />
-                Đánh giá theo 5 tiêu chí cốt lõi
+                {t('home.trustFiveAspects')}
               </span>
             </div>
 
@@ -173,14 +184,14 @@ export const HomePage: React.FC<HomePageProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
             <div>
               <div className="text-xs font-bold uppercase tracking-wider text-[#991B1B] mb-1">
-                Bóc tách trực tiếp
+                {t('home.spotlightSubtitle')}
               </div>
               <h2 className="font-display font-bold text-2xl sm:text-3xl text-[#1C1917] tracking-tight">
-                Spotlight: Hồ sơ đọc vị tiêu biểu
+                {t('home.spotlightTitle')}
               </h2>
             </div>
             <p className="text-xs sm:text-sm text-[#78716C] max-w-md">
-              Xem cách hệ thống tự động bóc tách đánh giá thực khách từ dữ liệu lớn thành chỉ số trực quan.
+              {t('home.spotlightDesc')}
             </p>
           </div>
 
@@ -195,18 +206,18 @@ export const HomePage: React.FC<HomePageProps> = ({
                   <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#E8E4DC]">
                     <div className="flex items-center gap-3">
                       <span className="text-[11px] font-bold text-[#991B1B] bg-[#FDF2F2] border border-[#FECACA] px-3 py-1 rounded-full">
-                        {activeSample.cuisine || 'Ẩm thực'}
+                        {activeSample.cuisine || t('common.cuisineFallback')}
                       </span>
                       <span className="text-xs text-[#78716C] flex items-center gap-1 font-medium">
                         <MapPin className="w-3.5 h-3.5 text-[#A8A29E]" />
-                        {activeSample.city} · {formatNumber(activeSample.totalReviews || 0)} đánh giá thực
+                        {activeSample.city} · {t('home.realReviews', { count: formatNumber(activeSample.totalReviews || 0) })}
                       </span>
                     </div>
 
                     {/* Selector quán mẫu */}
                     {sampleRestaurants.length > 1 && (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-[#8C857B] font-medium mr-1">Đổi quán mẫu:</span>
+                        <span className="text-[11px] text-[#8C857B] font-medium mr-1">{t('home.changeSample')}</span>
                         {sampleRestaurants.map((r, idx) => (
                           <button
                             key={r.id}
@@ -232,7 +243,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                         {activeSample.name}
                       </h3>
                       <p className="text-xs text-[#78716C] mt-1 font-medium">
-                        Địa chỉ: {activeSample.address || 'Đang cập nhật'}
+                        {t('home.addressLabel', { address: activeSample.address || t('home.addressUpdating') })}
                       </p>
                     </div>
 
@@ -241,7 +252,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                         {activeSample.sentimentDistribution?.positive ?? 0}%
                       </span>
                       <span className="text-[10px] font-bold text-[#065F46] uppercase tracking-wider block mt-1">
-                        Hài lòng
+                        {t('home.satisfactionRate')}
                       </span>
                     </div>
                   </div>
@@ -258,13 +269,13 @@ export const HomePage: React.FC<HomePageProps> = ({
                   {activeSample.aspects && activeSample.aspects.length > 0 && (
                     <div className="space-y-3 py-3 border-y border-[#E8E4DC]">
                       <div className="flex items-center justify-between text-xs font-bold text-[#1C1917]">
-                        <span>Thước đo 5 tiêu chí cốt lõi:</span>
-                        <span className="text-[11px] text-[#8C857B] font-mono">Tỷ lệ khen ngợi</span>
+                        <span>{t('home.coreCriteriaScore')}</span>
+                        <span className="text-[11px] text-[#8C857B] font-mono">{t('home.praiseRate')}</span>
                       </div>
                       <div className="space-y-2">
                         {activeSample.aspects.slice(0, 5).map((aspect) => (
                           <div key={aspect.category} className="flex items-center justify-between text-xs">
-                            <span className="text-[#57534E] font-medium w-24">{aspect.category}</span>
+                            <span className="text-[#57534E] font-medium w-28 truncate">{tAspect(aspect.category)}</span>
                             <div className="flex-1 mx-4 h-2 bg-[#F2EFE9] rounded-full overflow-hidden">
                               <div 
                                 className="h-full bg-[#065F46] rounded-full transition-all duration-500" 
@@ -285,9 +296,9 @@ export const HomePage: React.FC<HomePageProps> = ({
                     <button
                       type="button"
                       onClick={() => onSelectRestaurant(activeSample.id)}
-                      className="w-full py-3.5 bg-[#1C1917] hover:bg-[#991B1B] text-white font-bold text-xs sm:text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-editorial-sm group"
+                      className="w-full py-3.5 bg-[#1C1917] hover:bg-[#991B1B] text-white font-bold text-xs sm:text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-editorial-sm group cursor-pointer"
                     >
-                      <span>Xem toàn bộ hồ sơ phân tích {activeSample.name}</span>
+                      <span>{t('home.viewFullProfile', { name: activeSample.name })}</span>
                       <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </button>
                   </div>
@@ -295,7 +306,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 </div>
               ) : (
                 <div className="text-center py-12 text-[#78716C]">
-                  Đang chuẩn bị dữ liệu quán ăn...
+                  {t('home.preparingData')}
                 </div>
               )}
             </div>
@@ -310,27 +321,27 @@ export const HomePage: React.FC<HomePageProps> = ({
                     <ShieldCheck className="w-5 h-5 text-[#991B1B]" />
                   </div>
                   <h3 className="font-display font-bold text-lg text-[#1C1917] mb-2">
-                    Tách lọc nhận xét ảo
+                    {t('home.spamFilterTitle')}
                   </h3>
                   <p className="text-xs text-[#78716C] leading-relaxed mb-4">
-                    Hệ thống tự động loại trừ các bình luận quảng cáo, tài khoản mới tạo đánh giá ảo, chỉ giữ lại nhận xét từ người dùng có trải nghiệm thực tế.
+                    {t('home.spamFilterDesc')}
                   </p>
                   
                   <div className="p-3 bg-[#FAF7F2] rounded-xl border border-[#E8E4DC] space-y-2">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-[#57534E]">Tỷ lệ loại bỏ nhận xét ảo:</span>
-                      <span className="font-mono font-bold text-[#991B1B]">~18.5% đã loại bỏ</span>
+                      <span className="text-[#57534E]">{t('home.spamRemovedLabel')}</span>
+                      <span className="font-mono font-bold text-[#991B1B]">{t('home.spamRemovedValue')}</span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-[#57534E]">Độ tin cậy dữ liệu:</span>
-                      <span className="font-mono font-bold text-[#065F46]">98.2% Chuẩn xác</span>
+                      <span className="text-[#57534E]">{t('home.credibilityLabel')}</span>
+                      <span className="font-mono font-bold text-[#065F46]">{t('home.credibilityValue')}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-[#E8E4DC] mt-4 flex items-center justify-between text-[11px] text-[#8C857B]">
-                  <span>Cập nhật liên tục</span>
-                  <span className="font-medium text-[#991B1B]">Khách quan 100%</span>
+                  <span>{t('home.continuousUpdate')}</span>
+                  <span className="font-medium text-[#991B1B]">{t('home.objectiveGuaranteed')}</span>
                 </div>
               </div>
 
@@ -341,7 +352,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                     <Sparkles className="w-5 h-5 text-[#D97706]" />
                   </div>
                   <h3 className="font-display font-bold text-lg text-[#1C1917] mb-2">
-                    Món Nên Thử & Lưu Ý
+                    {t('home.signatureAndNotes')}
                   </h3>
                   
                   <div className="space-y-3 text-xs mt-3">
@@ -349,7 +360,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                       <div className="p-3 rounded-xl bg-[#ECFDF5] border border-[#A7F3D0] text-[#065F46]">
                         <span className="font-bold flex items-center gap-1.5 mb-1">
                           <ThumbsUp className="w-3.5 h-3.5" />
-                          Món Signature được khen nhất:
+                          {t('home.topPraiseDish')}
                         </span>
                         <p className="font-semibold text-[#1C1917]">
                           {activeSample.strengths[0].title}
@@ -361,10 +372,10 @@ export const HomePage: React.FC<HomePageProps> = ({
                       <div className="p-3 rounded-xl bg-[#FFFBEB] border border-[#FDE68A] text-[#92400E]">
                         <span className="font-bold flex items-center gap-1.5 mb-1">
                           <AlertTriangle className="w-3.5 h-3.5" />
-                          Điểm cần chuẩn bị trước:
+                          {t('home.preparationNote')}
                         </span>
                         <p className="font-semibold text-[#1C1917]">
-                          {activeSample.attentionAreas[0].commonComplaints?.[0] || 'Giờ cao điểm cần đặt bàn trước'}
+                          {activeSample.attentionAreas[0].commonComplaints?.[0] || t('home.peakHourNoteDefault')}
                         </p>
                       </div>
                     )}
@@ -372,7 +383,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 </div>
 
                 <div className="pt-4 border-t border-[#E8E4DC] mt-4 text-[11px] text-[#78716C] italic">
-                  * Trích xuất tự động từ lời khen và phàn nàn lặp lại nhiều nhất.
+                  {t('home.signatureSubtitle')}
                 </div>
               </div>
 
@@ -392,20 +403,20 @@ export const HomePage: React.FC<HomePageProps> = ({
               <div>
                 <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#991B1B] mb-1">
                   <Scale className="w-4 h-4 text-[#991B1B]" />
-                  <span>Công cụ đối chiếu trực quan</span>
+                  <span>{t('home.comparisonBadge')}</span>
                 </div>
                 <h2 className="font-display font-bold text-2xl sm:text-3xl text-[#1C1917] tracking-tight">
-                  So sánh đối đầu: Chọn quán nào?
+                  {t('home.comparisonTitle')}
                 </h2>
                 <p className="text-xs sm:text-sm text-[#78716C] mt-1">
-                  Đặt 2 quán ăn cạnh nhau trên cùng một trục 5 tiêu chí để tìm ra lựa chọn tối ưu cho bạn.
+                  {t('home.comparisonDesc')}
                 </p>
               </div>
 
               {/* Bộ chọn 2 quán ăn */}
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[#8C857B]">Quán A:</span>
+                  <span className="text-xs font-bold text-[#8C857B]">{t('home.restaurantA')}</span>
                   <select
                     value={selectedCompareIdA}
                     onChange={(e) => setCompareIdA(e.target.value)}
@@ -418,11 +429,11 @@ export const HomePage: React.FC<HomePageProps> = ({
                 </div>
 
                 <span className="text-xs font-bold text-[#991B1B] bg-[#FDF2F2] px-2 py-1 rounded-full border border-[#FECACA]">
-                  VS
+                  {t('common.vs')}
                 </span>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[#8C857B]">Quán B:</span>
+                  <span className="text-xs font-bold text-[#8C857B]">{t('home.restaurantB')}</span>
                   <select
                     value={selectedCompareIdB}
                     onChange={(e) => setCompareIdB(e.target.value)}
@@ -446,18 +457,18 @@ export const HomePage: React.FC<HomePageProps> = ({
                     {restaurantA.name}
                   </span>
                   <span className="text-xs text-[#78716C]">
-                    {restaurantA.cuisine} · <strong className="text-[#065F46] font-bold">{restaurantA.sentimentDistribution?.positive ?? 0}% hài lòng</strong>
+                    {restaurantA.cuisine} · <strong className="text-[#065F46] font-bold">{t('home.satisfiedPercent', { percent: restaurantA.sentimentDistribution?.positive ?? 0 })}</strong>
                   </span>
                 </div>
                 <div className="col-span-2 text-center text-[#8C857B] font-mono uppercase text-[10px] tracking-wider">
-                  5 Tiêu chí
+                  {t('home.fiveCriteria')}
                 </div>
                 <div className="col-span-5 text-right">
                   <span className="font-display font-bold text-base sm:text-lg text-[#1C1917] block">
                     {restaurantB.name}
                   </span>
                   <span className="text-xs text-[#78716C]">
-                    {restaurantB.cuisine} · <strong className="text-[#065F46] font-bold">{restaurantB.sentimentDistribution?.positive ?? 0}% hài lòng</strong>
+                    {restaurantB.cuisine} · <strong className="text-[#065F46] font-bold">{t('home.satisfiedPercent', { percent: restaurantB.sentimentDistribution?.positive ?? 0 })}</strong>
                   </span>
                 </div>
               </div>
@@ -487,7 +498,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                     {/* Tên khía cạnh ở giữa */}
                     <div className="col-span-2 text-center">
                       <span className="px-3 py-1 rounded-full bg-[#FAF7F2] border border-[#E8E4DC] font-semibold text-[#1C1917] text-[11px] inline-block">
-                        {aspect}
+                        {tAspect(aspect)}
                       </span>
                     </div>
 
@@ -513,18 +524,18 @@ export const HomePage: React.FC<HomePageProps> = ({
                   <button
                     type="button"
                     onClick={() => onSelectRestaurant(restaurantA.id)}
-                    className="px-4 py-2.5 bg-[#F8F6F0] hover:bg-[#F2EFE9] border border-[#E8E4DC] rounded-xl text-xs font-bold text-[#1C1917] shadow-editorial-sm transition-all"
+                    className="px-4 py-2.5 bg-[#F8F6F0] hover:bg-[#F2EFE9] border border-[#E8E4DC] rounded-xl text-xs font-bold text-[#1C1917] shadow-editorial-sm transition-all cursor-pointer"
                   >
-                    Xem hồ sơ {restaurantA.name} →
+                    {t('home.viewProfileArrow', { name: restaurantA.name })}
                   </button>
                 </div>
                 <div className="col-span-6 text-right">
                   <button
                     type="button"
                     onClick={() => onSelectRestaurant(restaurantB.id)}
-                    className="px-4 py-2.5 bg-[#F8F6F0] hover:bg-[#F2EFE9] border border-[#E8E4DC] rounded-xl text-xs font-bold text-[#1C1917] shadow-editorial-sm transition-all"
+                    className="px-4 py-2.5 bg-[#F8F6F0] hover:bg-[#F2EFE9] border border-[#E8E4DC] rounded-xl text-xs font-bold text-[#1C1917] shadow-editorial-sm transition-all cursor-pointer"
                   >
-                    Xem hồ sơ {restaurantB.name} →
+                    {t('home.viewProfileArrow', { name: restaurantB.name })}
                   </button>
                 </div>
               </div>
@@ -539,13 +550,13 @@ export const HomePage: React.FC<HomePageProps> = ({
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-10">
           <div className="text-xs font-bold uppercase tracking-wider text-[#991B1B] mb-1">
-            Ứng dụng đa chiều
+            {t('home.dualPerspectiveBadge')}
           </div>
           <h2 className="font-display font-bold text-2xl sm:text-3xl text-[#1C1917] tracking-tight mb-2">
-            Được kiến tạo cho cả 2 góc nhìn
+            {t('home.dualPerspectiveTitle')}
           </h2>
           <p className="text-sm text-[#78716C]">
-            Dù bạn là người đi tìm quán ăn hay người trực tiếp vận hành nhà hàng, dữ liệu đều được tinh lọc đúng mục tiêu của bạn.
+            {t('home.dualPerspectiveDesc')}
           </p>
 
           {/* Tab Selector */}
@@ -553,26 +564,26 @@ export const HomePage: React.FC<HomePageProps> = ({
             <button
               type="button"
               onClick={() => setPerspectiveTab('diner')}
-              className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 ${
+              className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
                 perspectiveTab === 'diner'
                   ? 'bg-[#1C1917] text-white shadow-editorial-sm'
                   : 'text-[#57534E] hover:text-[#1C1917]'
               }`}
             >
               <Utensils className="w-4 h-4" />
-              <span>Dành cho Thực khách</span>
+              <span>{t('home.tabDiner')}</span>
             </button>
             <button
               type="button"
               onClick={() => setPerspectiveTab('owner')}
-              className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 ${
+              className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
                 perspectiveTab === 'owner'
                   ? 'bg-[#1C1917] text-white shadow-editorial-sm'
                   : 'text-[#57534E] hover:text-[#1C1917]'
               }`}
             >
               <Store className="w-4 h-4" />
-              <span>Dành cho Chủ quán & Quản lý</span>
+              <span>{t('home.tabOwner')}</span>
             </button>
           </div>
         </div>
@@ -587,15 +598,15 @@ export const HomePage: React.FC<HomePageProps> = ({
                   🍜
                 </div>
                 <h3 className="font-display font-bold text-xl text-[#1C1917] mb-3">
-                  Biết trước món ngon signature & món nên tránh
+                  {t('home.dinerCard1Title')}
                 </h3>
                 <p className="text-sm text-[#57534E] leading-relaxed">
-                  Xem ngay đĩa đồ ăn nào là linh hồn của quán được 90% thực khách khen nức nở, và món nào thường xuyên bị phàn nàn mặn, nguội hoặc khẩu phần ít so với giá tiền để không bị thất vọng.
+                  {t('home.dinerCard1Desc')}
                 </p>
               </div>
               <div className="pt-6 border-t border-[#E8E4DC] mt-6 flex items-center gap-2 text-xs text-[#991B1B] font-semibold">
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Tránh rủi ro gọi nhầm món khi đi ăn tiệc</span>
+                <span>{t('home.dinerCard1Benefit')}</span>
               </div>
             </div>
 
@@ -606,10 +617,10 @@ export const HomePage: React.FC<HomePageProps> = ({
                   ⚠️
                 </div>
                 <h3 className="font-display font-bold text-lg text-[#1C1917] mb-2">
-                  Nhìn thấu điểm trừ vận hành thực tế
+                  {t('home.dinerCard2Title')}
                 </h3>
                 <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed">
-                  Biết trước quán có chỗ đỗ ô tô hay không, giờ cao điểm phải đợi bàn bao lâu và thái độ phục vụ ra sao trước khi bạn bước chân đến quán.
+                  {t('home.dinerCard2Desc')}
                 </p>
               </div>
 
@@ -618,10 +629,10 @@ export const HomePage: React.FC<HomePageProps> = ({
                   💰
                 </div>
                 <h3 className="font-display font-bold text-lg text-[#1C1917] mb-2">
-                  Mức giá & khẩu phần thực tế
+                  {t('home.dinerCard3Title')}
                 </h3>
                 <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed">
-                  Đánh giá xem hóa đơn thanh toán có xứng đáng với chất lượng mang lại hay không dựa trên ý kiến khách quan từ hàng trăm người đã trải nghiệm.
+                  {t('home.dinerCard3Desc')}
                 </p>
               </div>
             </div>
@@ -636,15 +647,15 @@ export const HomePage: React.FC<HomePageProps> = ({
                   🎯
                 </div>
                 <h3 className="font-display font-bold text-xl text-[#1C1917] mb-3">
-                  Bắt đúng bệnh vận hành nhà hàng
+                  {t('home.ownerCard1Title')}
                 </h3>
                 <p className="text-sm text-[#57534E] leading-relaxed">
-                  Hệ thống tự động gom các sự cố lặp lại thành cụm vấn đề (bàn dơ, thiếu điều hòa, tốc độ ra món chậm, tính tiền nhầm) để bạn điều chỉnh đúng điểm nghẽn mà không cần phỏng đoán.
+                  {t('home.ownerCard1Desc')}
                 </p>
               </div>
               <div className="pt-6 border-t border-[#E8E4DC] mt-6 flex items-center gap-2 text-xs text-[#1D4ED8] font-semibold">
                 <TrendingUp className="w-4 h-4" />
-                <span>Tiết kiệm hàng chục giờ kiểm tra camera & sổ sách</span>
+                <span>{t('home.ownerCard1Benefit')}</span>
               </div>
             </div>
 
@@ -655,10 +666,10 @@ export const HomePage: React.FC<HomePageProps> = ({
                   👥
                 </div>
                 <h3 className="font-display font-bold text-lg text-[#1C1917] mb-2">
-                  Đo lường thái độ nhân viên & dịch vụ
+                  {t('home.ownerCard2Title')}
                 </h3>
                 <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed">
-                  Nắm bắt ngay tỷ lệ khiếu nại về thái độ nhân viên order, phục vụ hay bảo vệ dắt xe theo từng mốc thời gian cụ thể.
+                  {t('home.ownerCard2Desc')}
                 </p>
               </div>
 
@@ -667,10 +678,10 @@ export const HomePage: React.FC<HomePageProps> = ({
                   📈
                 </div>
                 <h3 className="font-display font-bold text-lg text-[#1C1917] mb-2">
-                  Theo dõi cải thiện qua từng tháng
+                  {t('home.ownerCard3Title')}
                 </h3>
                 <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed">
-                  Sau khi đào tạo nhân viên hoặc đổi nhà cung cấp nguyên liệu, theo dõi trực tiếp xem tỷ lệ khen ngợi trên biểu đồ xu hướng có tăng trưởng hay không.
+                  {t('home.ownerCard3Desc')}
                 </p>
               </div>
             </div>
@@ -684,20 +695,20 @@ export const HomePage: React.FC<HomePageProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
             <div>
               <div className="text-xs font-bold uppercase tracking-wider text-[#991B1B] mb-1">
-                Tuyển tập tiêu biểu
+                {t('home.curatedBadge')}
               </div>
               <h2 className="font-display font-bold text-2xl sm:text-3xl text-[#1C1917] tracking-tight">
-                Quán ăn nổi bật đã được đánh giá
+                {t('home.curatedTitle')}
               </h2>
               <p className="text-xs sm:text-sm text-[#78716C] mt-1">
-                Khám phá hồ sơ bóc tách chi tiết của các quán ăn được quan tâm nhiều nhất
+                {t('home.curatedDesc')}
               </p>
             </div>
             <button
               onClick={onNavigateExplore}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#1C1917] hover:text-[#991B1B] transition-colors group"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#1C1917] hover:text-[#991B1B] transition-colors group cursor-pointer"
             >
-              <span>Xem toàn bộ quán ăn ({restaurants.length})</span>
+              <span>{t('home.viewAllRestaurants', { count: restaurants.length })}</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </button>
           </div>
@@ -721,21 +732,21 @@ export const HomePage: React.FC<HomePageProps> = ({
           
           <div className="space-y-3.5 text-center lg:text-left relative z-10">
             <span className="text-xs font-bold text-[#D97706] uppercase tracking-wider">
-              Minh bạch & Độc lập
+              {t('home.manifestoBadge')}
             </span>
             <h3 className="font-display font-bold text-2xl sm:text-3xl tracking-tight text-white">
-              Restaurant Intelligence đọc vị đánh giá như thế nào?
+              {t('home.manifestoTitle')}
             </h3>
             <p className="text-xs sm:text-sm text-[#D6D3D1] max-w-2xl leading-relaxed">
-              Từ hàng ngàn bài nhận xét của thực khách, hệ thống tự động loại bỏ bình luận rác và tài khoản ảo, phân loại tỷ lệ khen - chê theo 5 tiêu chí chất lượng và đưa ra bản tóm tắt trung thực chỉ trong vài giây.
+              {t('home.manifestoDesc')}
             </p>
           </div>
 
           <button
             onClick={onNavigateHowItWorks}
-            className="px-6 py-3.5 bg-white hover:bg-[#FAF7F2] text-[#1C1917] rounded-xl text-xs sm:text-sm font-bold tracking-wide transition-all shrink-0 shadow-editorial-sm relative z-10"
+            className="px-6 py-3.5 bg-white hover:bg-[#FAF7F2] text-[#1C1917] rounded-xl text-xs sm:text-sm font-bold tracking-wide transition-all shrink-0 shadow-editorial-sm relative z-10 cursor-pointer"
           >
-            Xem cách thức hoạt động →
+            {t('home.viewMethodologyCta')}
           </button>
         </div>
       </section>

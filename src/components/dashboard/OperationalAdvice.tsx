@@ -1,12 +1,15 @@
 import React from 'react';
 import type { Restaurant } from '../../types/restaurant';
 import { ClipboardList, ArrowUpRight } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface OperationalAdviceProps {
   restaurant: Restaurant;
 }
 
 export const OperationalAdvice: React.FC<OperationalAdviceProps> = ({ restaurant }) => {
+  const { t } = useLanguage();
+
   if (!restaurant.operationalChecklist || restaurant.operationalChecklist.length === 0) {
     return null;
   }
@@ -20,15 +23,15 @@ export const OperationalAdvice: React.FC<OperationalAdviceProps> = ({ restaurant
           </div>
           <div>
             <h2 className="text-base sm:text-lg font-bold text-[#18181B] tracking-tight">
-              Đề xuất cải thiện vận hành dành cho quản lý
+              {t('advice.title')}
             </h2>
             <p className="text-xs text-[#71717A]">
-              Các bước hành động cụ thể được xây dựng từ quy luật phản hồi của khách hàng
+              {t('advice.desc')}
             </p>
           </div>
         </div>
         <span className="text-xs font-semibold text-[#C2410C] bg-orange-50 px-2.5 py-1 rounded border border-orange-200">
-          Cổng quản lý
+          {t('advice.badge')}
         </span>
       </div>
 
@@ -36,11 +39,11 @@ export const OperationalAdvice: React.FC<OperationalAdviceProps> = ({ restaurant
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-zinc-200 bg-zinc-50/70 text-[#71717A]">
-              <th className="py-2.5 px-3 font-semibold uppercase tracking-wider w-24">Mức ưu tiên</th>
-              <th className="py-2.5 px-3 font-semibold uppercase tracking-wider w-40">Bộ phận</th>
-              <th className="py-2.5 px-3 font-semibold uppercase tracking-wider">Vấn đề ghi nhận</th>
-              <th className="py-2.5 px-3 font-semibold uppercase tracking-wider">Tác động vận hành</th>
-              <th className="py-2.5 px-3 font-semibold uppercase tracking-wider">Giải pháp đề xuất</th>
+              <th className="py-2.5 px-3 font-semibold uppercase tracking-wider w-24">{t('advice.priority')}</th>
+              <th className="py-2.5 px-3 font-semibold uppercase tracking-wider w-40">{t('advice.department')}</th>
+              <th className="py-2.5 px-3 font-semibold uppercase tracking-wider">{t('advice.issue')}</th>
+              <th className="py-2.5 px-3 font-semibold uppercase tracking-wider">{t('advice.impact')}</th>
+              <th className="py-2.5 px-3 font-semibold uppercase tracking-wider">{t('advice.solution')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
@@ -49,11 +52,20 @@ export const OperationalAdvice: React.FC<OperationalAdviceProps> = ({ restaurant
               if (item.priority === 'Trung bình') priorityClass = 'bg-amber-50 text-amber-700 border-amber-200';
               if (item.priority === 'Thấp') priorityClass = 'bg-zinc-100 text-zinc-700 border-zinc-200';
 
+              const priorityLabel =
+                item.priority === 'Cao'
+                  ? t('advice.priorityHigh')
+                  : item.priority === 'Trung bình'
+                  ? t('advice.priorityMedium')
+                  : item.priority === 'Thấp'
+                  ? t('advice.priorityLow')
+                  : item.priority;
+
               return (
                 <tr key={idx} className="hover:bg-zinc-50/60 transition-colors">
                   <td className="py-3 px-3">
                     <span className={`inline-block px-2 py-0.5 rounded font-semibold text-[11px] border ${priorityClass}`}>
-                      {item.priority}
+                      {priorityLabel}
                     </span>
                   </td>
                   <td className="py-3 px-3 font-medium text-[#18181B]">

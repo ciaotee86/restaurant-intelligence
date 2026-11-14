@@ -133,6 +133,38 @@ DEFAULT_SEEDS = {
     ]
 }
 
+# Bản đồ phân vùng quận / huyện ẩm thực để tự động mở rộng từ khóa, chống nghẽn lặp
+CITY_DISTRICTS = {
+    "da-nang": ["Hải Châu", "Thanh Khê", "Sơn Trà", "Ngũ Hành Sơn", "Cẩm Lệ", "Liên Chiểu"],
+    "ho-chi-minh": ["Quận 1", "Quận 3", "Quận 5", "Quận 10", "Bình Thạnh", "Phú Nhuận", "Thủ Đức"],
+    "ha-noi": ["Hoàn Kiếm", "Ba Đình", "Đống Đa", "Cầu Giấy", "Tây Hồ", "Hai Bà Trưng"]
+}
+
+# Ngưỡng tối thiểu bài đánh giá hợp lệ để được lưu trữ (chặn tuyệt đối thực thể rác 0 review)
+MIN_VIABLE_REVIEWS_THRESHOLD = 1
+
+
+def get_dynamic_seeds_for_city(city: str) -> List[str]:
+    """
+    Tự động kết hợp danh mục món ăn với quận/huyện để tạo ra bộ từ khóa cào động,
+    không bị cứng nhắc và luôn tìm được quán mới ở các khu vực khác nhau.
+    """
+    base = DEFAULT_SEEDS.get(city, ["cơm", "bún", "phở", "quán ăn", "hải sản", "cà phê"])
+    districts = CITY_DISTRICTS.get(city, [])
+    if not districts:
+        return base
+
+    # Sinh danh sách từ khóa động: món ăn gốc + món ăn kết hợp quận
+    import random
+    expanded = list(base)
+    # Lấy ngẫu nhiên 2-3 món kết hợp với 2-3 quận để cào sâu
+    sample_dishes = random.sample(base, min(4, len(base)))
+    sample_districts = random.sample(districts, min(3, len(districts)))
+    for dish in sample_dishes:
+        for dist in sample_districts:
+            expanded.append(f"{dish} {dist}")
+    return expanded
+
 
 def crawl_and_analyze_single_place(
     url: str,
@@ -142,8 +174,10 @@ def crawl_and_analyze_single_place(
     force_refresh: bool = False
 ) -> Dict:
     """
-    Cào và phân tích 1 quán cụ thể.
-    Nếu đã có trong DB và force_refresh=False -> Bỏ qua để tiết kiệm tài nguyên.
+    Cào và phân tích 1 quán cụ thể:
+    - Nếu đã có trong DB và force_refresh=False: Cào incremental review mới.
+    - Chặn thực thể rác: Nếu quán có 0 review từ Foody, thử bù đắp từ Google Maps.
+      Nếu cả hai nguồn đều có 0 review hợp lệ -> TUYỆT ĐỐI KHÔNG ĐẨY VÀO DATABASE!
     """
     url_clean = url.split("?")[0].strip()
     
@@ -174,6 +208,48 @@ def crawl_and_analyze_single_place(
     final_addr = crawl_data.get("address") or address or ""
     overall_rating = crawl_data.get("overall_rating")
 
+    # Lọc bài đánh giá hợp lệ
+    raw_reviews = crawl_data.get("reviews", [])
+    valid_reviews = [
+        rv for rv in raw_reviews
+        if (rv.get("text") or "").strip() and len((rv.get("text") or "").strip()) >= 5
+    ]
+
+    # BÙ ĐẮP GOOGLE MAPS NẾU FOODY 0 REVIEW
+    gm_crawl_data = None
+    if len(valid_reviews) == 0:
+        print(f"  [Foody 0 Review] '{final_name}' có 0 review trên Foody. Thử tìm kiếm & bù đắp từ Google Maps...")
+        try:
+            from crawler.google_maps_crawler import search_and_crawl_google_maps
+            search_gm_q = f"{final_name} {final_addr}".strip()
+            gm_res = search_and_crawl_google_maps(
+                query=search_gm_q,
+                city="",
+                max_reviews=max_reviews,
+                headless=True
+            )
+            if gm_res and gm_res.get("success") and gm_res.get("reviews"):
+                gm_valid = [
+                    rv for rv in gm_res["reviews"]
+                    if (rv.get("text") or "").strip() and len((rv.get("text") or "").strip()) >= 5
+                ]
+                if gm_valid:
+                    gm_crawl_data = gm_res
+                    print(f"  -> Bù đắp thành công {len(gm_valid)} review Google Maps cho '{final_name}'!")
+        except Exception as gm_err:
+            print(f"  -> [Google Maps Fallback Error]: {gm_err}")
+
+    total_valid = len(valid_reviews) + (len(gm_crawl_data.get("reviews", [])) if gm_crawl_data else 0)
+
+    # CHẶN THỰC THỂ RÁC: Nếu quán không có bất kỳ bài đánh giá nào từ cả hai nguồn -> Không lưu vào DB
+    if total_valid < MIN_VIABLE_REVIEWS_THRESHOLD:
+        print(f"  ⚠️ [Bỏ qua - Chống rác DB] '{final_name}': 0 bài đánh giá từ cả Foody và Google Maps. Không lưu vào database!")
+        return {
+            "status": "skipped",
+            "reason": "insufficient_reviews",
+            "message": f"Quán không có đánh giá nào ({total_valid} < {MIN_VIABLE_REVIEWS_THRESHOLD})"
+        }
+
     with get_session() as db:
         restaurant = get_or_create_restaurant(
             db,
@@ -183,8 +259,16 @@ def crawl_and_analyze_single_place(
             overall_rating=overall_rating
         )
 
+        if gm_crawl_data:
+            if gm_crawl_data.get("google_maps_url") and not restaurant.google_maps_url:
+                restaurant.google_maps_url = gm_crawl_data["google_maps_url"]
+            if gm_crawl_data.get("google_place_id") and not restaurant.google_place_id:
+                restaurant.google_place_id = gm_crawl_data["google_place_id"]
+            db.flush()
+
         new_reviews = []
-        for rv in crawl_data.get("reviews", []):
+        # Lưu review Foody
+        for rv in valid_reviews:
             saved = save_review(
                 db,
                 restaurant_id=restaurant.id,
@@ -200,11 +284,45 @@ def crawl_and_analyze_single_place(
                 fingerprint=rv.get("fingerprint")
             )
             if saved.is_analyzed == 0:
-                # Chỉ đưa các review hợp lệ (không phải spam và không phải low_information) vào Gemini ABSA
                 if saved.is_spam == 0 and saved.spam_category != "low_information":
                     new_reviews.append((saved.id, saved.text))
                 else:
-                    saved.is_analyzed = 1  # Đánh dấu đã xử lý lọc để không gọi lại AI lãng phí quota
+                    saved.is_analyzed = 1
+
+        # Lưu review Google Maps bù đắp nếu có
+        if gm_crawl_data and gm_crawl_data.get("reviews"):
+            from crawler.review_filter import classify_review
+            from services.entity_resolution import compute_review_fingerprint, is_duplicate_review
+            for gm_rv in gm_crawl_data["reviews"]:
+                g_txt = (gm_rv.get("text") or "").strip()
+                if not g_txt or len(g_txt) < 5 or is_duplicate_review(db, restaurant.id, g_txt):
+                    continue
+                g_clf = classify_review(g_txt, author=gm_rv.get("author"), restaurant_name=final_name)
+                if g_clf.get("is_spam"):
+                    continue
+                g_fp = compute_review_fingerprint(g_txt)
+                g_saved = DBReview(
+                    restaurant_id=restaurant.id,
+                    author=(gm_rv.get("author") or "Người dùng Google").strip(),
+                    rating=float(gm_rv.get("rating") or 5.0),
+                    text=g_txt,
+                    review_date=(gm_rv.get("review_date") or "Gần đây").strip(),
+                    is_analyzed=0,
+                    is_spam=0,
+                    spam_score=g_clf.get("spam_score", 0.0),
+                    spam_category=g_clf.get("spam_category", "normal"),
+                    spam_reason=json.dumps(g_clf.get("spam_reason", [])),
+                    fingerprint=g_fp,
+                    source="GoogleMaps",
+                    google_review_id=gm_rv.get("google_review_id"),
+                    created_at=datetime.utcnow()
+                )
+                db.add(g_saved)
+                db.flush()
+                if g_clf.get("spam_category") != "low_information":
+                    new_reviews.append((g_saved.id, g_txt))
+                else:
+                    g_saved.is_analyzed = 1
 
         # Phân tích AI theo batch
         analyzed_count = 0
@@ -232,13 +350,17 @@ def crawl_and_analyze_single_place(
                 if rev_obj:
                     rev_obj.is_analyzed = 1
 
+        from services.entity_resolution import update_restaurant_counts_and_credibility
+        update_restaurant_counts_and_credibility(db, restaurant.id)
         db.commit()
-        print(f"  [Thành công] '{final_name}': Đã lưu {len(crawl_data.get('reviews', []))} review & {analyzed_count} chỉ số khía cạnh!")
+
+        total_saved_reviews = len(valid_reviews) + (len(gm_crawl_data.get("reviews", [])) if gm_crawl_data else 0)
+        print(f"  [Thành công] '{final_name}': Đã lưu {total_saved_reviews} review & {analyzed_count} chỉ số khía cạnh!")
         return {
             "status": "success",
             "restaurant_id": restaurant.id,
             "name": final_name,
-            "reviews_count": len(crawl_data.get("reviews", [])),
+            "reviews_count": total_saved_reviews,
             "analyses_count": analyzed_count
         }
 
@@ -247,32 +369,70 @@ def process_category(
     keyword: str,
     city_slug: str = "da-nang",
     max_places: int = 3,
-    max_reviews: int = 25
+    max_reviews: int = 25,
+    max_pages_to_search: int = 4
 ) -> List[Dict]:
     """
-    Tìm kiếm và cào danh sách các quán ăn theo 1 danh mục/từ khóa tại thành phố cụ thể.
+    Tìm kiếm và cào danh sách các quán ăn theo 1 danh mục/từ khóa tại thành phố:
+    - Cơ chế Discovery Pagination: Tự động lọc bỏ các quán ĐÃ CÓ trong DB.
+    - Nếu trang 1 toàn quán đã cào, tự động sang trang 2, 3... để tìm các quán HOÀN TOÀN MỚI.
+    - Không bị skip cứng nhắc khi DB đã có 1 quán.
     """
     print(f"\n=======================================================")
-    print(f"🚀 [DANH MỤC] '{keyword}' tại '{city_slug}' (Tối đa: {max_places} quán)")
+    print(f"🚀 [DANH MỤC KHÁM PHÁ] '{keyword}' tại '{city_slug}' (Mục tiêu: {max_places} quán mới)")
     print(f"=======================================================")
 
-    discovered = search_foody_places(keyword, city_slug=city_slug, max_results=max_places)
-    if not discovered:
-        print(f"  Không tìm thấy quán nào trên Foody cho từ khóa '{keyword}'.")
+    # 1. Lấy danh sách URL đã có trong DB
+    existing_urls = set()
+    with get_session() as db:
+        rows = db.query(DBRestaurant.foody_url).filter(DBRestaurant.foody_url.isnot(None)).all()
+        existing_urls = set(r[0] for r in rows)
+
+    new_places_to_crawl = []
+
+    # 2. Quét qua các trang phân trang (page 1, 2, 3...) cho đến khi gom đủ max_places quán MỚI
+    for page in range(1, max_pages_to_search + 1):
+        needed = max_places - len(new_places_to_crawl)
+        if needed <= 0:
+            break
+
+        print(f"  🔍 Đang quét trang {page} trên Foody cho '{keyword}'...")
+        batch = search_foody_places(
+            query=keyword,
+            city_slug=city_slug,
+            max_results=needed * 3,
+            page=page,
+            existing_urls=existing_urls
+        )
+        if not batch:
+            print(f"  Trang {page} không còn kết quả mới.")
+            break
+
+        for p in batch:
+            if p["url"] not in existing_urls and p not in new_places_to_crawl:
+                new_places_to_crawl.append(p)
+                existing_urls.add(p["url"])
+                if len(new_places_to_crawl) >= max_places:
+                    break
+        time.sleep(1.0)
+
+    if not new_places_to_crawl:
+        print(f"  ℹ️ Toàn bộ các quán tìm thấy cho từ khóa '{keyword}' trên Foody đã có trong cơ sở dữ liệu.")
         return []
 
-    print(f"  Tìm thấy {len(discovered)} quán tiềm năng trên Foody. Bắt đầu xử lý...")
+    print(f"  🎯 Đã phát hiện {len(new_places_to_crawl)} quán HOÀN TOÀN MỚI chưa có trong DB. Bắt đầu cào...")
     results = []
 
-    for i, place in enumerate(discovered, 1):
-        print(f"\n[{i}/{len(discovered)}] {place['name']} - {place.get('address', '')}")
+    for i, place in enumerate(new_places_to_crawl, 1):
+        print(f"\n[{i}/{len(new_places_to_crawl)}] Cào quán mới: {place['name']} - {place.get('address', '')}")
         res = crawl_and_analyze_single_place(
             url=place["url"],
             place_name=place["name"],
             address=place.get("address", ""),
             max_reviews=max_reviews
         )
-        results.append(res)
+        if res.get("status") == "success":
+            results.append(res)
         # Nghỉ ngắn giữa các quán để tránh bị Foody chặn IP
         time.sleep(2.0)
 
@@ -400,7 +560,7 @@ def run_full_pipeline(
         target_cities = cities
 
     for city in target_cities:
-        city_seeds = categories or DEFAULT_SEEDS.get(city, ["cơm", "bún", "phở", "quán ăn", "hải sản", "cà phê"])
+        city_seeds = categories or get_dynamic_seeds_for_city(city)
         print(f"\n📍 KHU VỰC: {city.upper()} ({len(city_seeds)} danh mục món)")
         
         for cat in city_seeds:

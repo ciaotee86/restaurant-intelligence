@@ -912,14 +912,21 @@ def _export_csv(results: list, path: str):
                 writer.writerow([r.get("name", ""), r["url"], rv["author"], rv["rating"], rv["text"], rv["date"]])
 
 
-def _search_foody_via_http(query: str, city_slug: str = "da-nang", max_results: int = 5):
+def _search_foody_via_http(
+    query: str,
+    city_slug: str = "da-nang",
+    max_results: int = 5,
+    page: int = 1,
+    existing_urls: Optional[Set[str]] = None
+):
     """
     Tìm kiếm nhanh trên Foody qua HTTP request và BeautifulSoup (< 1 giây).
-    Không cần khởi động Chrome browser nặng nề.
+    Không cần khởi động Chrome browser nặng nề. Hỗ trợ phân trang và lọc quán đã có trong DB.
     """
     from bs4 import BeautifulSoup
     encoded_q = urllib.parse.quote(query.strip())
-    search_url = f"https://www.foody.vn/{city_slug}/dia-diem?q={encoded_q}"
+    page_param = f"&page={page}" if page > 1 else ""
+    search_url = f"https://www.foody.vn/{city_slug}/dia-diem?q={encoded_q}{page_param}"
     req = urllib.request.Request(
         search_url,
         headers={
@@ -961,6 +968,9 @@ def _search_foody_via_http(query: str, city_slug: str = "da-nang", max_results: 
 
         if name and url and "foody.vn" in url and "/dia-diem" not in url and "/khu-vuc" not in url:
             clean_url = url.split("?")[0]
+            # Bỏ qua quán đã tồn tại trong DB để cào quán mới
+            if existing_urls and clean_url in existing_urls:
+                continue
             if clean_url not in seen_urls:
                 seen_urls.add(clean_url)
                 results.append({
@@ -975,21 +985,35 @@ def _search_foody_via_http(query: str, city_slug: str = "da-nang", max_results: 
     return results[:max_results]
 
 
-def search_foody_places(query: str, city_slug: str = "da-nang", max_results: int = 5):
+def search_foody_places(
+    query: str,
+    city_slug: str = "da-nang",
+    max_results: int = 5,
+    page: int = 1,
+    existing_urls: Optional[Set[str]] = None
+):
     """
     Tìm kiếm các quán ăn trên Foody theo từ khóa:
     Ưu tiên Fast HTTP Path (< 1 giây).
     Fallback sang Selenium Headless nếu HTTP bị chặn.
+    Hỗ trợ phân trang page và lọc quán đã có trong DB (existing_urls).
     """
     encoded_q = urllib.parse.quote(query.strip())
-    search_url = f"https://www.foody.vn/{city_slug}/dia-diem?q={encoded_q}"
-    print(f"-> [Foody Search] Đang tìm kiếm từ khóa '{query}': {search_url}")
+    page_param = f"&page={page}" if page > 1 else ""
+    search_url = f"https://www.foody.vn/{city_slug}/dia-diem?q={encoded_q}{page_param}"
+    print(f"-> [Foody Search] Đang tìm kiếm từ khóa '{query}' (Trang {page}): {search_url}")
 
     # 1. Thử HTTP Fast Path (< 1s, tiết kiệm 100% thời gian khởi động Chrome)
     try:
-        http_results = _search_foody_via_http(query, city_slug=city_slug, max_results=max_results)
+        http_results = _search_foody_via_http(
+            query,
+            city_slug=city_slug,
+            max_results=max_results,
+            page=page,
+            existing_urls=existing_urls
+        )
         if http_results and len(http_results) > 0:
-            print(f"-> [Foody Search Fast Path] Đã tìm thấy {len(http_results)} quán qua Direct HTTP trong < 1s!")
+            print(f"-> [Foody Search Fast Path] Đã tìm thấy {len(http_results)} quán qua Direct HTTP (Trang {page}) trong < 1s!")
             return http_results
     except Exception as http_err:
         print(f"-> [Foody Search HTTP Fallback] Không dùng được HTTP ({http_err}), chuyển sang Selenium...")
@@ -1030,6 +1054,8 @@ def search_foody_places(query: str, city_slug: str = "da-nang", max_results: int
 
                 if name and url and "foody.vn" in url and "/dia-diem" not in url and "/khu-vuc" not in url:
                     clean_url = url.split("?")[0]
+                    if existing_urls and clean_url in existing_urls:
+                        continue
                     if clean_url not in seen_urls:
                         seen_urls.add(clean_url)
                         results.append({

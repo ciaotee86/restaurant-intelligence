@@ -362,16 +362,36 @@ def save_and_analyze_google_maps_reviews(
     crawl_data: Dict[str, Any],
     req_url: Optional[str] = None,
     restaurant: Optional[DBRestaurant] = None,
-    default_name: str = "Quán Google Maps"
-) -> Tuple[DBRestaurant, int, int]:
+    default_name: str = "Quán Google Maps",
+    min_viable_reviews: int = 0
+) -> Tuple[Optional[DBRestaurant], int, int]:
     """
     Lưu dữ liệu cào Google Maps và chạy phân tích ABSA:
-    1. Xác định hoặc tạo DBRestaurant qua resolve_or_create_restaurant nếu chưa có.
-    2. Lọc spam, kiểm tra trùng lặp (SHA-256 fingerprint), tạo DBReview với source='GoogleMaps'.
-    3. Phân tích cảm xúc 5 khía cạnh bằng Gemini ABSA (analyze_batch).
-    4. Cập nhật số lượng đánh giá và độ tin cậy mẫu (update_restaurant_counts_and_credibility).
-    5. Invalidate cache và trả về (restaurant, new_reviews_count, duplicate_count).
+    1. Kiểm tra số lượng đánh giá hợp lệ. Nếu là quán mới (restaurant is None) và số đánh giá < min_viable_reviews,
+       tuyệt đối không tạo DBRestaurant trong DB để tránh thực thể rác.
+    2. Xác định hoặc tạo DBRestaurant qua resolve_or_create_restaurant nếu hợp lệ.
+    3. Lọc spam, kiểm tra trùng lặp (SHA-256 fingerprint), tạo DBReview với source='GoogleMaps'.
+    4. Phân tích cảm xúc 5 khía cạnh bằng Gemini ABSA (analyze_batch).
+    5. Cập nhật số lượng đánh giá và độ tin cậy mẫu (update_restaurant_counts_and_credibility).
+    6. Invalidate cache và trả về (restaurant, new_reviews_count, duplicate_count).
     """
+    raw_reviews = crawl_data.get("reviews", [])
+    valid_raw_reviews = []
+    for rv in raw_reviews:
+        text = (rv.get("text") or "").strip()
+        if not text or len(text) < 5:
+            continue
+        # Chống chuỗi mẫu bất thường
+        if any("{{" in f or "}}" in f for f in [text, rv.get("author", "")]):
+            continue
+        valid_raw_reviews.append(rv)
+
+    # Chặn thực thể rác: Nếu là quán mới và không có đủ đánh giá hợp lệ -> Không lưu vào DB
+    if restaurant is None and len(valid_raw_reviews) < min_viable_reviews:
+        place_name = crawl_data.get("restaurant_name") or default_name
+        print(f"⚠️ [Crawler Guard] Bỏ qua quán '{place_name}': Chỉ có {len(valid_raw_reviews)} đánh giá hợp lệ trên Google Maps (yêu cầu tối thiểu >= {min_viable_reviews}). Không lưu thực thể rác vào DB.")
+        return None, 0, 0
+
     if restaurant is None:
         rest_name = crawl_data.get("restaurant_name") or default_name
         restaurant, _ = resolve_or_create_restaurant(
@@ -392,12 +412,11 @@ def save_and_analyze_google_maps_reviews(
             restaurant.address = crawl_data["address"]
         db.flush()
 
-    raw_reviews = crawl_data.get("reviews", [])
     new_reviews_count = 0
     duplicate_count = 0
     new_reviews_to_analyze = []
 
-    for rv in raw_reviews:
+    for rv in valid_raw_reviews:
         text = (rv.get("text") or "").strip()
         if not text or len(text) < 3:
             continue
@@ -557,13 +576,15 @@ def analyze_restaurant_url(req: AnalyzeRequest):
                     foody_url=url,
                     default_name="Quán mới"
                 )
+                if not restaurant:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Quán ăn này không có bài đánh giá thực tế nào từ thực khách trên Foody. Hệ thống từ chối lưu thực thể rác vào cơ sở dữ liệu."
+                    )
                 invalidate_restaurants_cache()
                 formatted = format_restaurant_full(restaurant, db)
                 rev_count = len(crawl_data.get('reviews', []))
-                if rev_count > 0:
-                    msg = f"Đã cào và phân tích thành công {rev_count} đánh giá thực tế!"
-                else:
-                    msg = f"Quán '{restaurant.name}' hiện chưa có bài đánh giá nào trên Foody. Hệ thống đã lưu trữ thông tin quán thành công!"
+                msg = f"Đã cào và phân tích thành công {rev_count} đánh giá thực tế!"
 
                 return {
                     "success": True,
@@ -603,12 +624,14 @@ def analyze_restaurant_url(req: AnalyzeRequest):
                     req_url=url,
                     default_name="Quán mới"
                 )
+                if not restaurant:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Quán ăn này không có bài đánh giá thực tế nào từ thực khách trên Google Maps. Hệ thống từ chối lưu thực thể rác vào cơ sở dữ liệu."
+                    )
                 formatted = format_restaurant_full(restaurant, db)
                 rev_count = len(crawl_data.get('reviews', []))
-                if rev_count > 0:
-                    msg = f"Đã cào và phân tích thành công {rev_count} đánh giá thực tế từ Google Maps!"
-                else:
-                    msg = f"Quán '{restaurant.name}' hiện chưa có bài đánh giá nào trên Google Maps. Hệ thống đã lưu trữ thông tin quán thành công!"
+                msg = f"Đã cào và phân tích thành công {rev_count} đánh giá thực tế từ Google Maps!"
 
                 return {
                     "success": True,
@@ -852,17 +875,80 @@ def get_foody_city_slug(city_input: str) -> str:
     return re.sub(r'[^a-z0-9]+', '-', norm).strip('-')
 
 
+COMMON_FOOD_CATEGORIES = {
+    # Mì, bún, phở, hủ tiếu, bánh canh
+    "mi quang", "my quang", "pho", "bun bo", "bun bo hue", "bun cha", "bun dau", "bun rieu",
+    "bun mam", "bun cha ca", "bun thit nuong", "bun ca", "bun moc", "bun oc", "bun quay",
+    "hu tieu", "hu tieu nam vang", "banh canh", "banh canh cua", "banh canh ca loc",
+    "cao lau", "mi vit tiem", "mi van than", "mi cay", "ramen", "udon",
+    # Cơm, xôi, cháo
+    "com tam", "com ga", "com nieu", "com rang", "com chien", "com binh dan", "com van phong",
+    "xoi", "xoi ga", "xoi xeo", "chao", "chao long", "chao vit", "chao ech",
+    # Bánh, nem, cuốn
+    "banh mi", "banh mi pate", "banh mi chao", "banh xeo", "banh khot", "banh cuon",
+    "banh beo", "banh nam", "banh loc", "banh trang", "banh trang cuon", "banh trang cuon thit heo",
+    "banh trang kep", "banh trang tron", "nem lui", "nem chua ran", "ram cuon cai",
+    # Lẩu, nướng, hải sản, quán nhậu, ốc
+    "hai san", "lau", "lau nuong", "lau bo", "lau de", "lau nam", "lau thai", "lau ca", "lau mam",
+    "nuong", "bbq", "do nuong", "quan nhau", "bia", "oc", "quan oc", "hai san tuoi song",
+    # Thịt, gia cầm, đặc sản
+    "ga nuong", "ga luoc", "vit quay", "vit co", "bo le", "bo ne", "be thui", "be thui cau mong",
+    "de nui", "de tuoi", "heo quay", "thit cho",
+    # Đồ uống, tráng miệng, cafe
+    "ca phe", "cafe", "tra sua", "tra dao", "tra trai cay", "sinh to", "nuoc ep",
+    "che", "che thai", "tau hu", "kem", "bingsu",
+    # Món Tây, Á, ăn nhanh
+    "pizza", "burger", "hamburger", "pasta", "mi y", "steak", "bit tet",
+    "sushi", "sashimi", "dimsum", "tokbokki", "kimbap", "ga ran", "buffet", "an vat",
+    # Cụm từ chung chung
+    "quan an", "nha hang", "dac san", "am thuc", "an sang", "an trua", "an toi",
+    "do an ngon", "quan ngon", "mon ngon", "ship do an"
+}
+
+
+def is_category_or_dish_query(query: str) -> bool:
+    """
+    Xác định xem câu truy vấn là danh mục món ăn / loại hình quán ăn
+    thay vì tìm kiếm đích danh một thương hiệu / quán ăn cụ thể.
+    """
+    if not query:
+        return False
+    norm = remove_accents(query).lower().strip()
+    norm = re.sub(r"[^\w\s]", " ", norm)
+    norm = re.sub(r"\s+", " ", norm).strip()
+
+    words = norm.split()
+    if not words:
+        return False
+
+    stop_words = {
+        "quan", "tiem", "cho", "ngon", "re", "nhat", "gan", "day", "o", "tai",
+        "khu", "pho", "da", "nang", "ha", "noi", "sai", "gon", "hcm", "tp",
+        "dia", "chi", "doc", "duong", "nha", "trang", "hue", "hoi", "an", "da",
+        "lat", "vung", "tau", "quang", "nam", "binh", "dinh", "can", "tho",
+        "hai", "phong", "bien", "hoa", "phan", "thiet", "quy", "nhon", "phu", "quoc"
+    }
+
+    for cat in COMMON_FOOD_CATEGORIES:
+        if norm == cat or norm.startswith(cat + " ") or norm.endswith(" " + cat) or f" {cat} " in f" {norm} ":
+            rem = norm.replace(cat, " ").strip()
+            rem_tokens = [w for w in rem.split() if w not in stop_words and w not in COMMON_FOOD_CATEGORIES]
+            if len(rem_tokens) == 0:
+                return True
+
+    return False
+
+
 @router.post("/search-and-crawl")
 def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
     """
     Quy trình tìm kiếm và cào dữ liệu thông minh theo từ khóa và nguồn:
     1. Nhận từ khóa tìm kiếm (ví dụ: 'bánh tráng', 'bún huế') và tham số source ('auto' | 'foody' | 'google_maps').
-    2. Bước 1: Tra cứu cơ sở dữ liệu SQLite trước: nếu quán đã có trong DB, trả về ngay tức thì (< 20ms).
-    3. Bước 2:
-       - Nếu source == 'google_maps': Tìm kiếm & cào trực tiếp qua Google Maps Playwright Crawler.
-       - Nếu source == 'foody': Tìm kiếm trên Foody.vn và cào qua Selenium.
-       - Nếu source == 'auto': Tìm kiếm trên Foody.vn trước. Nếu không có kết quả hoặc 0 review, tự động fallback sang Google Maps.
-    4. Lưu kết quả, lọc spam, chạy Gemini ABSA và trả về dữ liệu chuẩn hóa.
+    2. Phân loại từ khóa:
+       - Nếu là tên đích danh quán ăn (VD: 'Pizza 4P's', 'Bún chả cá Bà Lữ'): Tra cứu nhanh DB trước (< 20ms).
+       - Nếu là thể loại món ăn (VD: 'mì quảng', 'hải sản đà nẵng'): Kích hoạt cơ chế Discovery Pagination
+         để tìm và cào các quán MỚI chưa từng có trong DB, không bị kẹt hay skip cứng nhắc khi DB đã có 1 quán.
+    3. Chặn thực thể rác: Nếu quán cào về không có bất kỳ đánh giá nào hợp lệ từ cả hai nguồn -> Không lưu vào DB.
     """
     try:
         q = req.query.strip()
@@ -897,7 +983,6 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
         from services.bi_service import detect_city
 
         # 1. Xác định thành phố mục tiêu và từ khóa món ăn:
-        # Nếu người dùng đã chủ động chọn thành phố trong Modal (req.city), ưu tiên tuyệt đối lựa chọn đó.
         user_selected_city = req.city.strip() if req.city and req.city not in ["Tất cả địa điểm", "All Cities", "all", ""] else None
         detected_city, rem_q = extract_city_from_query(q)
 
@@ -914,125 +999,130 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
         if source not in ("auto", "foody", "google_maps"):
             source = "auto"
 
+        is_category = is_category_or_dish_query(search_keyword)
+
         # Bước 1: Kiểm tra trong cơ sở dữ liệu SQLite trước
-        with get_session() as db:
-            all_res = db.query(DBRestaurant).all()
-            matching_res = None
+        # Chỉ kiểm tra nhanh trong DB nếu:
+        # 1. Tìm kiếm đích danh quán ăn (not is_category)
+        # 2. Hoặc người dùng chỉ định rõ nguồn là "database"
+        matching_res = None
+        if not is_category or source == "database":
+            with get_session() as db:
+                all_res = db.query(DBRestaurant).all()
 
-            # Ưu tiên 1: Khớp nguyên cụm từ trong tên quán hoặc URL Foody / Google Maps
-            for r in all_res:
-                if norm_eff_city:
-                    r_city = detect_city(r.address or "", foody_url=r.foody_url, restaurant_name=r.name)
-                    r_norm_city = remove_accents(r_city).replace("-", " ").strip()
-                    if norm_eff_city != r_norm_city and norm_eff_city not in r_norm_city:
-                        continue
-                r_norm = remove_accents(r.name)
-                foody_slug = r.foody_url.split("/")[-1] if r.foody_url else ""
-                gmaps_slug = r.google_maps_url.split("/")[-1] if r.google_maps_url else ""
-                if norm_kw in r_norm or (foody_slug and norm_kw in remove_accents(foody_slug)) or (gmaps_slug and norm_kw in remove_accents(gmaps_slug)):
-                    matching_res = r
-                    break
-
-            # Ưu tiên 2: Khớp tất cả các token từ khóa trong tên hoặc địa chỉ
-            if not matching_res and len(tokens) >= 2:
+                # Ưu tiên 1: Khớp nguyên cụm từ trong tên quán hoặc URL Foody / Google Maps
                 for r in all_res:
                     if norm_eff_city:
                         r_city = detect_city(r.address or "", foody_url=r.foody_url, restaurant_name=r.name)
                         r_norm_city = remove_accents(r_city).replace("-", " ").strip()
                         if norm_eff_city != r_norm_city and norm_eff_city not in r_norm_city:
                             continue
-                    r_full = remove_accents(f"{r.name} {r.address or ''}")
-                    if all(t in r_full for t in tokens):
+                    r_norm = remove_accents(r.name)
+                    foody_slug = r.foody_url.split("/")[-1] if r.foody_url else ""
+                    gmaps_slug = r.google_maps_url.split("/")[-1] if r.google_maps_url else ""
+                    if norm_kw in r_norm or (foody_slug and norm_kw in remove_accents(foody_slug)) or (gmaps_slug and norm_kw in remove_accents(gmaps_slug)):
                         matching_res = r
                         break
 
-            if matching_res:
-                print(f"-> [Search & Crawl] Đã tìm thấy quán '{matching_res.name}' trong cơ sở dữ liệu SQLite!")
-                has_gmaps = (
-                    db.query(DBReview)
-                    .filter(
-                        DBReview.restaurant_id == matching_res.id,
-                        DBReview.source.in_(["GoogleMaps", "google_maps", "Google Maps"])
+                # Ưu tiên 2: Khớp tất cả các token từ khóa trong tên hoặc địa chỉ
+                if not matching_res and len(tokens) >= 2:
+                    for r in all_res:
+                        if norm_eff_city:
+                            r_city = detect_city(r.address or "", foody_url=r.foody_url, restaurant_name=r.name)
+                            r_norm_city = remove_accents(r_city).replace("-", " ").strip()
+                            if norm_eff_city != r_norm_city and norm_eff_city not in r_norm_city:
+                                continue
+                        r_full = remove_accents(f"{r.name} {r.address or ''}")
+                        if all(t in r_full for t in tokens):
+                            matching_res = r
+                            break
+
+                if matching_res:
+                    print(f"-> [Search & Crawl] Đã tìm thấy quán '{matching_res.name}' trong cơ sở dữ liệu SQLite!")
+                    has_gmaps = (
+                        db.query(DBReview)
+                        .filter(
+                            DBReview.restaurant_id == matching_res.id,
+                            DBReview.source.in_(["GoogleMaps", "google_maps", "Google Maps"])
+                        )
+                        .count() > 0
                     )
-                    .count() > 0
-                )
 
-                # 1. Người dùng chỉ định rõ nguồn Foody: Trả về luôn từ DB
-                if source == "foody":
-                    formatted = format_restaurant_full(matching_res, db)
-                    return {
-                        "success": True,
-                        "source": "database",
-                        "message": f"Tìm thấy quán '{matching_res.name}' đã được phân tích sẵn trong cơ sở dữ liệu!",
-                        "restaurant": formatted
-                    }
-
-                # 2. Người dùng chọn google_maps và quán đã có dữ liệu Google Maps
-                if source == "google_maps" and has_gmaps:
-                    formatted = format_restaurant_full(matching_res, db)
-                    return {
-                        "success": True,
-                        "source": "database",
-                        "message": f"Tìm thấy quán '{matching_res.name}' đã có dữ liệu Google Maps trong cơ sở dữ liệu!",
-                        "restaurant": formatted
-                    }
-
-                # 3. Người dùng chọn auto và quán đã có đủ dữ liệu từ Google Maps: Trả về luôn từ DB
-                if source == "auto" and has_gmaps:
-                    formatted = format_restaurant_full(matching_res, db)
-                    return {
-                        "success": True,
-                        "source": "database",
-                        "message": f"Tìm thấy quán '{matching_res.name}' đã được phân tích sẵn trong cơ sở dữ liệu!",
-                        "restaurant": formatted
-                    }
-
-                # 4. Khi source == "auto" mà quán chưa có review Google Maps: Tự động chạy cào bổ sung Google Maps
-                if source == "auto" and not has_gmaps:
-                    gmap_query = f"{matching_res.name} {matching_res.address or ''}".strip()
-                    gmap_city = gmaps_city or get_google_maps_location(matching_res.city or "")
-                    print(f"-> [Search & Crawl] [Dual-Source] Quán '{matching_res.name}' trong DB chưa có review Google Maps. Bắt đầu cào bổ sung từ Google Maps cho '{gmap_query}'...")
-                    gmaps_crawled_ok = False
-                    try:
-                        with CRAWLER_SEMAPHORE:
-                            gmaps_data = google_maps_crawler.search_and_crawl_google_maps(
-                                query=gmap_query,
-                                city=gmap_city,
-                                max_reviews=15,
-                                headless=True
-                            )
-                        if gmaps_data and gmaps_data.get("success") and gmaps_data.get("restaurant_name"):
-                            matching_res, new_count, dup_count = save_and_analyze_google_maps_reviews(
-                                db=db,
-                                crawl_data=gmaps_data,
-                                req_url=gmaps_data.get("google_maps_url"),
-                                restaurant=matching_res,
-                                default_name=matching_res.name
-                            )
-                            gmaps_crawled_ok = True
-                            print(f"-> [Search & Crawl] [Dual-Source] Đã bổ sung thành công {new_count} review Google Maps cho quán '{matching_res.name}'.")
-                    except Exception as gm_err:
-                        print(f"-> [Search & Crawl] [Dual-Source] Cào bổ sung Google Maps cho '{matching_res.name}' gặp lỗi: {gm_err}")
-
-                    formatted = format_restaurant_full(matching_res, db)
-                    if gmaps_crawled_ok:
-                        return {
-                            "success": True,
-                            "source": "crawled_and_analyzed",
-                            "message": f"Tìm thấy quán '{matching_res.name}' trong cơ sở dữ liệu và đã bổ sung thành công nhận xét từ Google Maps!",
-                            "restaurant": formatted
-                        }
-                    else:
-                        # Graceful degradation nếu Google Maps lỗi/timeout/không tìm thấy
+                    # 1. Người dùng chỉ định rõ nguồn Foody: Trả về luôn từ DB
+                    if source == "foody":
+                        formatted = format_restaurant_full(matching_res, db)
                         return {
                             "success": True,
                             "source": "database",
-                            "message": f"Đã tổng hợp từ Foody; Google Maps không tìm thấy chi nhánh khớp.",
+                            "message": f"Tìm thấy quán '{matching_res.name}' đã được phân tích sẵn trong cơ sở dữ liệu!",
                             "restaurant": formatted
                         }
 
-        # Bước 2: Chưa có trong DB -> Tùy theo source (google_maps | foody | auto)
-        def crawl_gmaps():
+                    # 2. Người dùng chọn google_maps và quán đã có dữ liệu Google Maps
+                    if source == "google_maps" and has_gmaps:
+                        formatted = format_restaurant_full(matching_res, db)
+                        return {
+                            "success": True,
+                            "source": "database",
+                            "message": f"Tìm thấy quán '{matching_res.name}' đã có dữ liệu Google Maps trong cơ sở dữ liệu!",
+                            "restaurant": formatted
+                        }
+
+                    # 3. Người dùng chọn auto và quán đã có đủ dữ liệu từ Google Maps: Trả về luôn từ DB
+                    if source == "auto" and has_gmaps:
+                        formatted = format_restaurant_full(matching_res, db)
+                        return {
+                            "success": True,
+                            "source": "database",
+                            "message": f"Tìm thấy quán '{matching_res.name}' đã được phân tích sẵn trong cơ sở dữ liệu!",
+                            "restaurant": formatted
+                        }
+
+                    # 4. Khi source == "auto" mà quán chưa có review Google Maps: Tự động chạy cào bổ sung Google Maps
+                    if source == "auto" and not has_gmaps:
+                        gmap_query = f"{matching_res.name} {matching_res.address or ''}".strip()
+                        gmap_city = gmaps_city or get_google_maps_location(matching_res.city or "")
+                        print(f"-> [Search & Crawl] [Dual-Source] Quán '{matching_res.name}' trong DB chưa có review Google Maps. Bắt đầu cào bổ sung từ Google Maps cho '{gmap_query}'...")
+                        gmaps_crawled_ok = False
+                        try:
+                            with CRAWLER_SEMAPHORE:
+                                gmaps_data = google_maps_crawler.search_and_crawl_google_maps(
+                                    query=gmap_query,
+                                    city=gmap_city,
+                                    max_reviews=15,
+                                    headless=True
+                                )
+                            if gmaps_data and gmaps_data.get("success") and gmaps_data.get("restaurant_name"):
+                                matching_res, new_count, dup_count = save_and_analyze_google_maps_reviews(
+                                    db=db,
+                                    crawl_data=gmaps_data,
+                                    req_url=gmaps_data.get("google_maps_url"),
+                                    restaurant=matching_res,
+                                    default_name=matching_res.name
+                                )
+                                gmaps_crawled_ok = True
+                                print(f"-> [Search & Crawl] [Dual-Source] Đã bổ sung thành công {new_count} review Google Maps cho quán '{matching_res.name}'.")
+                        except Exception as gm_err:
+                            print(f"-> [Search & Crawl] [Dual-Source] Cào bổ sung Google Maps cho '{matching_res.name}' gặp lỗi: {gm_err}")
+
+                        formatted = format_restaurant_full(matching_res, db)
+                        if gmaps_crawled_ok:
+                            return {
+                                "success": True,
+                                "source": "crawled_and_analyzed",
+                                "message": f"Tìm thấy quán '{matching_res.name}' trong cơ sở dữ liệu và đã bổ sung thành công nhận xét từ Google Maps!",
+                                "restaurant": formatted
+                            }
+                        else:
+                            return {
+                                "success": True,
+                                "source": "database",
+                                "message": f"Đã tổng hợp từ Foody; Google Maps không tìm thấy chi nhánh khớp.",
+                                "restaurant": formatted
+                            }
+
+        # Bước 2: Chưa có trong DB hoặc là từ khóa thể loại -> Cào khám phá quán mới
+        def crawl_gmaps(min_viable_reviews: int = 0):
             gmap_city = gmaps_city
             print(f"-> [Search & Crawl] Bắt đầu tìm kiếm & cào Google Maps cho từ khóa '{search_keyword}' (thành phố: {gmap_city or 'Toàn quốc'})...")
             with CRAWLER_SEMAPHORE:
@@ -1048,12 +1138,24 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                     status_code=404,
                     detail=f"Không tìm thấy thông tin quán trên Google Maps với từ khóa '{search_keyword}' tại khu vực '{gmap_city}'. Chi tiết: {err_detail}"
                 )
+
+            # Chặn thực thể rác khi tổng hợp từ 2 nguồn (source='auto'): nếu cả 2 nguồn đều 0 review
+            raw_gm_revs = gmaps_data.get("reviews", [])
+            valid_gm_revs = [rv for rv in raw_gm_revs if (rv.get("text") or "").strip() and len((rv.get("text") or "").strip()) >= 5]
+            if len(valid_gm_revs) < min_viable_reviews:
+                city_display = effective_city if effective_city else "Đà Nẵng"
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Quán '{gmaps_data.get('restaurant_name', search_keyword)}' không có bất kỳ bài đánh giá thực tế nào từ cả Foody lẫn Google Maps. Hệ thống từ chối lưu thực thể rác vào cơ sở dữ liệu."
+                )
+
             with get_session() as db:
                 restaurant, new_count, dup_count = save_and_analyze_google_maps_reviews(
                     db=db,
                     crawl_data=gmaps_data,
                     req_url=gmaps_data.get("google_maps_url"),
-                    default_name=search_keyword
+                    default_name=search_keyword,
+                    min_viable_reviews=min_viable_reviews
                 )
                 formatted = format_restaurant_full(restaurant, db)
                 rev_count = len(gmaps_data.get("reviews", []))
@@ -1070,112 +1172,125 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
 
         def crawl_foody():
             city = city_slug
-            print(f"-> [Search & Crawl] Chưa có trong DB. Bắt đầu tìm kiếm từ khóa '{search_keyword}' trên Foody (thành phố: {city})...")
-            foody_results = foody_crawler.search_foody_places(search_keyword, city_slug=city, max_results=5)
+            print(f"-> [Search & Crawl] Bắt đầu tìm kiếm từ khóa '{search_keyword}' trên Foody (thành phố: {city})...")
 
-            if not foody_results:
+            # 1. Thu thập URL đã tồn tại trong DB để lọc quán mới
+            existing_urls = set()
+            with get_session() as db:
+                rows = db.query(DBRestaurant.foody_url).filter(DBRestaurant.foody_url.isnot(None)).all()
+                existing_urls = set(r[0] for r in rows)
+
+            # 2. Cơ chế Discovery Pagination: Tìm quán MỚI chưa có trong DB (quét đến 3 trang nếu là category)
+            unseen_places = []
+            max_search_pages = 3 if is_category else 1
+
+            for page_idx in range(1, max_search_pages + 1):
+                page_results = foody_crawler.search_foody_places(
+                    search_keyword,
+                    city_slug=city,
+                    max_results=6,
+                    page=page_idx,
+                    existing_urls=existing_urls
+                )
+                if not page_results:
+                    break
+                for p in page_results:
+                    if p["url"] not in existing_urls and p not in unseen_places:
+                        unseen_places.append(p)
+                if unseen_places:
+                    break
+
+            crawl_data = None
+            target_place = None
+
+            # 3. Cào thử các quán mới tìm được (chọn quán có đánh giá thực tế >= 1)
+            if unseen_places:
+                for place in unseen_places:
+                    target_url = place["url"]
+                    print(f"-> [Search & Crawl] Bắt đầu cào thử đánh giá quán mới: '{place['name']}' ({target_url})")
+                    data = foody_crawler.crawl_restaurant(
+                        target_url,
+                        max_reviews=req.max_reviews or 25,
+                        headless=True,
+                        known_fingerprints=set(),
+                        max_consecutive_existing=3
+                    )
+                    if data and data.get("name") and data.get("reviews"):
+                        valid_revs = [
+                            rv for rv in data["reviews"]
+                            if (rv.get("text") or "").strip() and len((rv.get("text") or "").strip()) >= 5
+                        ]
+                        if len(valid_revs) > 0:
+                            crawl_data = data
+                            target_place = place
+                            break
+
+            # 4. Nếu không có quán mới nào trên Foody:
+            if not crawl_data:
+                # Kiểm tra xem trong DB đã có quán nào khớp với từ khóa chưa
+                with get_session() as db:
+                    all_db = db.query(DBRestaurant).all()
+                    db_matches = []
+                    for r in all_db:
+                        if norm_eff_city:
+                            r_city = detect_city(r.address or "", foody_url=r.foody_url, restaurant_name=r.name)
+                            r_norm_city = remove_accents(r_city).replace("-", " ").strip()
+                            if norm_eff_city != r_norm_city and norm_eff_city not in r_norm_city:
+                                continue
+                        r_full = remove_accents(f"{r.name} {r.address or ''}")
+                        if norm_kw in r_full or all(t in r_full for t in tokens):
+                            db_matches.append(r)
+
+                    if db_matches:
+                        db_matches.sort(key=lambda x: (x.credibility_score or 0.0, x.review_count or 0), reverse=True)
+                        best_match = db_matches[0]
+
+                        # Nếu source == 'auto' và quán này chưa có Google Maps, cào bổ sung
+                        has_gm = (
+                            db.query(DBReview)
+                            .filter(
+                                DBReview.restaurant_id == best_match.id,
+                                DBReview.source.in_(["GoogleMaps", "google_maps", "Google Maps"])
+                            )
+                            .count() > 0
+                        )
+                        if source == "auto" and not has_gm:
+                            gm_query = f"{best_match.name} {best_match.address or ''}".strip()
+                            gm_city = gmaps_city or get_google_maps_location(best_match.city or "")
+                            try:
+                                with CRAWLER_SEMAPHORE:
+                                    gm_data = google_maps_crawler.search_and_crawl_google_maps(
+                                        query=gm_query,
+                                        city=gm_city,
+                                        max_reviews=15,
+                                        headless=True
+                                    )
+                                if gm_data and gm_data.get("success") and gm_data.get("restaurant_name"):
+                                    best_match, _, _ = save_and_analyze_google_maps_reviews(
+                                        db=db,
+                                        crawl_data=gm_data,
+                                        req_url=gm_data.get("google_maps_url"),
+                                        restaurant=best_match,
+                                        default_name=best_match.name
+                                    )
+                            except Exception as gm_err:
+                                print(f"-> [Search & Crawl] Bổ sung Google Maps cho '{best_match.name}' thất bại: {gm_err}")
+
+                        formatted = format_restaurant_full(best_match, db)
+                        return {
+                            "success": True,
+                            "source": "database",
+                            "message": f"Tất cả các quán hàng đầu theo từ khóa '{search_keyword}' đã được thu thập trong hệ thống. Đang hiển thị quán uy tín nhất: {best_match.name}",
+                            "restaurant": formatted
+                        }
+
                 city_display = effective_city if effective_city else city
                 raise HTTPException(
                     status_code=404,
                     detail=f"Không tìm thấy quán ăn nào trên Foody với từ khóa '{search_keyword}' tại khu vực '{city_display}'. Vui lòng thử từ khóa khác hoặc dán link Foody trực tiếp."
                 )
 
-            # Kiểm tra xem có quán nào trong kết quả Foody đã có trong SQLite chưa
-            with get_session() as db:
-                for place in foody_results:
-                    existing_by_url = db.query(DBRestaurant).filter_by(foody_url=place["url"]).first()
-                    if existing_by_url:
-                        print(f"-> [Search & Crawl] URL '{place['url']}' đã tồn tại trong DB!")
-                        if source == "auto":
-                            has_gm = (
-                                db.query(DBReview)
-                                .filter(
-                                    DBReview.restaurant_id == existing_by_url.id,
-                                    DBReview.source.in_(["GoogleMaps", "google_maps", "Google Maps"])
-                                )
-                                .count() > 0
-                            )
-                            if not has_gm:
-                                gm_query = f"{existing_by_url.name} {existing_by_url.address or place.get('address', '')}".strip()
-                                gm_city = gmaps_city or get_google_maps_location(existing_by_url.city or "")
-                                gm_crawled_ok = False
-                                try:
-                                    with CRAWLER_SEMAPHORE:
-                                        gm_data = google_maps_crawler.search_and_crawl_google_maps(
-                                            query=gm_query,
-                                            city=gm_city,
-                                            max_reviews=15,
-                                            headless=True
-                                        )
-                                    if gm_data and gm_data.get("success") and gm_data.get("restaurant_name"):
-                                        existing_by_url, new_gm_cnt, _ = save_and_analyze_google_maps_reviews(
-                                            db=db,
-                                            crawl_data=gm_data,
-                                            req_url=gm_data.get("google_maps_url"),
-                                            restaurant=existing_by_url,
-                                            default_name=existing_by_url.name
-                                        )
-                                        gm_crawled_ok = True
-                                except Exception as e:
-                                    print(f"-> [Search & Crawl] Lỗi cào Google Maps bổ sung: {e}")
-
-                                formatted = format_restaurant_full(existing_by_url, db)
-                                if gm_crawled_ok:
-                                    return {
-                                        "success": True,
-                                        "source": "crawled_and_analyzed",
-                                        "message": f"Tìm thấy quán '{existing_by_url.name}' trong cơ sở dữ liệu và đã bổ sung thành công nhận xét từ Google Maps!",
-                                        "restaurant": formatted
-                                    }
-                                else:
-                                    return {
-                                        "success": True,
-                                        "source": "database",
-                                        "message": f"Đã tổng hợp từ Foody; Google Maps không tìm thấy chi nhánh khớp.",
-                                        "restaurant": formatted
-                                    }
-
-                        formatted = format_restaurant_full(existing_by_url, db)
-                        return {
-                            "success": True,
-                            "source": "database",
-                            "message": f"Tìm thấy quán '{existing_by_url.name}' đã được phân tích trong hệ thống!",
-                            "restaurant": formatted
-                        }
-
-            # Cào đánh giá thực tế từ Foody bằng Selenium (ưu tiên quán có đánh giá thật > 0)
-            crawl_data = None
-            target_place = None
-
-            for place in foody_results:
-                target_url = place["url"]
-                print(f"-> [Search & Crawl] Bắt đầu cào thử đánh giá: '{place['name']}' ({target_url})")
-                known_fps = set()
-                with get_session() as db:
-                    exist_p = db.query(DBRestaurant).filter_by(foody_url=target_url).first()
-                    if exist_p:
-                        known_fps = get_restaurant_existing_fingerprints(db, exist_p.id)
-
-                data = foody_crawler.crawl_restaurant(
-                    target_url,
-                    max_reviews=req.max_reviews or 25,
-                    headless=True,
-                    known_fingerprints=known_fps,
-                    max_consecutive_existing=3
-                )
-
-                if data and data.get("name") and data.get("reviews") and len(data["reviews"]) > 0:
-                    crawl_data = data
-                    target_place = place
-                    break
-
-            if not crawl_data or not crawl_data.get("name") or not crawl_data.get("reviews") or len(crawl_data["reviews"]) == 0:
-                city_display = effective_city if effective_city else city
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Các quán tìm thấy cho từ khóa '{search_keyword}' tại khu vực '{city_display}' chưa có bài nhận xét thực tế nào để tổng hợp. Vui lòng chọn quán khác hoặc dán liên kết quán có nhận xét."
-                )
-
+            # 5. Lưu và phân tích quán mới tìm được (Chặn thực thể rác)
             with get_session() as db:
                 restaurant = save_and_analyze_reviews(
                     db=db,
@@ -1184,6 +1299,11 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                     default_name=target_place["name"],
                     default_address=target_place.get("address", "")
                 )
+                if not restaurant:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Quán '{target_place['name']}' không có bài đánh giá hợp lệ nào. Hệ thống từ chối lưu thực thể rác."
+                    )
                 foody_rev_count = len(crawl_data.get("reviews", []))
 
                 # NÂNG CẤP DUAL-SOURCE: Khi source == "auto", gọi tiếp Google Maps crawler
@@ -1249,7 +1369,7 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
             except (HTTPException, Exception) as foody_err:
                 print(f"-> [Search & Crawl] Foody không có kết quả hoặc gặp lỗi ({foody_err}). Tự động fallback sang Google Maps...")
                 try:
-                    return crawl_gmaps()
+                    return crawl_gmaps(min_viable_reviews=1)
                 except Exception as gmaps_err:
                     if isinstance(gmaps_err, HTTPException):
                         raise gmaps_err
@@ -1579,6 +1699,12 @@ def crawl_google_maps_endpoint(req: CrawlGoogleMapsRequest):
             restaurant=restaurant,
             default_name=req_query or "Quán Google Maps"
         )
+
+        if not restaurant:
+            raise HTTPException(
+                status_code=400,
+                detail="Quán ăn này không có bài đánh giá thực tế nào từ thực khách trên Google Maps. Hệ thống từ chối lưu thực thể rác vào cơ sở dữ liệu."
+            )
 
         elapsed = time.time() - start_time
         total_count = restaurant.review_count or db.query(DBReview).filter_by(restaurant_id=restaurant.id).count()

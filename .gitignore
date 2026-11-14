@@ -65,6 +65,7 @@ graphify-out/
 tests/e2e_report.json
 
 # Documentation, thesis and project diagrams
+specs/
 ideas/
 project-diagrams/
 chuong/

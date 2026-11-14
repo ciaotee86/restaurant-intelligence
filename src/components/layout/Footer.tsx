@@ -1,12 +1,15 @@
 import React from 'react';
 import { Store, ShieldCheck } from 'lucide-react';
 import { BrandMark } from '../common/BrandLogo';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface FooterProps {
   onNavigate: (view: 'home' | 'explore' | 'dashboard' | 'how-it-works', restaurantId?: string) => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
+  const { t } = useLanguage();
+
   return (
     <footer className="bg-[#F2EFE9] border-t border-[#E8E4DC] text-[#57534E] mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -23,30 +26,30 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               </span>
             </div>
             <p className="text-xs text-[#78716C] max-w-md leading-relaxed">
-              Nền tảng đọc vị đánh giá ẩm thực từ thực khách thực tế. Giúp người đi ăn chọn đúng quán ngon và giúp chủ quán nắm bắt phản hồi chân thực để nâng cao chất lượng phục vụ.
+              {t('footer.description')}
             </p>
             <div className="flex flex-wrap items-center gap-4 text-xs text-[#78716C] pt-1">
               <span className="flex items-center gap-1.5 font-medium">
                 <Store className="w-3.5 h-3.5 text-[#8C857B]" />
-                Khảo sát ý kiến thực khách công khai
+                {t('footer.dinerSurvey')}
               </span>
               <span className="flex items-center gap-1.5 font-medium">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#065F46]" />
-                Loại bỏ nhận xét giả & quảng cáo rác
+                {t('footer.filterSpam')}
               </span>
             </div>
           </div>
 
           {/* Cột 2: Điều hướng */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">Nền tảng</h4>
+            <h4 className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">{t('footer.platform')}</h4>
             <ul className="space-y-2 text-xs text-[#78716C] font-medium">
               <li>
                 <button
                   onClick={() => onNavigate('home')}
                   className="hover:text-[#991B1B] transition-colors"
                 >
-                  Trang chủ
+                  {t('footer.home')}
                 </button>
               </li>
               <li>
@@ -54,7 +57,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   onClick={() => onNavigate('explore')}
                   className="hover:text-[#991B1B] transition-colors"
                 >
-                  Khám phá nhà hàng
+                  {t('footer.explore')}
                 </button>
               </li>
               <li>
@@ -62,7 +65,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   onClick={() => onNavigate('how-it-works')}
                   className="hover:text-[#991B1B] transition-colors"
                 >
-                  Quy trình & Phương pháp phân tích
+                  {t('footer.methodology')}
                 </button>
               </li>
             </ul>
@@ -70,7 +73,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
           {/* Cột 3: Nhà hàng tiêu biểu */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">Báo cáo tiêu biểu</h4>
+            <h4 className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">{t('footer.featuredReports')}</h4>
             <ul className="space-y-2 text-xs text-[#78716C] font-medium">
               <li>
                 <button
@@ -110,9 +113,9 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
         </div>
 
         <div className="border-t border-[#E8E4DC] mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#78716C]">
-          <span>© 2026 Restaurant Intelligence. Phục vụ nghiên cứu và phân tích dữ liệu vận hành ẩm thực.</span>
+          <span>{t('footer.copyright')}</span>
           <span className="font-mono text-[11px] text-[#A8A29E]">
-            Thu thập ý kiến thực khách → Sàng lọc bình luận ảo → Đánh giá theo 5 tiêu chí → Báo cáo trực quan
+            {t('footer.pipeline')}
           </span>
         </div>
       </div>

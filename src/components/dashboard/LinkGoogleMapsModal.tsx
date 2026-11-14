@@ -16,6 +16,7 @@ import {
 import type { Restaurant, CrawlGoogleMapsResponse } from '../../types/restaurant';
 import { restaurantService } from '../../services/restaurantService';
 import { formatNumber } from '../../utils/sentimentUtils';
+import { useLanguage } from '../../context/LanguageContext';
 
 /**
  * Loại bỏ dấu tiếng Việt để so sánh chuỗi
@@ -172,6 +173,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
   restaurant,
   onSuccess
 }) => {
+  const { t, language } = useLanguage();
   const urlInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'url' | 'search'>('url');
   const [googleMapsUrl, setGoogleMapsUrl] = useState(restaurant.googleMapsUrl || '');
@@ -230,7 +232,12 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isLoading, onClose]);
 
-  const loadingMessages = [
+  const loadingMessages = language === 'en' ? [
+    'Initializing headless Playwright session...',
+    'Connecting to Google Maps & scrolling reviews container...',
+    'Expanding hidden text, deduplicating via SHA-256 hashes...',
+    'Filtering spam & parsing 5-aspect sentiments via Google Gemini ABSA...'
+  ] : [
     'Đang khởi tạo trình duyệt ẩn danh Playwright...',
     'Đang kết nối Google Maps & cuộn container đánh giá thực tế...',
     'Đang mở rộng bài viết ẩn, kiểm tra trùng lặp qua mã băm SHA-256...',
@@ -254,12 +261,12 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
     }
 
     if (activeTab === 'url' && !payloadUrl) {
-      setErrorMsg('Vui lòng nhập đường dẫn Google Maps hợp lệ.');
+      setErrorMsg(t('linkModal.errorUrlRequired'));
       return;
     }
 
     if (activeTab === 'search' && !payloadUrl && !payloadQuery) {
-      setErrorMsg('Vui lòng nhập tên hoặc từ khóa tìm kiếm quán.');
+      setErrorMsg(t('linkModal.errorQueryRequired'));
       return;
     }
 
@@ -274,12 +281,12 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
       });
 
       if (!res.success) {
-        setErrorMsg(res.message || 'Không thể cào dữ liệu từ Google Maps. Vui lòng kiểm tra lại đường dẫn hoặc tên quán.');
+        setErrorMsg(res.message || t('linkModal.errorCrawlFailed'));
       } else {
         setCrawlResult(res);
       }
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Có lỗi xảy ra trong quá trình xử lý. Vui lòng thử lại.');
+      setErrorMsg(err?.message || t('modal.errorServerConnection'));
     } finally {
       setIsLoading(false);
     }
@@ -328,10 +335,10 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
                 id="google-maps-modal-title"
                 className="font-display font-bold text-lg sm:text-xl text-[#1C1917] tracking-tight leading-snug"
               >
-                Bổ Sung Đánh Giá Từ Google Maps
+                {t('linkModal.title')}
               </h2>
               <p className="text-xs text-[#78716C]">
-                Mở rộng cỡ mẫu phân tích cho <strong className="text-[#1C1917] font-semibold">{restaurant.name}</strong>
+                {t('linkModal.forRestaurant', { name: restaurant.name })}
               </p>
             </div>
           </div>
@@ -341,7 +348,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
               type="button"
               onClick={onClose}
               className="w-8 h-8 rounded-lg flex items-center justify-center text-[#8C857B] hover:text-[#1C1917] hover:bg-[#F2EFE9] transition-colors cursor-pointer"
-              title="Đóng (ESC)"
+              title="ESC"
             >
               <X className="w-5 h-5" />
             </button>
@@ -362,7 +369,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
 
               <div className="space-y-1.5 max-w-md mx-auto">
                 <h3 className="text-base font-bold text-[#1C1917]">
-                  Đang thu thập & chuẩn hóa đánh giá
+                  {t('linkModal.collecting')}
                 </h3>
                 <p className="text-xs text-[#C2410C] font-medium animate-pulse min-h-[32px] flex items-center justify-center">
                   {loadingMessages[loadingStep]}
@@ -384,7 +391,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
               <div className="text-[11px] text-[#8C857B] bg-[#FAF7F2] p-3 rounded-lg border border-[#E8E4DC] max-w-md mx-auto text-left flex items-start gap-2">
                 <ShieldCheck className="w-4 h-4 text-[#065F46] shrink-0 mt-0.5" />
                 <span>
-                  Hệ thống tự động loại trừ các bài viết trùng lặp giữa Foody và Google Maps thông qua mã băm SHA-256 fingerprint, chỉ nạp đánh giá mới.
+                  {t('linkModal.dedupNote')}
                 </span>
               </div>
             </div>
@@ -399,10 +406,10 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-[#065F46]">
-                    Nạp dữ liệu từ Google Maps thành công!
+                    {t('linkModal.successTitle')}
                   </h3>
                   <p className="text-xs text-[#57534E]">
-                    Toàn bộ bài viết mới đã được phân tích khía cạnh bằng Google Gemini ABSA.
+                    {t('linkModal.successDesc')}
                   </p>
                 </div>
               </div>
@@ -411,7 +418,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
                 <div className="bg-[#FAF7F2] border border-[#E8E4DC] p-3.5 rounded-xl text-center">
                   <span className="block text-[11px] uppercase tracking-wider text-[#8C857B] font-bold">
-                    Review mới
+                    {t('linkModal.newReviews')}
                   </span>
                   <span className="text-2xl font-bold font-display text-[#065F46]">
                     +{formatNumber(crawlResult.newReviewsCount)}
@@ -420,7 +427,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
 
                 <div className="bg-[#FAF7F2] border border-[#E8E4DC] p-3.5 rounded-xl text-center">
                   <span className="block text-[11px] uppercase tracking-wider text-[#8C857B] font-bold">
-                    Trùng lặp bỏ qua
+                    {t('linkModal.duplicatesSkipped')}
                   </span>
                   <span className="text-2xl font-bold font-display text-[#8C857B]">
                     {formatNumber(crawlResult.duplicateReviewsSkipped)}
@@ -429,7 +436,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
 
                 <div className="bg-[#FAF7F2] border border-[#E8E4DC] p-3.5 rounded-xl text-center">
                   <span className="block text-[11px] uppercase tracking-wider text-[#8C857B] font-bold">
-                    Tổng đánh giá
+                    {t('linkModal.totalReviews')}
                   </span>
                   <span className="text-2xl font-bold font-display text-[#1C1917]">
                     {formatNumber(crawlResult.totalReviewsNow)}
@@ -438,7 +445,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
 
                 <div className="bg-[#FAF7F2] border border-[#E8E4DC] p-3.5 rounded-xl text-center">
                   <span className="block text-[11px] uppercase tracking-wider text-[#8C857B] font-bold">
-                    Độ tin cậy mới
+                    {t('linkModal.newCredibility')}
                   </span>
                   <span className="text-2xl font-bold font-display text-[#991B1B]">
                     {Math.round(
@@ -453,7 +460,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
 
               {crawlResult.elapsedSeconds && (
                 <div className="text-xs text-[#8C857B] text-center font-mono">
-                  Thời gian hoàn tất: {crawlResult.elapsedSeconds.toFixed(1)} giây · Nguồn: Google Maps
+                  {t('linkModal.elapsed', { seconds: crawlResult.elapsedSeconds.toFixed(1) })}
                 </div>
               )}
 
@@ -464,7 +471,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
                   className="w-full sm:w-auto px-5 py-2.5 bg-[#065F46] hover:bg-[#044E39] text-white text-xs font-bold rounded-xl shadow-editorial-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <RefreshCw className="w-4 h-4" />
-                  <span>Xác nhận & Cập nhật Dashboard</span>
+                  <span>{t('linkModal.confirmBtn')}</span>
                 </button>
               </div>
             </div>
@@ -478,7 +485,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
                 <div className="p-3.5 bg-[#FEF2F2] border border-[#FECACA] rounded-xl flex items-start gap-2.5 text-xs text-[#991B1B]">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                   <div className="space-y-1.5 flex-1">
-                    <p className="font-bold">Không thể hoàn tất thu thập:</p>
+                    <p className="font-bold">{t('linkModal.errorPrefix')}</p>
                     <p className="leading-relaxed">{errorMsg}</p>
                     {isBranchConflict && (
                       <div className="pt-1">
@@ -487,7 +494,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
                           onClick={handleSwitchToUrlTab}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#991B1B] bg-white border border-[#FECACA] rounded-lg hover:bg-[#FDF2F2] hover:border-[#F87171] transition-all cursor-pointer shadow-xs"
                         >
-                          <span>👉 Chuyển sang Dán đường dẫn Google Maps của chi nhánh này</span>
+                          <span>👉 {t('linkModal.switchUrlTabBtn')}</span>
                         </button>
                       </div>
                     )}
@@ -507,7 +514,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
                   }`}
                 >
                   <Link2 className="w-3.5 h-3.5" />
-                  <span>Dán đường dẫn Google Maps</span>
+                  <span>{t('linkModal.tabUrl')}</span>
                 </button>
 
                 <button
@@ -520,7 +527,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
                   }`}
                 >
                   <Search className="w-3.5 h-3.5" />
-                  <span>Tìm kiếm tự động theo tên quán</span>
+                  <span>{t('linkModal.tabSearch')}</span>
                 </button>
               </div>
 
@@ -528,7 +535,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
               {activeTab === 'url' && (
                 <div className="space-y-2">
                   <label htmlFor="gmaps-url-input" className="block text-xs font-bold text-[#1C1917]">
-                    Đường dẫn Google Maps (Place URL hoặc Share Link)
+                    {t('linkModal.urlLabel')}
                   </label>
                   <div className="relative">
                     <input
@@ -544,7 +551,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
                   </div>
                   <p className="text-[11px] text-[#78716C] flex items-center gap-1">
                     <ExternalLink className="w-3 h-3 text-[#A8A29E]" />
-                    <span>Mẹo: Mở Google Maps trên trình duyệt, tìm quán và bấm nút "Chia sẻ" để copy liên kết.</span>
+                    <span>{t('linkModal.urlTip')}</span>
                   </p>
                 </div>
               )}
@@ -553,7 +560,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
               {activeTab === 'search' && (
                 <div className="space-y-2">
                   <label htmlFor="gmaps-query-input" className="block text-xs font-bold text-[#1C1917]">
-                    Tên quán & Địa chỉ cần tìm trên Google Maps
+                    {t('linkModal.queryLabel')}
                   </label>
                   <div className="relative">
                     <input
@@ -568,7 +575,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
                     />
                   </div>
                   <p className="text-[11px] text-[#78716C]">
-                    Hệ thống sẽ dùng Playwright để tìm địa điểm chính xác nhất và trích xuất đánh giá.
+                    {t('linkModal.queryTip')}
                   </p>
                 </div>
               )}
@@ -576,7 +583,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
               {/* Số lượng đánh giá cần cào */}
               <div className="space-y-2 bg-white border border-[#E8E4DC] p-3.5 rounded-xl">
                 <span className="block text-xs font-bold text-[#1C1917]">
-                  Số lượng đánh giá mong muốn thu thập:
+                  {t('linkModal.sampleSize')}
                 </span>
                 <div className="flex items-center gap-2">
                   {[20, 30, 50].map((num) => (
@@ -590,7 +597,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
                           : 'bg-[#FAF7F2] text-[#57534E] border-[#E8E4DC] hover:border-[#1C1917]'
                       }`}
                     >
-                      {num} đánh giá {num === 30 && '(Khuyên dùng)'}
+                      {num} {t('common.reviews')} {num === 30 && t('linkModal.recommended')}
                     </button>
                   ))}
                 </div>
@@ -600,10 +607,10 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
               <div className="bg-[#FDF2F2] border border-[#FECACA] rounded-xl p-3.5 text-xs text-[#991B1B] space-y-1">
                 <div className="flex items-center gap-1.5 font-bold">
                   <Layers className="w-4 h-4 text-[#991B1B]" />
-                  <span>Quy trình xử lý dữ liệu chuẩn hóa</span>
+                  <span>{t('linkModal.pipelineTitle')}</span>
                 </div>
                 <p className="text-[11px] leading-relaxed text-[#7F1D1D]">
-                  Dữ liệu sau khi thu thập bằng Playwright Headless sẽ được khử trùng lặp qua mã băm SHA-256 fingerprint, kiểm tra bộ lọc spam 11 ca và phân tích ABSA 5 khía cạnh độc lập qua Google Gemini AI.
+                  {t('linkModal.pipelineDesc')}
                 </p>
               </div>
 
@@ -614,7 +621,7 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
                   onClick={onClose}
                   className="px-4 py-2.5 rounded-xl text-xs font-bold text-[#57534E] hover:bg-[#F2EFE9] transition-colors cursor-pointer"
                 >
-                  Hủy bỏ
+                  {t('linkModal.cancel')}
                 </button>
 
                 <button
@@ -625,11 +632,11 @@ const LinkGoogleMapsModalContent: React.FC<Omit<LinkGoogleMapsModalProps, 'isOpe
                   {isLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Đang kết nối...</span>
+                      <span>{t('linkModal.connecting')}</span>
                     </>
                   ) : (
                     <>
-                      <span>Bắt đầu thu thập</span>
+                      <span>{t('linkModal.syncNow')}</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, ArrowRight, MapPin, Utensils, X } from 'lucide-react';
 import { restaurantService } from '../../services/restaurantService';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -15,12 +16,14 @@ interface SearchBarProps {
 export const SearchBar: React.FC<SearchBarProps> = ({
   onSearch,
   onSelectRestaurant,
-  placeholder = "Tìm kiếm nhà hàng...",
+  placeholder,
   autoFocus = false,
   size = 'large',
   initialValue = '',
   debounceLiveSearch = false
 }) => {
+  const { t } = useLanguage();
+  const effectivePlaceholder = placeholder || t('search.placeholder');
   const [query, setQuery] = useState(initialValue);
   const [prevInitialValue, setPrevInitialValue] = useState(initialValue);
   if (initialValue !== prevInitialValue) {
@@ -105,7 +108,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             onFocus={() => {
               if (suggestions.length > 0) setIsOpen(true);
             }}
-            placeholder={placeholder}
+            placeholder={effectivePlaceholder}
             autoFocus={autoFocus}
             className={`w-full bg-white border border-[#E8E4DC] text-[#1C1917] placeholder-[#A8A29E] rounded-xl shadow-editorial focus:outline-none focus:ring-2 focus:ring-[#991B1B]/15 focus:border-[#991B1B] transition-all ${
               size === 'large'
@@ -135,7 +138,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               : 'px-3.5 py-1.5 text-xs'
           }`}
         >
-          <span>Xem đánh giá</span>
+          <span>{t('search.viewReviews')}</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </form>
@@ -146,7 +149,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           {suggestions.length > 0 && (
             <>
               <div className="px-3.5 py-2 bg-[#F8F6F0] text-[11px] font-bold text-[#8C857B] uppercase tracking-wider">
-                Quán ăn đã có báo cáo phân tích
+                {t('search.analyzedRestaurants')}
               </div>
               {suggestions.map((item) => (
                 <button
@@ -173,7 +176,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                     </div>
                   </div>
                   <span className="text-xs font-medium text-[#A8A29E] group-hover:text-[#991B1B] group-hover:translate-x-0.5 transition-all">
-                    Xem đánh giá →
+                    {t('search.viewReviewArrow')}
                   </span>
                 </button>
               ))}
@@ -195,15 +198,15 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               </div>
               <div>
                 <span className="text-xs font-bold text-[#1C1917] group-hover:text-[#991B1B]">
-                  Tìm & tổng hợp đánh giá quán "{query}"
+                  {t('search.aggregateForQuery', { query })}
                 </span>
                 <span className="block text-[11px] text-[#78716C]">
-                  Đọc nhanh nhận xét từ thực khách thực tế và tóm tắt mức độ hài lòng
+                  {t('search.aggregateSubtext')}
                 </span>
               </div>
             </div>
             <span className="text-[11px] font-semibold bg-[#991B1B] text-white px-2.5 py-1 rounded shadow-editorial-sm">
-              Xem ngay →
+              {t('search.viewNow')}
             </span>
           </button>
         </div>
@@ -212,9 +215,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       {/* Dòng hướng dẫn dưới ô tìm kiếm */}
       {size === 'large' && (
         <div className="mt-2.5 flex flex-wrap items-center justify-between text-xs text-[#78716C] px-1">
-          <span>Tìm theo tên món hoặc thương hiệu</span>
+          <span>{t('search.hint')}</span>
           <div className="flex items-center gap-2 mt-1 sm:mt-0">
-            <span className="text-[#A8A29E]">Gợi ý:</span>
+            <span className="text-[#A8A29E]">{t('search.suggestionsLabel')}</span>
             <button
               type="button"
               onClick={() => {
