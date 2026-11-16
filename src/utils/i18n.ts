@@ -479,6 +479,15 @@ export const translations: Record<Language, Record<string, string>> = {
     'modal.errorNotFoundKeyword': 'Không tìm thấy quán nào theo từ khóa này.',
     'modal.errorInvalidUrl': 'Không thể xử lý liên kết này.',
     'modal.errorServerConnection': 'Không thể kết nối tới máy chủ dữ liệu. Vui lòng thử lại sau.',
+    'modal.reviewsScraped': 'Đã thu thập {count} bài đánh giá thực tế',
+    'modal.retry': 'Thử lại',
+    'modal.asyncProgressTitle': 'Đang tiến hành khảo sát và phân tích...',
+    'modal.asyncStatusPending': 'Đang khởi tạo tác vụ cào dữ liệu...',
+    'modal.asyncStatusCrawling': 'Đang cào dữ liệu từ nền tảng...',
+    'modal.asyncStatusAnalyzing': 'Đang phân tích cảm xúc ABSA bằng AI...',
+    'modal.asyncStatusCompleted': 'Hoàn tất phân tích! Đang chuyển hướng...',
+    'modal.asyncStatusFailed': 'Tác vụ xử lý không thành công.',
+    'modal.progressPercent': 'Tiến độ: {percent}%',
 
     // Link Google Maps Modal
     'linkModal.title': 'Bổ sung đánh giá từ Google Maps',
@@ -1031,6 +1040,15 @@ export const translations: Record<Language, Record<string, string>> = {
     'modal.errorNotFoundKeyword': 'No restaurant found matching this keyword.',
     'modal.errorInvalidUrl': 'Unable to process this link.',
     'modal.errorServerConnection': 'Unable to connect to data server. Please try again later.',
+    'modal.reviewsScraped': 'Collected {count} authentic diner reviews',
+    'modal.retry': 'Try Again',
+    'modal.asyncProgressTitle': 'Conducting survey and intelligence analysis...',
+    'modal.asyncStatusPending': 'Initializing crawl task...',
+    'modal.asyncStatusCrawling': 'Scraping review data from platform...',
+    'modal.asyncStatusAnalyzing': 'Analyzing ABSA sentiments with AI...',
+    'modal.asyncStatusCompleted': 'Analysis complete! Redirecting...',
+    'modal.asyncStatusFailed': 'Task processing failed.',
+    'modal.progressPercent': 'Progress: {percent}%',
 
     // Link Google Maps Modal
     'linkModal.title': 'Enrich Reviews from Google Maps',
