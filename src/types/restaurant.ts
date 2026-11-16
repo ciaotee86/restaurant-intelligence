@@ -209,3 +209,34 @@ export interface CrawlGoogleMapsResponse {
   restaurant?: Restaurant;
 }
 
+/** Thông tin tiến trình Crawl Task thời gian thực */
+export interface CrawlTaskProgressInfo {
+  status: 'pending' | 'crawling' | 'analyzing' | 'completed' | 'failed' | string;
+  progress: number;
+  message: string;
+  reviewsCount: number;
+}
+
+/** Kết quả truy vấn trạng thái Crawl Task từ GET /api/crawl-tasks/{task_id} */
+export interface CrawlTaskStatusResponse {
+  success: boolean;
+  task_id: string;
+  status: 'pending' | 'crawling' | 'analyzing' | 'completed' | 'failed' | string;
+  progress: number;
+  message: string;
+  reviews_count: number;
+  restaurant_id?: string;
+  restaurant?: Restaurant;
+  error?: string;
+}
+
+/** Kết quả khởi tạo Async Crawl Task (POST /api/crawl-tasks/...) */
+export interface StartCrawlTaskResult {
+  success: boolean;
+  taskId?: string;
+  status?: string;
+  message: string;
+  notSupported?: boolean;
+}
+
+
