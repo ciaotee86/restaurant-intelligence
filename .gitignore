@@ -19,6 +19,8 @@ dist-ssr
 !.env.example
 *.env
 restaurant-review-ai/.env
+**/google_maps_auth.json
+restaurant-review-ai/data/google_maps_auth.json
 
 # Python
 __pycache__/
@@ -67,6 +69,8 @@ tests/e2e_report.json
 # Documentation, thesis and project diagrams
 specs/
 ideas/
+baocao-slides/
+*.pdf
 project-diagrams/
 chuong/
 styles/

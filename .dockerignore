@@ -19,6 +19,8 @@ __pycache__
 **/.env
 **/.env.*
 !**/.env.example
+**/google_maps_auth.json
+restaurant-review-ai/data/google_maps_auth.json
 
 # OS and temporary files
 .DS_Store
