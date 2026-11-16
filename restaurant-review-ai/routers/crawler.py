@@ -9,8 +9,9 @@ import re
 import socket
 import threading
 import time
+import difflib
 from datetime import datetime
-from typing import Optional, List, Tuple, Dict, Any
+from typing import Optional, List, Tuple, Dict, Any, Set
 from urllib.parse import urlparse
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -45,10 +46,12 @@ from services.entity_resolution import (
     update_restaurant_counts_and_credibility,
     resolve_or_create_restaurant,
     calculate_name_similarity,
-    is_same_location
+    is_same_location,
+    normalize_vietnamese
 )
 from analysis.gemini_analyzer import analyze_batch
 from routers.restaurants import invalidate_restaurants_cache
+from services.task_manager import task_manager
 
 router = APIRouter(prefix="/api", tags=["crawler"])
 
@@ -510,7 +513,7 @@ def save_and_analyze_google_maps_reviews(
 
 
 @router.post("/analyze-url")
-def analyze_restaurant_url(req: AnalyzeRequest):
+def analyze_restaurant_url(req: AnalyzeRequest, task_id: Optional[str] = None):
     """
     Tiếp nhận URL quán ăn mới từ người dùng (Foody hoặc Google Maps):
     1. Nhận diện loại URL (Foody vs Google Maps).
@@ -548,6 +551,13 @@ def analyze_restaurant_url(req: AnalyzeRequest):
         url = validate_foody_url(raw_url)
         try:
             print(f"=== [API] Bắt đầu cào URL Foody: {url} ===")
+            if task_id:
+                task_manager.update_task(
+                    task_id,
+                    status="crawling",
+                    progress=15,
+                    message="Đang kết nối Foody..."
+                )
             known_fps = set()
             with get_session() as db:
                 exist_rest = db.query(DBRestaurant).filter_by(foody_url=url).first()
@@ -560,13 +570,24 @@ def analyze_restaurant_url(req: AnalyzeRequest):
                     max_reviews=req.max_reviews or 30,
                     headless=True,
                     known_fingerprints=known_fps,
-                    max_consecutive_existing=3
+                    max_consecutive_existing=3,
+                    task_id=task_id
                 )
 
             if not crawl_data or not crawl_data.get("name") or crawl_data.get("not_found"):
                 raise HTTPException(
                     status_code=400,
                     detail="Không thể trích xuất thông tin quán ăn từ link Foody này. Vui lòng đảm bảo link quán còn hoạt động."
+                )
+
+            rev_count = len(crawl_data.get('reviews', []))
+            if task_id:
+                task_manager.update_task(
+                    task_id,
+                    status="analyzing",
+                    progress=70,
+                    message="Đang phân tích khía cạnh bằng Gemini AI...",
+                    reviews_count=rev_count
                 )
 
             with get_session() as db:
@@ -583,8 +604,18 @@ def analyze_restaurant_url(req: AnalyzeRequest):
                     )
                 invalidate_restaurants_cache()
                 formatted = format_restaurant_full(restaurant, db)
-                rev_count = len(crawl_data.get('reviews', []))
                 msg = f"Đã cào và phân tích thành công {rev_count} đánh giá thực tế!"
+
+                if task_id:
+                    task_manager.update_task(
+                        task_id,
+                        status="completed",
+                        progress=100,
+                        message=msg,
+                        restaurant_id=restaurant.id,
+                        restaurant=formatted,
+                        reviews_count=rev_count
+                    )
 
                 return {
                     "success": True,
@@ -601,6 +632,13 @@ def analyze_restaurant_url(req: AnalyzeRequest):
         url = validate_google_maps_url(raw_url)
         try:
             print(f"=== [API] Bắt đầu cào URL Google Maps: {url} ===")
+            if task_id:
+                task_manager.update_task(
+                    task_id,
+                    status="crawling",
+                    progress=15,
+                    message="Đang kết nối Google Maps..."
+                )
             max_revs = req.max_reviews or 30
             if max_revs < 1:
                 max_revs = 1
@@ -608,13 +646,28 @@ def analyze_restaurant_url(req: AnalyzeRequest):
                 max_revs = 100
 
             with CRAWLER_SEMAPHORE:
-                crawl_data = google_maps_crawler.crawl_google_maps_reviews(url=url, max_reviews=max_revs, headless=True)
+                crawl_data = google_maps_crawler.crawl_google_maps_reviews(
+                    url=url,
+                    max_reviews=max_revs,
+                    headless=True,
+                    task_id=task_id
+                )
 
             if not crawl_data or not crawl_data.get("success"):
                 err_msg = crawl_data.get("error") if crawl_data else "Không nhận được phản hồi từ Google Maps."
                 raise HTTPException(
                     status_code=400,
                     detail=f"Thu thập dữ liệu Google Maps thất bại: {err_msg}"
+                )
+
+            rev_count = len(crawl_data.get('reviews', []))
+            if task_id:
+                task_manager.update_task(
+                    task_id,
+                    status="analyzing",
+                    progress=70,
+                    message="Đang phân tích khía cạnh bằng Gemini AI...",
+                    reviews_count=rev_count
                 )
 
             with get_session() as db:
@@ -630,8 +683,18 @@ def analyze_restaurant_url(req: AnalyzeRequest):
                         detail="Quán ăn này không có bài đánh giá thực tế nào từ thực khách trên Google Maps. Hệ thống từ chối lưu thực thể rác vào cơ sở dữ liệu."
                     )
                 formatted = format_restaurant_full(restaurant, db)
-                rev_count = len(crawl_data.get('reviews', []))
                 msg = f"Đã cào và phân tích thành công {rev_count} đánh giá thực tế từ Google Maps!"
+
+                if task_id:
+                    task_manager.update_task(
+                        task_id,
+                        status="completed",
+                        progress=100,
+                        message=msg,
+                        restaurant_id=restaurant.id,
+                        restaurant=formatted,
+                        reviews_count=rev_count
+                    )
 
                 return {
                     "success": True,
@@ -939,8 +1002,166 @@ def is_category_or_dish_query(query: str) -> bool:
     return False
 
 
+NAME_RELEVANCE_SYNONYM_GROUPS = [
+    {"seafood", "haisan", "hai san", "hai", "san"},
+    {"bbq", "barbecue", "grill", "nuong"},
+    {"coffee", "cafe", "caphe", "ca phe", "ca", "phe"},
+    {"tea", "tra"},
+    {"milk tea", "milktea", "trasua", "tra sua", "milk", "sua"},
+    {"hotpot", "lau"},
+    {"burger", "hamburger"},
+    {"pizza"},
+    {"beer", "bia"},
+    {"vegetarian", "chay", "chay tinh"},
+    {"bakery", "tiem banh", "banh ngot"},
+    {"banh xeo", "xeo"},
+]
+
+NAME_GENERIC_STOPWORDS = {
+    "quan", "tiem", "nha", "hang", "nhahang", "store", "shop", "food",
+    "amthuc", "am", "thuc", "restaurant", "da", "nang", "danang", "viet",
+    "nam", "vietnam", "chi", "nhanh", "tp", "hcm", "ha", "noi", "hanoi"
+}
+
+NAME_HONORIFICS = {
+    "ba", "ong", "co", "chu", "bac", "anh", "chi", "em", "me", "cha", "cu",
+    "mr", "mrs", "miss"
+}
+
+NAME_CUISINE_WORDS = {
+    "seafood", "haisan", "hai", "san", "bbq", "barbecue", "grill", "nuong",
+    "coffee", "cafe", "caphe", "ca", "phe", "tea", "tra", "milk", "milktea", "trasua",
+    "sua", "hotpot", "lau", "burger", "hamburger", "pizza", "beer", "bia",
+    "vegetarian", "chay", "bakery", "banh", "ngot", "com", "pho", "bun",
+    "mi", "chao", "che", "kem", "oc", "sushi", "buffet", "steak", "xeo",
+    "cuon", "trang", "tam", "xao", "ran", "chien", "quay", "luoc", "an", "uong"
+}
+
+
+def _expand_name_synonyms(tokens: List[str]) -> Set[str]:
+    """Mở rộng tập từ khóa với các từ đồng nghĩa ẩm thực thông dụng 2 chiều."""
+    expanded = set(tokens)
+    text = " " + " ".join(tokens) + " "
+    for group in NAME_RELEVANCE_SYNONYM_GROUPS:
+        matched = False
+        for item in group:
+            if " " in item:
+                if f" {item} " in text:
+                    matched = True
+                    break
+            else:
+                if item in expanded:
+                    matched = True
+                    break
+        if matched:
+            for item in group:
+                expanded.add(item)
+                expanded.update(item.split())
+    return expanded
+
+
+def extract_brand_tokens(tokens: List[str]) -> Set[str]:
+    """Trích xuất các token đại diện cho thương hiệu/tên riêng (loại trừ từ chung và từ loại món ăn)."""
+    return {
+        t for t in tokens
+        if t not in NAME_GENERIC_STOPWORDS and t not in NAME_CUISINE_WORDS and len(t) >= 2
+    }
+
+
+def is_name_relevant(query: str, candidate_name: str, threshold: float = 0.35) -> bool:
+    """
+    Kiểm tra độ tương đồng và liên quan giữa từ khóa tìm kiếm (query) và tên quán ăn (candidate_name).
+    - Chuẩn hóa text tiếng Việt (bỏ dấu, chuyển chữ thường, loại bỏ ký tự đặc biệt).
+    - Hỗ trợ map từ khóa đồng nghĩa ẩm thực (seafood <-> hải sản, bbq <-> nướng, coffee <-> cà phê, tea <-> trà...).
+    - Sử dụng regex ranh giới từ \b để so khớp cụm từ chính xác, chống false positive từ các từ ngắn.
+    - Chống so khớp nhầm thương hiệu (Brand Mismatch Guard): Nếu query có tên thương hiệu riêng
+      và candidate cũng có tên thương hiệu riêng nhưng không giao nhau thì từ chối (ví dụ: 'mộc quán seafood' vs 'Hải Sản Bé Mặn').
+    - Tính toán tỷ lệ giao nhau của các token cốt lõi và kiểm tra token chính.
+    """
+    if not query or not candidate_name:
+        return False
+
+    nq = normalize_vietnamese(query)
+    nc = normalize_vietnamese(candidate_name)
+    if not nq or not nc:
+        return False
+
+    if nq == nc:
+        return True
+
+    # Khớp trọn vẹn cụm từ với ranh giới từ \b
+    pattern_q = r"(?:\b|\A)" + re.escape(nq) + r"(?:\b|\Z)"
+    pattern_c = r"(?:\b|\A)" + re.escape(nc) + r"(?:\b|\Z)"
+    if re.search(pattern_q, nc) or re.search(pattern_c, nq):
+        return True
+
+    q_tokens = [w for w in nq.split() if w]
+    c_tokens = [w for w in nc.split() if w]
+    if not q_tokens or not c_tokens:
+        return False
+
+    q_brand = extract_brand_tokens(q_tokens)
+    c_brand = extract_brand_tokens(c_tokens)
+
+    # Token thương hiệu riêng biệt (loại trừ xưng hô/danh xưng như 'bà', 'ông', 'cô', 'chú')
+    q_dist = q_brand - NAME_HONORIFICS
+    c_dist = c_brand - NAME_HONORIFICS
+
+    # Nếu query có tên thương hiệu riêng biệt, candidate BẮT BUỘC phải khớp thương hiệu đó
+    if q_dist and c_dist and not (q_dist & c_dist):
+        return False
+    if q_dist and not (q_dist & set(c_tokens)):
+        return False
+
+    # Nếu cả 2 bên đều có brand riêng nhưng không giao nhau -> Từ chối
+    if q_brand and c_brand and not (q_brand & c_brand):
+        return False
+
+    q_expanded = _expand_name_synonyms(q_tokens)
+    c_expanded = _expand_name_synonyms(c_tokens)
+
+    # Token cốt lõi của query (loại trừ từ chung như 'quan', 'tiem', 'nha hang', 'da nang'...)
+    q_core = {t for t in q_tokens if t not in NAME_GENERIC_STOPWORDS and len(t) >= 2}
+    if not q_core:
+        q_core = {t for t in q_tokens if len(t) >= 2}
+
+    # 1. So khớp token cốt lõi trực tiếp với tập từ đã mở rộng của quán
+    direct_core_matches = q_core & c_expanded
+    if direct_core_matches:
+        # Nếu query có brand riêng, bắt buộc ít nhất 1 brand token phải xuất hiện ở candidate
+        if q_dist:
+            if (q_dist & set(c_tokens)) or any(difflib.SequenceMatcher(None, qb, cb).ratio() >= 0.85 for qb in q_dist for cb in c_tokens):
+                return True
+            return False
+        return True
+
+    # So khớp mờ cho từng token cốt lõi (phòng ngừa lỗi chính tả gõ nhầm 1 ký tự)
+    for qw in q_core:
+        for cw in c_tokens:
+            if len(qw) >= 3 and len(cw) >= 3:
+                if difflib.SequenceMatcher(None, qw, cw).ratio() >= 0.85:
+                    if q_dist and qw in q_dist:
+                        return True
+                    elif not q_dist:
+                        return True
+
+    # 2. Đo lường tỷ lệ Jaccard giữa tập token mở rộng
+    exp_intersection = q_expanded & c_expanded
+    exp_union = q_expanded | c_expanded
+    exp_jaccard = len(exp_intersection) / len(exp_union) if exp_union else 0.0
+    if exp_jaccard >= threshold and (not q_dist or (q_dist & set(c_tokens))):
+        return True
+
+    # 3. Levenshtein / SequenceMatcher tổng thể
+    seq_ratio = difflib.SequenceMatcher(None, nq, nc).ratio()
+    if seq_ratio >= 0.65 and (not q_dist or (q_dist & set(c_tokens))):
+        return True
+
+    return False
+
+
 @router.post("/search-and-crawl")
-def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
+def search_and_crawl_restaurant(req: SearchAndCrawlRequest, task_id: Optional[str] = None):
     """
     Quy trình tìm kiếm và cào dữ liệu thông minh theo từ khóa và nguồn:
     1. Nhận từ khóa tìm kiếm (ví dụ: 'bánh tráng', 'bún huế') và tham số source ('auto' | 'foody' | 'google_maps').
@@ -970,7 +1191,10 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
         if is_direct_url:
             target_url = q if (q.startswith("http://") or q.startswith("https://")) else f"https://{q}"
             print(f"-> [Search & Crawl] [Defensive Guard] Nhận diện query là URL ('{target_url}'). Chuyển hướng xử lý qua analyze_restaurant_url...")
-            result = analyze_restaurant_url(AnalyzeRequest(url=target_url, max_reviews=req.max_reviews or 30))
+            if task_id:
+                result = analyze_restaurant_url(AnalyzeRequest(url=target_url, max_reviews=req.max_reviews or 30), task_id=task_id)
+            else:
+                result = analyze_restaurant_url(AnalyzeRequest(url=target_url, max_reviews=req.max_reviews or 30))
             if isinstance(result, dict):
                 if "source" not in result:
                     result["source"] = "crawled_and_analyzed"
@@ -996,10 +1220,18 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
         tokens = [t for t in norm_kw.split() if len(t) >= 2]
 
         source = (req.source or "auto").strip().lower().replace("-", "_")
-        if source not in ("auto", "foody", "google_maps"):
+        if source not in ("auto", "foody", "google_maps", "database"):
             source = "auto"
 
         is_category = is_category_or_dish_query(search_keyword)
+
+        if task_id:
+            task_manager.update_task(
+                task_id,
+                status="crawling",
+                progress=10,
+                message=f"Đang tìm kiếm thông tin quán '{search_keyword}'..."
+            )
 
         # Bước 1: Kiểm tra trong cơ sở dữ liệu SQLite trước
         # Chỉ kiểm tra nhanh trong DB nếu:
@@ -1048,33 +1280,66 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                         .count() > 0
                     )
 
-                    # 1. Người dùng chỉ định rõ nguồn Foody: Trả về luôn từ DB
-                    if source == "foody":
+                    # 1. Người dùng chỉ định rõ nguồn Foody hoặc Database: Trả về luôn từ DB
+                    if source in ("foody", "database"):
                         formatted = format_restaurant_full(matching_res, db)
+                        msg = f"Tìm thấy quán '{matching_res.name}' đã được phân tích sẵn trong cơ sở dữ liệu!"
+                        if task_id:
+                            task_manager.update_task(
+                                task_id,
+                                status="completed",
+                                progress=100,
+                                message=msg,
+                                restaurant_id=matching_res.id,
+                                restaurant=formatted,
+                                reviews_count=len(formatted.get("reviews", []))
+                            )
                         return {
                             "success": True,
                             "source": "database",
-                            "message": f"Tìm thấy quán '{matching_res.name}' đã được phân tích sẵn trong cơ sở dữ liệu!",
+                            "message": msg,
                             "restaurant": formatted
                         }
 
                     # 2. Người dùng chọn google_maps và quán đã có dữ liệu Google Maps
                     if source == "google_maps" and has_gmaps:
                         formatted = format_restaurant_full(matching_res, db)
+                        msg = f"Tìm thấy quán '{matching_res.name}' đã có dữ liệu Google Maps trong cơ sở dữ liệu!"
+                        if task_id:
+                            task_manager.update_task(
+                                task_id,
+                                status="completed",
+                                progress=100,
+                                message=msg,
+                                restaurant_id=matching_res.id,
+                                restaurant=formatted,
+                                reviews_count=len(formatted.get("reviews", []))
+                            )
                         return {
                             "success": True,
                             "source": "database",
-                            "message": f"Tìm thấy quán '{matching_res.name}' đã có dữ liệu Google Maps trong cơ sở dữ liệu!",
+                            "message": msg,
                             "restaurant": formatted
                         }
 
                     # 3. Người dùng chọn auto và quán đã có đủ dữ liệu từ Google Maps: Trả về luôn từ DB
                     if source == "auto" and has_gmaps:
                         formatted = format_restaurant_full(matching_res, db)
+                        msg = f"Tìm thấy quán '{matching_res.name}' đã được phân tích sẵn trong cơ sở dữ liệu!"
+                        if task_id:
+                            task_manager.update_task(
+                                task_id,
+                                status="completed",
+                                progress=100,
+                                message=msg,
+                                restaurant_id=matching_res.id,
+                                restaurant=formatted,
+                                reviews_count=len(formatted.get("reviews", []))
+                            )
                         return {
                             "success": True,
                             "source": "database",
-                            "message": f"Tìm thấy quán '{matching_res.name}' đã được phân tích sẵn trong cơ sở dữ liệu!",
+                            "message": msg,
                             "restaurant": formatted
                         }
 
@@ -1083,6 +1348,13 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                         gmap_query = f"{matching_res.name} {matching_res.address or ''}".strip()
                         gmap_city = gmaps_city or get_google_maps_location(matching_res.city or "")
                         print(f"-> [Search & Crawl] [Dual-Source] Quán '{matching_res.name}' trong DB chưa có review Google Maps. Bắt đầu cào bổ sung từ Google Maps cho '{gmap_query}'...")
+                        if task_id:
+                            task_manager.update_task(
+                                task_id,
+                                status="crawling",
+                                progress=30,
+                                message=f"Đang cào bổ sung từ Google Maps cho '{matching_res.name}'..."
+                            )
                         gmaps_crawled_ok = False
                         try:
                             with CRAWLER_SEMAPHORE:
@@ -1090,7 +1362,8 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                                     query=gmap_query,
                                     city=gmap_city,
                                     max_reviews=15,
-                                    headless=True
+                                    headless=True,
+                                    task_id=task_id
                                 )
                             if gmaps_data and gmaps_data.get("success") and gmaps_data.get("restaurant_name"):
                                 matching_res, new_count, dup_count = save_and_analyze_google_maps_reviews(
@@ -1107,17 +1380,39 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
 
                         formatted = format_restaurant_full(matching_res, db)
                         if gmaps_crawled_ok:
+                            msg = f"Tìm thấy quán '{matching_res.name}' trong cơ sở dữ liệu và đã bổ sung thành công nhận xét từ Google Maps!"
+                            if task_id:
+                                task_manager.update_task(
+                                    task_id,
+                                    status="completed",
+                                    progress=100,
+                                    message=msg,
+                                    restaurant_id=matching_res.id,
+                                    restaurant=formatted,
+                                    reviews_count=len(formatted.get("reviews", []))
+                                )
                             return {
                                 "success": True,
                                 "source": "crawled_and_analyzed",
-                                "message": f"Tìm thấy quán '{matching_res.name}' trong cơ sở dữ liệu và đã bổ sung thành công nhận xét từ Google Maps!",
+                                "message": msg,
                                 "restaurant": formatted
                             }
                         else:
+                            msg = "Đã tổng hợp từ Foody; Google Maps không tìm thấy chi nhánh khớp."
+                            if task_id:
+                                task_manager.update_task(
+                                    task_id,
+                                    status="completed",
+                                    progress=100,
+                                    message=msg,
+                                    restaurant_id=matching_res.id,
+                                    restaurant=formatted,
+                                    reviews_count=len(formatted.get("reviews", []))
+                                )
                             return {
                                 "success": True,
                                 "source": "database",
-                                "message": f"Đã tổng hợp từ Foody; Google Maps không tìm thấy chi nhánh khớp.",
+                                "message": msg,
                                 "restaurant": formatted
                             }
 
@@ -1125,12 +1420,20 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
         def crawl_gmaps(min_viable_reviews: int = 0):
             gmap_city = gmaps_city
             print(f"-> [Search & Crawl] Bắt đầu tìm kiếm & cào Google Maps cho từ khóa '{search_keyword}' (thành phố: {gmap_city or 'Toàn quốc'})...")
+            if task_id:
+                task_manager.update_task(
+                    task_id,
+                    status="crawling",
+                    progress=20,
+                    message=f"Đang tìm kiếm Google Maps cho '{search_keyword}'..."
+                )
             with CRAWLER_SEMAPHORE:
                 gmaps_data = google_maps_crawler.search_and_crawl_google_maps(
                     query=search_keyword,
                     city=gmap_city,
                     max_reviews=req.max_reviews or 25,
-                    headless=True
+                    headless=True,
+                    task_id=task_id
                 )
             if not gmaps_data or not gmaps_data.get("success") or not gmaps_data.get("restaurant_name"):
                 err_detail = gmaps_data.get("error") if gmaps_data else "Không nhận được phản hồi từ Google Maps."
@@ -1149,6 +1452,16 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                     detail=f"Quán '{gmaps_data.get('restaurant_name', search_keyword)}' không có bất kỳ bài đánh giá thực tế nào từ cả Foody lẫn Google Maps. Hệ thống từ chối lưu thực thể rác vào cơ sở dữ liệu."
                 )
 
+            rev_count = len(gmaps_data.get("reviews", []))
+            if task_id:
+                task_manager.update_task(
+                    task_id,
+                    status="analyzing",
+                    progress=75,
+                    message="Đang phân tích khía cạnh bằng Gemini AI...",
+                    reviews_count=rev_count
+                )
+
             with get_session() as db:
                 restaurant, new_count, dup_count = save_and_analyze_google_maps_reviews(
                     db=db,
@@ -1158,11 +1471,22 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                     min_viable_reviews=min_viable_reviews
                 )
                 formatted = format_restaurant_full(restaurant, db)
-                rev_count = len(gmaps_data.get("reviews", []))
                 if rev_count > 0:
                     msg = f"Đã tổng hợp thành công nhận xét từ Google Maps của quán '{restaurant.name}' ({rev_count} nhận xét thực tế)!"
                 else:
                     msg = f"Quán '{restaurant.name}' trên Google Maps hiện chưa có bài đánh giá nào. Đã lưu trữ thông tin quán thành công!"
+
+                if task_id:
+                    task_manager.update_task(
+                        task_id,
+                        status="completed",
+                        progress=100,
+                        message=msg,
+                        restaurant_id=restaurant.id,
+                        restaurant=formatted,
+                        reviews_count=rev_count
+                    )
+
                 return {
                     "success": True,
                     "source": "crawled_and_analyzed",
@@ -1200,6 +1524,19 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                 if unseen_places:
                     break
 
+            # Lọc các địa điểm theo độ tương đồng tên quán (Fuzzy Name Relevance Guard)
+            # Ngăn chặn trường hợp Foody trả về danh sách gợi ý ngẫu nhiên/lạc quẻ khi không tìm thấy kết quả khớp
+            if unseen_places:
+                relevant_places = [
+                    p for p in unseen_places
+                    if is_name_relevant(search_keyword, p.get("name", ""))
+                ]
+                if not relevant_places:
+                    print(f"-> [Search & Crawl] Không có quán nào trong {len(unseen_places)} kết quả gợi ý của Foody tương đồng với từ khóa '{search_keyword}'. Bỏ qua danh sách gợi ý ngẫu nhiên.")
+                    unseen_places = []
+                else:
+                    unseen_places = relevant_places
+
             crawl_data = None
             target_place = None
 
@@ -1208,13 +1545,15 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                 for place in unseen_places:
                     target_url = place["url"]
                     print(f"-> [Search & Crawl] Bắt đầu cào thử đánh giá quán mới: '{place['name']}' ({target_url})")
-                    data = foody_crawler.crawl_restaurant(
-                        target_url,
-                        max_reviews=req.max_reviews or 25,
-                        headless=True,
-                        known_fingerprints=set(),
-                        max_consecutive_existing=3
-                    )
+                    with CRAWLER_SEMAPHORE:
+                        data = foody_crawler.crawl_restaurant(
+                            target_url,
+                            max_reviews=req.max_reviews or 25,
+                            headless=True,
+                            known_fingerprints=set(),
+                            max_consecutive_existing=3,
+                            task_id=task_id
+                        )
                     if data and data.get("name") and data.get("reviews"):
                         valid_revs = [
                             rv for rv in data["reviews"]
@@ -1239,6 +1578,9 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                                 continue
                         r_full = remove_accents(f"{r.name} {r.address or ''}")
                         if norm_kw in r_full or all(t in r_full for t in tokens):
+                            # Nếu tìm kiếm đích danh thương hiệu (không phải thể loại món), bắt buộc tên phải tương đồng
+                            if not is_category and not is_name_relevant(search_keyword, r.name):
+                                continue
                             db_matches.append(r)
 
                     if db_matches:
@@ -1263,7 +1605,8 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                                         query=gm_query,
                                         city=gm_city,
                                         max_reviews=15,
-                                        headless=True
+                                        headless=True,
+                                        task_id=task_id
                                     )
                                 if gm_data and gm_data.get("success") and gm_data.get("restaurant_name"):
                                     best_match, _, _ = save_and_analyze_google_maps_reviews(
@@ -1277,10 +1620,21 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                                 print(f"-> [Search & Crawl] Bổ sung Google Maps cho '{best_match.name}' thất bại: {gm_err}")
 
                         formatted = format_restaurant_full(best_match, db)
+                        msg = f"Tất cả các quán hàng đầu theo từ khóa '{search_keyword}' đã được thu thập trong hệ thống. Đang hiển thị quán uy tín nhất: {best_match.name}"
+                        if task_id:
+                            task_manager.update_task(
+                                task_id,
+                                status="completed",
+                                progress=100,
+                                message=msg,
+                                restaurant_id=best_match.id,
+                                restaurant=formatted,
+                                reviews_count=len(formatted.get("reviews", []))
+                            )
                         return {
                             "success": True,
                             "source": "database",
-                            "message": f"Tất cả các quán hàng đầu theo từ khóa '{search_keyword}' đã được thu thập trong hệ thống. Đang hiển thị quán uy tín nhất: {best_match.name}",
+                            "message": msg,
                             "restaurant": formatted
                         }
 
@@ -1305,6 +1659,14 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                         detail=f"Quán '{target_place['name']}' không có bài đánh giá hợp lệ nào. Hệ thống từ chối lưu thực thể rác."
                     )
                 foody_rev_count = len(crawl_data.get("reviews", []))
+                if task_id:
+                    task_manager.update_task(
+                        task_id,
+                        status="analyzing",
+                        progress=75,
+                        message="Đang phân tích khía cạnh bằng Gemini AI...",
+                        reviews_count=foody_rev_count
+                    )
 
                 # NÂNG CẤP DUAL-SOURCE: Khi source == "auto", gọi tiếp Google Maps crawler
                 if source == "auto":
@@ -1318,7 +1680,8 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                                 query=gm_query,
                                 city=gmaps_city,
                                 max_reviews=15,
-                                headless=True
+                                headless=True,
+                                task_id=task_id
                             )
                         if gm_data and gm_data.get("success") and gm_data.get("restaurant_name"):
                             restaurant, new_gmaps_cnt, _ = save_and_analyze_google_maps_reviews(
@@ -1342,6 +1705,17 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                     else:
                         msg = "Đã tổng hợp từ Foody; Google Maps không tìm thấy chi nhánh khớp."
 
+                    if task_id:
+                        task_manager.update_task(
+                            task_id,
+                            status="completed",
+                            progress=100,
+                            message=msg,
+                            restaurant_id=restaurant.id,
+                            restaurant=formatted,
+                            reviews_count=foody_rev_count + (gmaps_rev_count if gmaps_merged else 0)
+                        )
+
                     return {
                         "success": True,
                         "source": "crawled_and_analyzed",
@@ -1352,10 +1726,21 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
                 # Nếu source == "foody":
                 invalidate_restaurants_cache()
                 formatted = format_restaurant_full(restaurant, db)
+                msg = f"Đã tổng hợp thành công nhận xét thực tế của quán '{restaurant.name}' ({foody_rev_count} nhận xét thực tế)!"
+                if task_id:
+                    task_manager.update_task(
+                        task_id,
+                        status="completed",
+                        progress=100,
+                        message=msg,
+                        restaurant_id=restaurant.id,
+                        restaurant=formatted,
+                        reviews_count=foody_rev_count
+                    )
                 return {
                     "success": True,
                     "source": "crawled_and_analyzed",
-                    "message": f"Đã tổng hợp thành công nhận xét thực tế của quán '{restaurant.name}' ({foody_rev_count} nhận xét thực tế)!",
+                    "message": msg,
                     "restaurant": formatted
                 }
 
@@ -1385,6 +1770,198 @@ def search_and_crawl_restaurant(req: SearchAndCrawlRequest):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Không thể tổng hợp nhận xét của quán: {str(e)}")
+
+
+def _background_search_and_crawl_worker(task_id: str, req: SearchAndCrawlRequest):
+    """Worker background thread xử lý cào và phân tích quán ăn theo từ khóa."""
+    try:
+        res = search_and_crawl_restaurant(req, task_id=task_id)
+        if isinstance(res, dict) and res.get("restaurant"):
+            restaurant = res["restaurant"]
+            revs = restaurant.get("reviews", [])
+            task_manager.update_task(
+                task_id,
+                status="completed",
+                progress=100,
+                message=res.get("message", "Hoàn tất!"),
+                restaurant_id=restaurant.get("id"),
+                restaurant=restaurant,
+                reviews_count=len(revs)
+            )
+        else:
+            task_manager.update_task(
+                task_id,
+                status="failed",
+                progress=100,
+                error="Không nhận được dữ liệu quán ăn hợp lệ",
+                message="Thất bại: Không nhận được dữ liệu quán ăn hợp lệ"
+            )
+    except HTTPException as http_err:
+        err_msg = str(http_err.detail)
+        task_manager.update_task(
+            task_id,
+            status="failed",
+            progress=100,
+            error=err_msg,
+            message=f"Thất bại: {err_msg}"
+        )
+    except Exception as exc:
+        err_msg = str(exc)
+        task_manager.update_task(
+            task_id,
+            status="failed",
+            progress=100,
+            error=err_msg,
+            message=f"Thất bại: {err_msg}"
+        )
+
+
+def _background_analyze_url_worker(task_id: str, req: AnalyzeRequest):
+    """Worker background thread xử lý cào và phân tích URL trực tiếp."""
+    try:
+        res = analyze_restaurant_url(req, task_id=task_id)
+        if isinstance(res, dict) and res.get("restaurant"):
+            restaurant = res["restaurant"]
+            revs = restaurant.get("reviews", [])
+            task_manager.update_task(
+                task_id,
+                status="completed",
+                progress=100,
+                message=res.get("message", "Hoàn tất!"),
+                restaurant_id=restaurant.get("id"),
+                restaurant=restaurant,
+                reviews_count=len(revs)
+            )
+        else:
+            task_manager.update_task(
+                task_id,
+                status="failed",
+                progress=100,
+                error="Không nhận được dữ liệu quán ăn hợp lệ",
+                message="Thất bại: Không nhận được dữ liệu quán ăn hợp lệ"
+            )
+    except HTTPException as http_err:
+        err_msg = str(http_err.detail)
+        task_manager.update_task(
+            task_id,
+            status="failed",
+            progress=100,
+            error=err_msg,
+            message=f"Thất bại: {err_msg}"
+        )
+    except Exception as exc:
+        err_msg = str(exc)
+        task_manager.update_task(
+            task_id,
+            status="failed",
+            progress=100,
+            error=err_msg,
+            message=f"Thất bại: {err_msg}"
+        )
+
+
+@router.post("/crawl-tasks/search-and-crawl")
+def create_async_search_and_crawl_task(req: SearchAndCrawlRequest):
+    """
+    Tiếp nhận yêu cầu tìm kiếm và cào dữ liệu quán ăn theo kiến trúc Bất đồng bộ (Async Task Queue):
+    - Phản hồi ngay lập tức trong < 50ms (giải quyết triệt để lỗi HTTP 502 Bad Gateway trên Render).
+    - Tạo task_id và khởi động tác vụ cào ngầm trong background thread.
+    - Cập nhật tiến trình qua task_manager để client có thể theo dõi live qua GET /api/crawl-tasks/{task_id}.
+    """
+    q = (req.query or "").strip()
+    if not q:
+        raise HTTPException(status_code=400, detail="Vui lòng nhập từ khóa tìm kiếm.")
+
+    task_id = task_manager.create_task(
+        task_type="search_and_crawl",
+        metadata={
+            "query": q,
+            "city": req.city,
+            "max_reviews": req.max_reviews or 25,
+            "source": req.source or "auto"
+        },
+        initial_message="Đã tiếp nhận yêu cầu cào dữ liệu."
+    )
+
+    worker_thread = threading.Thread(
+        target=_background_search_and_crawl_worker,
+        args=(task_id, req),
+        daemon=True,
+        name=f"AsyncSearchCrawl-{task_id[:8]}"
+    )
+    worker_thread.start()
+
+    return {
+        "success": True,
+        "task_id": task_id,
+        "status": "pending",
+        "message": "Đã tiếp nhận yêu cầu cào dữ liệu."
+    }
+
+
+@router.post("/crawl-tasks/analyze-url")
+def create_async_analyze_url_task(req: AnalyzeRequest):
+    """
+    Tiếp nhận yêu cầu phân tích URL quán ăn (Foody / Google Maps) theo kiến trúc Bất đồng bộ (Async Task Queue):
+    - Phản hồi ngay lập tức trong < 50ms (giải quyết triệt để lỗi HTTP 502 Bad Gateway trên Render).
+    - Tạo task_id và khởi động tác vụ cào ngầm trong background thread.
+    - Cập nhật tiến trình qua task_manager để client có thể theo dõi live qua GET /api/crawl-tasks/{task_id}.
+    """
+    u = (req.url or "").strip()
+    if not u:
+        raise HTTPException(
+            status_code=400,
+            detail="URL không được để trống. Vui lòng cung cấp liên kết Foody hoặc Google Maps."
+        )
+
+    task_id = task_manager.create_task(
+        task_type="analyze_url",
+        metadata={
+            "url": u,
+            "max_reviews": req.max_reviews or 30
+        },
+        initial_message="Đã tiếp nhận yêu cầu cào dữ liệu."
+    )
+
+    worker_thread = threading.Thread(
+        target=_background_analyze_url_worker,
+        args=(task_id, req),
+        daemon=True,
+        name=f"AsyncAnalyzeUrl-{task_id[:8]}"
+    )
+    worker_thread.start()
+
+    return {
+        "success": True,
+        "task_id": task_id,
+        "status": "pending",
+        "message": "Đã tiếp nhận yêu cầu cào dữ liệu."
+    }
+
+
+@router.get("/crawl-tasks/{task_id}")
+def get_crawl_task_status(task_id: str):
+    """
+    Truy vấn trạng thái và tiến trình hiện tại của một Crawl Task:
+    - Trả về status: 'pending' | 'crawling' | 'analyzing' | 'completed' | 'failed'
+    - Tiến trình: 0 -> 100
+    - Thông báo live message, số lượng review, ID quán và dữ liệu quán ăn đầy đủ khi hoàn tất.
+    """
+    task = task_manager.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Không tìm thấy task yêu cầu.")
+
+    return {
+        "success": True,
+        "task_id": task["task_id"],
+        "status": task["status"],
+        "progress": task.get("progress", 0),
+        "message": task.get("message", ""),
+        "reviews_count": task.get("reviews_count", 0),
+        "restaurant_id": task.get("restaurant_id"),
+        "restaurant": task.get("restaurant"),
+        "error": task.get("error")
+    }
 
 
 @router.post("/request-crawl")

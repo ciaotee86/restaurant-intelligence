@@ -56,10 +56,11 @@ def get_gemini_api_key() -> Optional[str]:
                 key = k_clean
                 break
 
-            # Case B: Tên biến có chứa gemini hoặc google_api
+            # Case B: Tên biến có chứa gemini hoặc google_api (loại trừ đường dẫn thư mục / file path)
             if ("gemini" in k_clean.lower() or "google_api" in k_clean.lower()) and len(v_clean) > 15:
-                key = v_clean
-                break
+                if ":\\" not in v_clean and ":/" not in v_clean and not v_clean.startswith("/") and not os.path.exists(v_clean):
+                    key = v_clean
+                    break
 
             # Case C: Giá trị bắt đầu bằng AIzaSy hoặc AQ.
             if v_clean.startswith("AIzaSy") or v_clean.startswith("AQ."):

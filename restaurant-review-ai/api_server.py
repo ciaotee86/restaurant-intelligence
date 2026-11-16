@@ -205,4 +205,6 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     _ensure_port_available(port)
     print(f"Khởi chạy Restaurant Intelligence Server trên cổng {port}...")
-    uvicorn.run("api_server:app", host="0.0.0.0", port=port, reload=False)
+    is_dev = os.getenv("RENDER") is None and os.getenv("NODE_ENV") != "production"
+    reload_mode = os.getenv("RELOAD", "true").lower() in ("true", "1", "yes") if is_dev else False
+    uvicorn.run("api_server:app", host="0.0.0.0", port=port, reload=reload_mode, app_dir=str(CURRENT_DIR))
