@@ -9,5 +9,9 @@ services:
     envVars:
       - key: GEMINI_API_KEY
         sync: false
+      - key: SERPAPI_KEY
+        sync: false
+      - key: GOOGLE_MAPS_STORAGE_STATE_B64
+        sync: false
       - key: PORT
         value: 10000
