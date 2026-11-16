@@ -13,6 +13,7 @@ import csv
 import os
 import re
 import sys
+import gc
 import threading
 import urllib.parse
 
@@ -72,6 +73,11 @@ def build_driver(headless: bool = True):
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
+    options.add_argument("--no-zygote")
+    options.add_argument("--js-flags=--max-old-space-size=128")
+    options.add_argument("--disk-cache-size=1")
+    if sys.platform != "win32" or os.environ.get("RENDER") or os.environ.get("FORCE_SINGLE_PROCESS"):
+        options.add_argument("--single-process")
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--blink-settings=imagesEnabled=false")
     options.add_argument("--disable-extensions")
@@ -634,7 +640,8 @@ def crawl_restaurant(
     max_reviews: int = 50,
     headless: bool = True,
     known_fingerprints: Optional[Set[str]] = None,
-    max_consecutive_existing: int = 3
+    max_consecutive_existing: int = 3,
+    task_id: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
     """
     Cào bài đánh giá của 1 nhà hàng từ URL Foody.
@@ -647,6 +654,18 @@ def crawl_restaurant(
     if not is_foody_domain(url):
         print(f"-> [Crawler Cảnh báo] Từ chối cào URL không thuộc foody.vn: {url}")
         return None
+
+    if task_id:
+        try:
+            from services.task_manager import task_manager
+            task_manager.update_task(
+                task_id,
+                status="crawling",
+                progress=15,
+                message="Đang khởi động kết nối Foody..."
+            )
+        except Exception:
+            pass
 
     # 1. Fast HTTP Pre-check
     http_meta = inspect_foody_via_http(url, timeout=8)
@@ -682,9 +701,32 @@ def crawl_restaurant(
             "stopped_early": http_crawl.get("stopped_early", False)
         }
         print(f"-> [Fast HTTP Crawler] Thu thập thành công {len(result['reviews'])} đánh giá trong < 2s (Không mở Selenium Chrome)!")
+        if task_id:
+            try:
+                from services.task_manager import task_manager
+                task_manager.update_task(
+                    task_id,
+                    status="crawling",
+                    progress=50,
+                    message=f"Đã thu thập {len(result['reviews'])} đánh giá qua Foody...",
+                    reviews_count=len(result['reviews'])
+                )
+            except Exception:
+                pass
         return result
 
     # 3. Fallback: Selenium Chrome Crawler (Giới hạn tối đa 2 instances đồng thời [SEC-04])
+    if task_id:
+        try:
+            from services.task_manager import task_manager
+            task_manager.update_task(
+                task_id,
+                status="crawling",
+                progress=30,
+                message="Đang mở trình duyệt kết nối Foody..."
+            )
+        except Exception:
+            pass
     CRAWLER_SEMAPHORE.acquire()
     driver = None
     try:
@@ -879,6 +921,7 @@ def crawl_restaurant(
                 driver.quit()
             except Exception:
                 pass
+            gc.collect()
         CRAWLER_SEMAPHORE.release()
 
     return result
@@ -1018,62 +1061,67 @@ def search_foody_places(
     except Exception as http_err:
         print(f"-> [Foody Search HTTP Fallback] Không dùng được HTTP ({http_err}), chuyển sang Selenium...")
 
-    # 2. Fallback Selenium nếu cần
-    driver = build_driver(headless=True)
-    results = []
-    seen_urls = set()
+    # 2. Fallback Selenium nếu cần (Bảo vệ bởi CRAWLER_SEMAPHORE)
+    with CRAWLER_SEMAPHORE:
+        driver = build_driver(headless=True)
+        results = []
+        seen_urls = set()
 
-    try:
-        driver.get(search_url)
-        time.sleep(1.0)
+        try:
+            driver.get(search_url)
+            time.sleep(1.0)
 
-        items = driver.find_elements(By.CSS_SELECTOR, ".filter-result-item, .row-item, .content-item")
-        print(f"  [Selenium Search] Phát hiện {len(items)} kết quả trên Foody.")
+            items = driver.find_elements(By.CSS_SELECTOR, ".filter-result-item, .row-item, .content-item")
+            print(f"  [Selenium Search] Phát hiện {len(items)} kết quả trên Foody.")
 
-        for item in items:
+            for item in items:
+                try:
+                    link_el = item.find_element(By.CSS_SELECTOR, "h2 a, .result-name a, a.res-name")
+                    name = link_el.text.strip()
+                    url = link_el.get_attribute("href")
+
+                    addr = ""
+                    try:
+                        addr_el = item.find_element(By.CSS_SELECTOR, ".address, .res-common-add")
+                        addr = addr_el.text.strip()
+                    except Exception:
+                        pass
+
+                    review_count = 0
+                    try:
+                        comment_el = item.find_element(By.CSS_SELECTOR, ".fa-comment + span")
+                        txt = comment_el.text.strip()
+                        if txt.isdigit():
+                            review_count = int(txt)
+                    except Exception:
+                        pass
+
+                    if name and url and "foody.vn" in url and "/dia-diem" not in url and "/khu-vuc" not in url:
+                        clean_url = url.split("?")[0]
+                        if existing_urls and clean_url in existing_urls:
+                            continue
+                        if clean_url not in seen_urls:
+                            seen_urls.add(clean_url)
+                            results.append({
+                                "name": name,
+                                "url": clean_url,
+                                "address": addr,
+                                "review_count": review_count
+                            })
+                except Exception:
+                    continue
+
+            results.sort(key=lambda x: x.get("review_count", 0), reverse=True)
+            results = results[:max_results]
+
+        except Exception as e:
+            print(f"[Foody Search Error] {e}")
+        finally:
             try:
-                link_el = item.find_element(By.CSS_SELECTOR, "h2 a, .result-name a, a.res-name")
-                name = link_el.text.strip()
-                url = link_el.get_attribute("href")
-
-                addr = ""
-                try:
-                    addr_el = item.find_element(By.CSS_SELECTOR, ".address, .res-common-add")
-                    addr = addr_el.text.strip()
-                except Exception:
-                    pass
-
-                review_count = 0
-                try:
-                    comment_el = item.find_element(By.CSS_SELECTOR, ".fa-comment + span")
-                    txt = comment_el.text.strip()
-                    if txt.isdigit():
-                        review_count = int(txt)
-                except Exception:
-                    pass
-
-                if name and url and "foody.vn" in url and "/dia-diem" not in url and "/khu-vuc" not in url:
-                    clean_url = url.split("?")[0]
-                    if existing_urls and clean_url in existing_urls:
-                        continue
-                    if clean_url not in seen_urls:
-                        seen_urls.add(clean_url)
-                        results.append({
-                            "name": name,
-                            "url": clean_url,
-                            "address": addr,
-                            "review_count": review_count
-                        })
+                driver.quit()
             except Exception:
-                continue
-
-        results.sort(key=lambda x: x.get("review_count", 0), reverse=True)
-        results = results[:max_results]
-
-    except Exception as e:
-        print(f"[Foody Search Error] {e}")
-    finally:
-        driver.quit()
+                pass
+            gc.collect()
 
     return results
 

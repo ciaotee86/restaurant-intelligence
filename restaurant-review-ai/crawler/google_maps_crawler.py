@@ -20,9 +20,11 @@ import time
 import random
 import logging
 import subprocess
-import unicodedata
+import gc
+import json
+import base64
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Callable, Tuple
 
 # Đảm bảo UTF-8 console output
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
@@ -32,6 +34,16 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
         pass
 
 from playwright.sync_api import sync_playwright, Browser, BrowserContext, Page, TimeoutError as PlaywrightTimeoutError
+
+try:
+    from crawler import serpapi_google_maps
+except ImportError:
+    import serpapi_google_maps
+
+clean_address = serpapi_google_maps.clean_address
+clean_review_text = serpapi_google_maps.clean_review_text
+check_address_match = serpapi_google_maps.check_address_match
+is_valid_google_maps_url = serpapi_google_maps.is_valid_google_maps_url
 
 # Thiết lập Logger chuyên dụng cho Google Maps Crawler
 logger = logging.getLogger("google_maps_crawler")
@@ -43,6 +55,52 @@ logger.setLevel(logging.INFO)
 
 # Thư mục lưu trữ diagnostic screenshot khi crawler gặp lỗi
 SCREENSHOTS_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "crawler_failures")
+
+# Đường dẫn mặc định lưu trữ phiên đăng nhập Google Maps (Playwright storage_state)
+DEFAULT_AUTH_STATE_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "data", "google_maps_auth.json")
+)
+
+
+def resolve_google_maps_storage_state() -> Optional[str]:
+    """
+    Xác định đường dẫn file storage_state.json hợp lệ để giữ phiên đăng nhập Google Maps,
+    giúp thoát khỏi chế độ Limited View (5 reviews) trên Google Maps.
+    """
+    env_path = os.environ.get("GOOGLE_MAPS_STORAGE_STATE", "").strip()
+    candidate_path = os.path.abspath(env_path) if env_path else DEFAULT_AUTH_STATE_PATH
+
+    # Hỗ trợ giải mã từ biến môi trường Base64 (tiện lợi nếu đưa lên Render/Docker)
+    b64_state = os.environ.get("GOOGLE_MAPS_STORAGE_STATE_B64", "").strip()
+    if b64_state and not os.path.exists(candidate_path):
+        try:
+            decoded_bytes = base64.b64decode(b64_state)
+            parsed = json.loads(decoded_bytes.decode("utf-8"))
+            if isinstance(parsed, dict) and ("cookies" in parsed or "origins" in parsed):
+                os.makedirs(os.path.dirname(candidate_path), exist_ok=True)
+                with open(candidate_path, "w", encoding="utf-8") as f:
+                    json.dump(parsed, f, ensure_ascii=False)
+                try:
+                    os.chmod(candidate_path, 0o600)
+                except OSError:
+                    pass
+                logger.info("Đã giải mã phiên Google Maps từ biến môi trường GOOGLE_MAPS_STORAGE_STATE_B64.")
+        except Exception as b64_err:
+            logger.warning(f"Không thể giải mã GOOGLE_MAPS_STORAGE_STATE_B64: {b64_err}")
+
+    if not os.path.exists(candidate_path) or not os.path.isfile(candidate_path):
+        return None
+
+    try:
+        with open(candidate_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict) and isinstance(data.get("cookies"), list) and len(data["cookies"]) > 0:
+            return candidate_path
+        logger.warning(f"File storage_state '{candidate_path}' không chứa cookies hợp lệ, bỏ qua.")
+    except Exception as read_err:
+        logger.warning(f"Không thể đọc file storage_state '{candidate_path}': {read_err}")
+
+    return None
 
 
 # ==============================================================================
@@ -106,60 +164,6 @@ def extract_place_id_from_url(url: Optional[str]) -> Optional[str]:
         return cid_match.group(1)
 
     return None
-
-
-def clean_address(addr: Optional[str]) -> str:
-    """Loại bỏ các ký tự icon định vị (\ue0c8, font glyphs) và khoảng trắng thừa từ địa chỉ."""
-    if not addr:
-        return ""
-    cleaned = re.sub(r"^[\ue000-\uf8ff\s·,\-]+", "", str(addr))
-    return cleaned.strip()
-
-
-def clean_review_text(text: Optional[str]) -> str:
-    """Làm sạch văn bản review, bỏ khoảng trắng dư và chuẩn hóa ngắt dòng."""
-    if not text:
-        return ""
-    cleaned = re.sub(r"\s+", " ", str(text)).strip()
-    return cleaned
-
-
-def check_address_match(card_text: str, target_addr: str) -> float:
-    """
-    Tính điểm khớp giữa văn bản thẻ kết quả tìm kiếm Google Maps và địa chỉ mục tiêu (0.0 -> 1.0+).
-    Hỗ trợ nhận diện đúng chi nhánh quán ăn (VD: phân biệt QL22B vs 30 Tháng 4).
-    """
-    if not card_text or not target_addr:
-        return 0.0
-
-    def _norm(t: str) -> str:
-        t = str(t).lower()
-        t = t.replace("đ", "d").replace("Đ", "d")
-        nfd = unicodedata.normalize("NFD", t)
-        t = "".join(c for c in nfd if unicodedata.category(c) != "Mn")
-        return re.sub(r"[^a-z0-9\s]", " ", t)
-
-    norm_card = _norm(card_text)
-    norm_addr = _norm(target_addr)
-
-    # 1. Trích xuất các số nhà hoặc mã đường đặc thù (VD: "22b", "241", "30", "17")
-    addr_numbers = re.findall(r"\b\d+[a-z]?\b", norm_addr)
-    # 2. Trích xuất các từ khóa địa chỉ có độ dài >= 3
-    addr_tokens = [w for w in norm_addr.split() if len(w) >= 3]
-
-    if not addr_tokens:
-        return 0.0
-
-    match_count = sum(1 for tok in addr_tokens if tok in norm_card)
-    score = match_count / len(addr_tokens)
-
-    # Thưởng điểm nếu khớp số nhà / số quốc lộ / số đường
-    for num in addr_numbers:
-        if num in norm_card:
-            score += 0.35
-            break
-
-    return score
 
 
 # ==============================================================================
@@ -244,6 +248,8 @@ def create_stealth_browser(
         "--disable-dev-shm-usage",
         "--disable-gpu",
         "--disable-infobars",
+        "--no-zygote",
+        "--disk-cache-size=1",
         "--window-size=1280,800",
         "--js-flags=--max-old-space-size=128",
         "--renderer-process-limit=1",
@@ -273,15 +279,29 @@ def create_stealth_browser(
         else:
             raise launch_err
 
-    context = browser.new_context(
-        viewport={"width": 1280, "height": 800},
-        locale="vi-VN",
-        user_agent=(
+    context_kwargs: Dict[str, Any] = {
+        "viewport": {"width": 1280, "height": 800},
+        "locale": "vi-VN",
+        "user_agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
+            "Chrome/131.0.0.0 Safari/537.36"
         ),
-    )
+    }
+    storage_state_path = resolve_google_maps_storage_state()
+    if storage_state_path:
+        context_kwargs["storage_state"] = storage_state_path
+        logger.info(f"Đã nạp phiên đăng nhập Google Maps (storage_state): {storage_state_path}")
+
+    try:
+        context = browser.new_context(**context_kwargs)
+    except Exception as ctx_err:
+        if "storage_state" in context_kwargs:
+            logger.warning(f"Nạp storage_state thất bại ({ctx_err}). Fallback về chế độ khách.")
+            context_kwargs.pop("storage_state", None)
+            context = browser.new_context(**context_kwargs)
+        else:
+            raise ctx_err
 
     # Chặn (abort) các tài nguyên nặng không cần thiết để tối ưu RAM (cắt giảm 75%) và tăng tốc độ cào
     media_pattern = re.compile(r"\.(png|jpg|jpeg|webp|gif|svg|ico|woff|woff2|ttf|mp4|webm)($|\?)", re.IGNORECASE)
@@ -361,6 +381,10 @@ def handle_consent_and_modals(page: Page) -> None:
 
         # 2. Hộp thoại gợi ý Đăng nhập (Login Nudge / Sign in modal)
         login_modal_dismiss = [
+            'button:has-text("Loại bỏ")',
+            'span:has-text("Loại bỏ")',
+            'button[aria-label*="Loại bỏ" i]',
+            'div[role="dialog"] button:has-text("Loại bỏ")',
             'button:has-text("Không, cảm ơn")',
             'button:has-text("Để sau")',
             'button:has-text("Lúc khác")',
@@ -472,11 +496,28 @@ def extract_place_metadata(page: Page) -> Dict[str, Any]:
 def navigate_to_reviews_tab(page: Page) -> bool:
     """Đảm bảo trang đang mở tab 'Bài đánh giá' (Reviews)."""
     try:
+        def _check_and_expand_more_reviews():
+            try:
+                more_btn = page.locator(
+                    'button.uj73Ce, '
+                    'button[aria-label*="Xem các bài đánh giá khác" i], '
+                    'button:has-text("Xem các bài đánh giá khác"), '
+                    'button[aria-label*="More reviews" i]'
+                ).first
+                if more_btn.count() > 0 and more_btn.is_visible():
+                    logger.info("Phát hiện nút 'Xem các bài đánh giá khác', click mở rộng toàn bộ feed...")
+                    more_btn.click(timeout=3000)
+                    page.wait_for_timeout(2000)
+                    handle_consent_and_modals(page)
+            except Exception:
+                pass
+
         # 1. Kiểm tra xem tab Bài đánh giá đã được kích hoạt sẵn chưa (aria-selected="true")
         active_tab = page.locator('button[role="tab"][aria-selected="true"]').first
         if active_tab.count() > 0:
             tab_txt = active_tab.inner_text().lower()
             if "đánh giá" in tab_txt or "reviews" in tab_txt:
+                _check_and_expand_more_reviews()
                 return True
 
         # 2. Tìm tab Bài đánh giá và click chuyển tab
@@ -493,12 +534,46 @@ def navigate_to_reviews_tab(page: Page) -> bool:
             if locator.count() > 0 and locator.first.is_visible():
                 logger.info("Chuyển sang tab Đánh giá...")
                 locator.first.click()
-                page.wait_for_timeout(2500)
+                page.wait_for_timeout(2000)
                 handle_consent_and_modals(page)
+                _check_and_expand_more_reviews()
                 return True
 
-        # Fallback: Nếu không tìm thấy tab nhưng đã có cards review trên DOM
+        # 3. Fallback: Nếu không tìm thấy tab đánh giá (do Direct Place View chỉ có ['Tổng quan', 'Giới thiệu']),
+        # thử click vào các phần tử rating/trigger đánh giá để mở danh sách reviews:
+        rating_trigger_selectors = [
+            page.locator('button[aria-label*="bài đánh giá" i]'),
+            page.locator('button[aria-label*="đánh giá" i]'),
+            page.locator('button[aria-label*="reviews" i]'),
+            page.locator('button[jsaction*="reviewChart.moreReviews"]'),
+            page.locator('div.F7nice'),
+            page.locator('button[jsaction*="pane.rating"]'),
+        ]
+
+        for trigger in rating_trigger_selectors:
+            try:
+                if trigger.count() > 0 and trigger.first.is_visible():
+                    logger.info("Click vào rating trigger để mở bài đánh giá...")
+                    trigger.first.click(timeout=3000)
+                    page.wait_for_timeout(2000)
+                    handle_consent_and_modals(page)
+                    _check_and_expand_more_reviews()
+
+                    # Kiểm tra lại xem reviews hoặc tab active đã xuất hiện
+                    if page.locator("div.jftiEf").count() > 0:
+                        return True
+                    active_now = page.locator('button[role="tab"][aria-selected="true"]').first
+                    if active_now.count() > 0:
+                        txt = active_now.inner_text().lower()
+                        if "đánh giá" in txt or "reviews" in txt:
+                            return True
+                    # Tiếp tục thử trigger tiếp theo nếu click này chưa kích hoạt tab reviews
+            except Exception as trig_err:
+                logger.debug(f"Thử rating trigger thất bại: {trig_err}")
+
+        # Fallback cuối cùng: Nếu đã có cards review trên DOM
         if page.locator("div.jftiEf").count() > 0:
+            _check_and_expand_more_reviews()
             return True
 
         return False
@@ -517,10 +592,26 @@ def harvest_all_reviews(
     1. Cuộn container ảo (div.m6QErb.DxyBCb hoặc div[role="feed"]) trực tiếp theo từng đợt 800-1200px.
     2. Click nút 'Xem thêm' (button.w8nwRe) để mở rộng toàn văn.
     3. Trích xuất ngay danh sách thẻ bài viết (div.jftiEf) và khử trùng lặp theo ID/nội dung.
-    4. Cơ chế dừng sớm (Early Stopping): Dừng ngay nếu đủ max_reviews hoặc sau 2 lượt cuộn số lượng không đổi.
+    4. Cơ chế dừng sớm (Early Stopping): Dừng ngay nếu đủ max_reviews hoặc sau 4 lượt cuộn số lượng không đổi.
     5. Kiểm soát deadline an toàn (Internal Timeout Guard).
     """
     collected: Dict[str, Dict[str, Any]] = {}
+
+    # Mở rộng toàn bộ danh sách đánh giá nếu có nút 'Xem các bài đánh giá khác'
+    try:
+        more_btn = page.locator(
+            'button.uj73Ce, '
+            'button[aria-label*="Xem các bài đánh giá khác" i], '
+            'button:has-text("Xem các bài đánh giá khác"), '
+            'button[aria-label*="More reviews" i]'
+        ).first
+        if more_btn.count() > 0 and more_btn.is_visible():
+            logger.info("Phát hiện nút 'Xem các bài đánh giá khác' tại đầu harvest, click mở rộng toàn bộ feed...")
+            more_btn.click(timeout=3000)
+            page.wait_for_timeout(2000)
+            handle_consent_and_modals(page)
+    except Exception:
+        pass
 
     def extract_from_current_view():
         # Bấm nút 'Xem thêm' để mở rộng toàn văn
@@ -543,13 +634,17 @@ def harvest_all_reviews(
 
             # 1. Tác giả
             author = "Ẩn danh"
-            for a_sel in ["div.d4r55", "button.alPumb", ".WNxzHc .d4r55"]:
-                a_loc = card.locator(a_sel).first
-                if a_loc.count() > 0:
-                    txt = a_loc.inner_text().strip()
-                    if txt:
-                        author = txt
-                        break
+            for a_sel in ["button.al6Kxe", "div.d4r55", "button.alPumb", ".WNxzHc .d4r55", ".WNxzHc"]:
+                try:
+                    a_loc = card.locator(a_sel)
+                    cnt = a_loc.count()
+                    if isinstance(cnt, int) and cnt > 0:
+                        txt = a_loc.first.inner_text().strip()
+                        if txt:
+                            author = txt.split("\n")[0].strip()
+                            break
+                except Exception:
+                    pass
 
             # 2. Điểm đánh giá (1.0 - 5.0)
             rating = 5.0
@@ -565,12 +660,16 @@ def harvest_all_reviews(
 
             # 4. Nội dung bài viết
             text = ""
-            for t_sel in ["span.wiI7pd", "div.MyEned", "span.raw-review-text"]:
-                t_loc = card.locator(t_sel).first
-                if t_loc.count() > 0:
-                    text = clean_review_text(t_loc.inner_text())
-                    if text:
-                        break
+            for t_sel in ["span.wiI7pd", "div.MyEned", "span.raw-review-text", "span[dir='ltr']"]:
+                try:
+                    t_loc = card.locator(t_sel)
+                    cnt = t_loc.count()
+                    if isinstance(cnt, int) and cnt > 0:
+                        text = clean_review_text(t_loc.first.inner_text())
+                        if text:
+                            break
+                except Exception:
+                    pass
 
             # Khóa định danh chống trùng
             key = rev_id if rev_id else f"{author}_{text[:40]}"
@@ -601,8 +700,8 @@ def harvest_all_reviews(
             logger.info("Chạm deadline an toàn trong quá trình cuộn, dừng thu thập sớm.")
             break
 
-        # Cuộn container ảo trực tiếp theo từng đợt 800 - 1200px
-        scroll_delta = random.randint(800, 1200)
+        # Cuộn container ảo trực tiếp theo từng đợt 1400 - 2200px
+        scroll_delta = random.randint(1400, 2200)
         try:
             page.evaluate(f"""() => {{
                 const containers = Array.from(document.querySelectorAll('div.m6QErb.DxyBCb, div[role="feed"]'));
@@ -623,15 +722,24 @@ def harvest_all_reviews(
         except Exception:
             pass
 
-        # Delay ngắn với random jitter (250ms - 450ms)
-        page.wait_for_timeout(random.randint(250, 450))
+        # Chờ Google Maps nạp bài qua AJAX (1200ms - 1500ms)
+        page.wait_for_timeout(random.randint(1200, 1500))
+
+        # Kiểm tra và xử lý popup/modal đăng nhập nếu xuất hiện muộn
+        handle_consent_and_modals(page)
 
         # Kiểm tra nếu xuất hiện nút 'Xem các bài đánh giá khác'
         try:
-            more_btn = page.locator('button[aria-label*="Xem các bài đánh giá khác"], button[aria-label*="More reviews"]').first
+            more_btn = page.locator(
+                'button.uj73Ce, '
+                'button[aria-label*="Xem các bài đánh giá khác" i], '
+                'button:has-text("Xem các bài đánh giá khác"), '
+                'button[aria-label*="More reviews" i]'
+            ).first
             if more_btn.count() > 0 and more_btn.is_visible():
-                more_btn.click(timeout=500)
-                page.wait_for_timeout(400)
+                more_btn.click(timeout=1000)
+                page.wait_for_timeout(1000)
+                handle_consent_and_modals(page)
         except Exception:
             pass
 
@@ -644,12 +752,12 @@ def harvest_all_reviews(
             logger.info(f"Đã thu thập đủ {current_count}/{max_reviews} bài đánh giá. Dừng cuộn.")
             break
 
-        # Điều kiện dừng 2: Early Stopping nếu sau 2 lượt cuộn liên tiếp không tăng thêm
+        # Điều kiện dừng 2: Early Stopping nếu sau 4 lượt cuộn liên tiếp không tăng thêm
         if current_count == prev_count:
             stagnant_turns += 1
-            if stagnant_turns >= 2:
+            if stagnant_turns >= 4:
                 logger.info(
-                    f"Kích hoạt Early Stopping: Số bài đánh giá không tăng sau 2 lượt cuộn liên tiếp "
+                    f"Kích hoạt Early Stopping: Số bài đánh giá không tăng sau 4 lượt cuộn liên tiếp "
                     f"({current_count} bài). Dừng cuộn."
                 )
                 break
@@ -699,13 +807,17 @@ def extract_reviews_data(page: Page, max_reviews: int = 30) -> List[Dict[str, An
 
         # 1. Tác giả
         author = "Ẩn danh"
-        for a_sel in ["div.d4r55", "button.alPumb", ".WNxzHc .d4r55"]:
-            a_loc = card.locator(a_sel).first
-            if a_loc.count() > 0:
-                txt = a_loc.inner_text().strip()
-                if txt:
-                    author = txt
-                    break
+        for a_sel in ["button.al6Kxe", "div.d4r55", "button.alPumb", ".WNxzHc .d4r55", ".WNxzHc"]:
+            try:
+                a_loc = card.locator(a_sel)
+                cnt = a_loc.count()
+                if isinstance(cnt, int) and cnt > 0:
+                    txt = a_loc.first.inner_text().strip()
+                    if txt:
+                        author = txt.split("\n")[0].strip()
+                        break
+            except Exception:
+                pass
 
         # 2. Số sao đánh giá (1.0 - 5.0)
         rating = 5.0
@@ -721,12 +833,16 @@ def extract_reviews_data(page: Page, max_reviews: int = 30) -> List[Dict[str, An
 
         # 4. Nội dung đánh giá
         text = ""
-        for t_sel in ["span.wiI7pd", "div.MyEned", "span.raw-review-text"]:
-            t_loc = card.locator(t_sel).first
-            if t_loc.count() > 0:
-                text = clean_review_text(t_loc.inner_text())
-                if text:
-                    break
+        for t_sel in ["span.wiI7pd", "div.MyEned", "span.raw-review-text", "span[dir='ltr']"]:
+            try:
+                t_loc = card.locator(t_sel)
+                cnt = t_loc.count()
+                if isinstance(cnt, int) and cnt > 0:
+                    text = clean_review_text(t_loc.first.inner_text())
+                    if text:
+                        break
+            except Exception:
+                pass
 
         reviews.append({
             "author": author,
@@ -746,12 +862,69 @@ def extract_reviews_data(page: Page, max_reviews: int = 30) -> List[Dict[str, An
 # HÀM PUBLIC API CỦA MODULE
 # ==============================================================================
 
+def _try_serpapi_layer(
+    runner_fn: Callable[[], Optional[Dict[str, Any]]],
+    task_id: Optional[str],
+    start_message: str,
+) -> Tuple[Optional[Dict[str, Any]], bool]:
+    """
+    Thực thi Tầng 1 (SerpApi) với xử lý TaskManager & fallback an toàn.
+    Trả về `(result_dict, serpapi_attempted)`.
+    """
+    try:
+        if not serpapi_google_maps.is_serpapi_configured():
+            return None, False
+
+        if task_id:
+            try:
+                from services.task_manager import task_manager
+                task_manager.update_task(
+                    task_id,
+                    status="crawling",
+                    progress=20,
+                    message=start_message,
+                )
+            except Exception:
+                pass
+
+        serpapi_res = runner_fn()
+        if serpapi_res and serpapi_res.get("success") and len(serpapi_res.get("reviews") or []) > 0:
+            if task_id:
+                try:
+                    from services.task_manager import task_manager
+                    rev_count = len(serpapi_res["reviews"])
+                    task_manager.update_task(
+                        task_id,
+                        status="crawling",
+                        progress=60,
+                        message=f"Đã thu thập {rev_count} bài đánh giá từ Google Maps (SerpApi)...",
+                        reviews_count=rev_count,
+                    )
+                except Exception:
+                    pass
+            return serpapi_res, True
+
+        logger.warning(
+            "[Hybrid] Tầng 1 (SerpApi) không khả dụng hoặc không trả về review, "
+            "tự động fallback sang Tầng 2/3 (Playwright)..."
+        )
+        return None, True
+    except Exception as serp_err:
+        logger.warning(
+            f"[Hybrid] Tầng 1 (SerpApi) gặp ngoại lệ ({type(serp_err).__name__}), "
+            "tự động fallback sang Tầng 2/3 (Playwright)..."
+        )
+        return None, True
+
+
 def crawl_google_maps_reviews(
     url: str,
     max_reviews: int = 30,
     timeout_ms: int = 25000,
     headless: bool = True,
-    target_address: Optional[str] = None
+    target_address: Optional[str] = None,
+    task_id: Optional[str] = None,
+    _skip_serpapi: bool = False
 ) -> Dict[str, Any]:
     """
     Thu thập dữ liệu quán ăn và đánh giá trực tiếp từ một Google Maps URL.
@@ -780,10 +953,44 @@ def crawl_google_maps_reviews(
         }
 
     url = url.strip()
+    if not is_valid_google_maps_url(url, allow_short_hosts=True):
+        logger.warning(f"[SSRF Guard] Từ chối URL Google Maps không hợp lệ: '{url}'")
+        return {
+            "success": False,
+            "restaurant_name": "",
+            "address": "",
+            "overall_rating": 0.0,
+            "google_maps_url": url,
+            "google_place_id": None,
+            "reviews": [],
+            "total_crawled": 0,
+            "error": "URL Google Maps không hợp lệ hoặc không thuộc tên miền được phép."
+        }
+
     logger.info(f"Bắt đầu cào dữ liệu Google Maps từ URL: {url} (max_reviews={max_reviews})")
 
+    # Tầng 1 (Hybrid Architecture): Ưu tiên SerpApi Google Maps nếu đã cấu hình SERPAPI_KEY
+    if not _skip_serpapi:
+        serpapi_res, _ = _try_serpapi_layer(
+            lambda: serpapi_google_maps.crawl_google_maps_via_serpapi_url(
+                url=url,
+                max_reviews=max_reviews,
+                target_address=target_address,
+                task_id=task_id,
+            ),
+            task_id=task_id,
+            start_message="Đang kết nối Google Maps (SerpApi)...",
+        )
+        if serpapi_res is not None:
+            return serpapi_res
+
     start_time = time.time()
-    internal_deadline = start_time + 35.0  # Ngưỡng an toàn 35s chống Render 502/100s timeout
+    is_render = os.environ.get("RENDER") is not None
+    if not is_render and resolve_google_maps_storage_state() and max_reviews > 15:
+        deadline_seconds = min(65.0, max(35.0, max_reviews * 1.15))
+    else:
+        deadline_seconds = 35.0
+    internal_deadline = start_time + deadline_seconds  # Ngưỡng an toàn chống timeout
 
     browser: Optional[Browser] = None
     context: Optional[BrowserContext] = None
@@ -791,6 +998,18 @@ def crawl_google_maps_reviews(
     playwright_ctx = None
 
     try:
+        if task_id:
+            try:
+                from services.task_manager import task_manager
+                task_manager.update_task(
+                    task_id,
+                    status="crawling",
+                    progress=20,
+                    message="Đang kết nối Google Maps..."
+                )
+            except Exception:
+                pass
+
         playwright_ctx = sync_playwright().start()
         browser, context, page = create_stealth_browser(playwright_ctx, headless=headless)
         page.set_default_timeout(min(timeout_ms, 20000))
@@ -858,6 +1077,18 @@ def crawl_google_maps_reviews(
 
         logger.info(f"Đã xác định địa điểm: '{name}' | Điểm: {overall_rating} | Địa chỉ: '{address}'")
 
+        if task_id:
+            try:
+                from services.task_manager import task_manager
+                task_manager.update_task(
+                    task_id,
+                    status="crawling",
+                    progress=35,
+                    message=f"Đã xác định quán '{name}', đang thu thập đánh giá..."
+                )
+            except Exception:
+                pass
+
         # Kiểm tra deadline an toàn trước khi vào tab Đánh giá
         if time.time() < internal_deadline:
             # Điều hướng sang tab Đánh giá
@@ -870,6 +1101,19 @@ def crawl_google_maps_reviews(
         reviews = extract_reviews_data(page, max_reviews=max_reviews)
         duration = round(time.time() - start_time, 2)
         logger.info(f"Hoàn tất trích xuất {len(reviews)} bài đánh giá từ Google Maps trong {duration}s.")
+
+        if task_id:
+            try:
+                from services.task_manager import task_manager
+                task_manager.update_task(
+                    task_id,
+                    status="crawling",
+                    progress=60,
+                    message=f"Đã thu thập {len(reviews)} bài đánh giá từ Google Maps...",
+                    reviews_count=len(reviews)
+                )
+            except Exception:
+                pass
 
         return {
             "success": True,
@@ -937,6 +1181,7 @@ def crawl_google_maps_reviews(
                 playwright_ctx.stop()
             except Exception:
                 pass
+        gc.collect()
 
 
 def search_and_crawl_google_maps(
@@ -945,7 +1190,8 @@ def search_and_crawl_google_maps(
     max_reviews: int = 30,
     timeout_ms: int = 25000,
     headless: bool = True,
-    target_address: Optional[str] = None
+    target_address: Optional[str] = None,
+    task_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Tìm kiếm quán ăn trên Google Maps theo từ khóa + thành phố và cào dữ liệu đánh giá.
@@ -977,37 +1223,93 @@ def search_and_crawl_google_maps(
     clean_query = query.strip()
     lower_query = clean_query.lower()
 
-    # Nhận diện nếu query thực chất là liên kết Google Maps URL trực tiếp
-    is_direct_url = (
-        clean_query.startswith("http://")
-        or clean_query.startswith("https://")
-        or "google.com/maps" in lower_query
-        or "goo.gl" in lower_query
+    # Nhận diện an toàn nếu query thực chất là liên kết Google Maps URL trực tiếp (chống SSRF bypass)
+    has_explicit_scheme = bool(re.match(r"^[a-zA-Z][a-zA-Z0-9+.\-]*://", clean_query)) or lower_query.startswith(
+        ("http:", "https:", "file:", "ftp:", "javascript:", "data:")
+    )
+    looks_like_domain_url = any(
+        lower_query.startswith(prefix)
+        for prefix in (
+            "google.com/maps",
+            "www.google.com/maps",
+            "maps.google.com",
+            "google.com.vn/maps",
+            "www.google.com.vn/maps",
+            "google.vn/maps",
+            "www.google.vn/maps",
+            "maps.app.goo.gl/",
+            "goo.gl/maps/",
+            "g.page/",
+        )
     )
 
-    if is_direct_url:
-        target_url = clean_query
-        if not target_url.startswith("http://") and not target_url.startswith("https://"):
-            target_url = f"https://{target_url}"
-        logger.info(f"Nhận diện query là URL Google Maps trực tiếp: '{target_url}' (Bỏ qua ghép thành phố).")
+    if has_explicit_scheme:
+        if not is_valid_google_maps_url(clean_query, allow_short_hosts=True):
+            logger.warning(f"[SSRF Guard] Từ chối URL không hợp lệ trong query: '{clean_query}'")
+            return {
+                "success": False,
+                "restaurant_name": "",
+                "address": "",
+                "overall_rating": 0.0,
+                "google_maps_url": "",
+                "google_place_id": None,
+                "reviews": [],
+                "total_crawled": 0,
+                "error": "URL Google Maps không hợp lệ hoặc không thuộc tên miền được phép."
+            }
+        logger.info(f"Nhận diện query là URL Google Maps trực tiếp: '{clean_query}' (Bỏ qua ghép thành phố).")
         return crawl_google_maps_reviews(
-            url=target_url,
+            url=clean_query,
             max_reviews=max_reviews,
             timeout_ms=timeout_ms,
             headless=headless,
-            target_address=target_address
+            target_address=target_address,
+            task_id=task_id
         )
+
+    if looks_like_domain_url:
+        candidate_url = f"https://{clean_query}"
+        if is_valid_google_maps_url(candidate_url, allow_short_hosts=True):
+            logger.info(f"Nhận diện query là URL Google Maps trực tiếp: '{candidate_url}' (Bỏ qua ghép thành phố).")
+            return crawl_google_maps_reviews(
+                url=candidate_url,
+                max_reviews=max_reviews,
+                timeout_ms=timeout_ms,
+                headless=headless,
+                target_address=target_address,
+                task_id=task_id
+            )
 
     clean_city = city.strip() if city else ""
     full_search = f"{clean_query} {clean_city}".strip()
+
+    # Tầng 1 (Hybrid Architecture): Ưu tiên SerpApi Google Maps nếu đã cấu hình SERPAPI_KEY
+    serpapi_res, serpapi_attempted = _try_serpapi_layer(
+        lambda: serpapi_google_maps.crawl_google_maps_via_serpapi_query(
+            query=clean_query,
+            city=clean_city,
+            max_reviews=max_reviews,
+            target_address=target_address,
+            task_id=task_id,
+        ),
+        task_id=task_id,
+        start_message=f"Đang tìm kiếm '{full_search}' trên Google Maps (SerpApi)...",
+    )
+    if serpapi_res is not None:
+        return serpapi_res
+
     encoded_query = full_search.replace(" ", "+")
     search_url = f"https://www.google.com/maps/search/{encoded_query}"
 
     logger.info(f"Tìm kiếm và cào dữ liệu Google Maps cho từ khóa: '{full_search}'")
-    return crawl_google_maps_reviews(
-        url=search_url,
-        max_reviews=max_reviews,
-        timeout_ms=timeout_ms,
-        headless=headless,
-        target_address=target_address
-    )
+    crawl_kwargs: Dict[str, Any] = {
+        "url": search_url,
+        "max_reviews": max_reviews,
+        "timeout_ms": timeout_ms,
+        "headless": headless,
+        "target_address": target_address,
+        "task_id": task_id,
+    }
+    if serpapi_attempted:
+        crawl_kwargs["_skip_serpapi"] = True
+    return crawl_google_maps_reviews(**crawl_kwargs)
