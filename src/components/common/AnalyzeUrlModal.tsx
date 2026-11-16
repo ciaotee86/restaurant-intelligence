@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Link2, ArrowRight, Loader2, CheckCircle2, AlertCircle, Sparkles, Search, Zap, Store, MapPin } from 'lucide-react';
-import { restaurantService } from '../../services/restaurantService';
+import { X, Link2, ArrowRight, Loader2, CheckCircle2, AlertCircle, Sparkles, Search, Zap, Store, MapPin, RotateCcw } from 'lucide-react';
+import { restaurantService, type CrawlTaskProgressInfo } from '../../services/restaurantService';
 import { VIETNAM_CITIES, PROMINENT_DESTINATIONS, getCitySlug } from '../../utils/cityUtils';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -191,6 +191,9 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
   const [maxReviews, setMaxReviews] = useState(15);
   const [status, setStatus] = useState<'idle' | 'crawling' | 'analyzing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [progress, setProgress] = useState(0);
+  const [liveMessage, setLiveMessage] = useState('');
+  const [reviewsCount, setReviewsCount] = useState(0);
 
   // Autocomplete suggestions từ DB có sẵn (233 quán)
   const [suggestions, setSuggestions] = useState<{ name: string; cuisine: string; city: string; id: string }[]>([]);
@@ -200,6 +203,8 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
   // Stepper tiến trình xử lý
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  const isBusy = status === 'crawling' || status === 'analyzing';
 
   // Đóng dropdown khi click bên ngoài hoặc bấm phím Escape
   useEffect(() => {
@@ -243,18 +248,13 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
 
   useEffect(() => {
     let interval: any;
-    if (status === 'crawling') {
+    if (isBusy) {
       interval = setInterval(() => {
-        setElapsedSeconds((prev) => {
-          const next = prev + 1;
-          if (next >= 2 && next < 6) setCurrentStep(2);
-          else if (next >= 6) setCurrentStep(3);
-          return next;
-        });
+        setElapsedSeconds((prev) => prev + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [status]);
+  }, [isBusy]);
 
   if (!isOpen) return null;
 
@@ -299,13 +299,68 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
     onClose();
   };
 
+  const handleRetry = () => {
+    setStatus('idle');
+    setErrorMessage('');
+    setProgress(0);
+    setReviewsCount(0);
+    setLiveMessage('');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setShowSuggestions(false);
     setCurrentStep(1);
     setElapsedSeconds(0);
+    setProgress(8);
+    setReviewsCount(0);
+    setLiveMessage(t('modal.asyncStatusPending'));
     setStatus('crawling');
     setErrorMessage('');
+
+    const handleProgress = (info: CrawlTaskProgressInfo) => {
+      if (typeof info.progress === 'number' && info.progress > 0) {
+        setProgress(Math.min(100, Math.max(8, info.progress)));
+        if (info.progress >= 70 || info.status === 'analyzing') {
+          setCurrentStep(3);
+          setStatus('analyzing');
+        } else if (info.progress >= 30 || info.status === 'crawling') {
+          setCurrentStep(2);
+          setStatus('crawling');
+        } else {
+          setCurrentStep(1);
+          setStatus('crawling');
+        }
+      }
+      if (info.message) {
+        setLiveMessage(info.message);
+      }
+      if (typeof info.reviewsCount === 'number' && info.reviewsCount > 0) {
+        setReviewsCount(info.reviewsCount);
+      }
+    };
+
+    const handleCompletionResult = (res: { success: boolean; message: string; restaurant?: any }) => {
+      if (res.success && res.restaurant) {
+        setProgress(100);
+        setCurrentStep(3);
+        setStatus('success');
+        setLiveMessage(t('modal.asyncStatusCompleted'));
+        setTimeout(() => {
+          onSuccess(res.restaurant.id);
+          onClose();
+          setStatus('idle');
+          setKeyword('');
+          setUrl('');
+          setProgress(0);
+          setReviewsCount(0);
+          setLiveMessage('');
+        }, 800);
+      } else {
+        setStatus('error');
+        setErrorMessage(res.message || t('modal.errorNotFoundKeyword'));
+      }
+    };
 
     try {
       if (tab === 'keyword') {
@@ -315,58 +370,27 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
         // Phòng thủ nếu người dùng nhập/dán URL trong tab keyword mà chưa chuyển tab
         if (isLikelyUrl(trimmedKeyword)) {
           const normalized = normalizeUrlString(trimmedKeyword);
-          const res = await restaurantService.analyzeFoodyUrl(normalized, maxReviews);
-          if (res.success && res.restaurant) {
-            setStatus('success');
-            setTimeout(() => {
-              onSuccess(res.restaurant!.id);
-              onClose();
-              setStatus('idle');
-              setKeyword('');
-              setUrl('');
-            }, 800);
-          } else {
-            setStatus('error');
-            setErrorMessage(res.message || 'Không thể xử lý liên kết này.');
-          }
+          const res = await restaurantService.analyzeUrlAsyncWithFallback(normalized, maxReviews, handleProgress);
+          handleCompletionResult(res);
           return;
         }
 
-        const res = await restaurantService.searchAndCrawlFoody(
+        const res = await restaurantService.searchAndCrawlAsyncWithFallback(
           trimmedKeyword,
           city,
           maxReviews,
-          searchSource
+          searchSource,
+          handleProgress
         );
-        
-        if (res.success && res.restaurant) {
-          setStatus('success');
-          setTimeout(() => {
-            onSuccess(res.restaurant!.id);
-            onClose();
-            setStatus('idle');
-            setKeyword('');
-          }, 800);
-        } else {
-          setStatus('error');
-          setErrorMessage(res.message || t('modal.errorNotFoundKeyword'));
-        }
+        handleCompletionResult(res);
       } else {
         if (!url.trim() || !isUrlValid) return;
-        const res = await restaurantService.analyzeFoodyUrl(url.trim(), maxReviews);
-        
-        if (res.success && res.restaurant) {
-          setStatus('success');
-          setTimeout(() => {
-            onSuccess(res.restaurant!.id);
-            onClose();
-            setStatus('idle');
-            setUrl('');
-          }, 800);
-        } else {
-          setStatus('error');
-          setErrorMessage(res.message || t('modal.errorInvalidUrl'));
-        }
+        const res = await restaurantService.analyzeUrlAsyncWithFallback(
+          url.trim(),
+          maxReviews,
+          handleProgress
+        );
+        handleCompletionResult(res);
       }
     } catch (err: any) {
       setStatus('error');
@@ -395,7 +419,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
           </div>
           <button
             onClick={onClose}
-            disabled={status === 'crawling'}
+            disabled={isBusy}
             className="w-7 h-7 rounded-md flex items-center justify-center text-zinc-400 hover:text-[#18181B] hover:bg-zinc-200/60 transition-colors disabled:opacity-40 cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -407,7 +431,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
           <button
             type="button"
             onClick={() => { setTab('keyword'); setShowSuggestions(false); }}
-            disabled={status === 'crawling'}
+            disabled={isBusy}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-md transition-all cursor-pointer ${
               tab === 'keyword'
                 ? 'bg-white text-[#C2410C] shadow-xs'
@@ -420,7 +444,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
           <button
             type="button"
             onClick={() => { setTab('url'); setShowSuggestions(false); }}
-            disabled={status === 'crawling'}
+            disabled={isBusy}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-md transition-all cursor-pointer ${
               tab === 'url'
                 ? 'bg-white text-[#C2410C] shadow-xs'
@@ -451,7 +475,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                   <button
                     type="button"
                     onClick={() => setSearchSource('auto')}
-                    disabled={status === 'crawling'}
+                    disabled={isBusy}
                     className={`px-2.5 py-2 rounded-lg border text-left transition-all relative flex flex-col gap-0.5 cursor-pointer ${
                       searchSource === 'auto'
                         ? 'bg-orange-50/70 border-[#C2410C] text-[#C2410C] shadow-xs ring-1 ring-[#C2410C]/20'
@@ -468,7 +492,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                   <button
                     type="button"
                     onClick={() => setSearchSource('foody')}
-                    disabled={status === 'crawling'}
+                    disabled={isBusy}
                     className={`px-2.5 py-2 rounded-lg border text-left transition-all relative flex flex-col gap-0.5 cursor-pointer ${
                       searchSource === 'foody'
                         ? 'bg-orange-50/70 border-[#C2410C] text-[#C2410C] shadow-xs ring-1 ring-[#C2410C]/20'
@@ -485,7 +509,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                   <button
                     type="button"
                     onClick={() => setSearchSource('google_maps')}
-                    disabled={status === 'crawling'}
+                    disabled={isBusy}
                     className={`px-2.5 py-2 rounded-lg border text-left transition-all relative flex flex-col gap-0.5 cursor-pointer ${
                       searchSource === 'google_maps'
                         ? 'bg-blue-50/70 border-blue-600 text-blue-700 shadow-xs ring-1 ring-blue-600/20'
@@ -525,12 +549,12 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                       }
                     }}
                     placeholder={t('modal.keywordPlaceholder')}
-                    disabled={status === 'crawling'}
+                    disabled={isBusy}
                     className={`w-full text-xs sm:text-sm pl-3.5 pr-9 py-2.5 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C2410C]/20 focus:border-[#C2410C] transition-all text-[#18181B] ${
                       keyword.length > 0 && !isKeywordValid ? 'border-amber-400' : 'border-[#D4D4D8]'
                     }`}
                   />
-                  {keyword && status !== 'crawling' && (
+                  {keyword && !isBusy && (
                     <button
                       type="button"
                       onClick={() => {
@@ -607,7 +631,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                 <select
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
-                  disabled={status === 'crawling'}
+                  disabled={isBusy}
                   className="w-full text-xs px-3 py-2 bg-zinc-50 border border-[#D4D4D8] rounded-md focus:outline-none focus:ring-1 focus:ring-zinc-800 text-[#18181B] cursor-pointer"
                 >
                   <optgroup label={t('modal.prominentDestinations')}>
@@ -655,7 +679,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder={t('modal.urlPlaceholder')}
-                  disabled={status === 'crawling'}
+                  disabled={isBusy}
                   aria-invalid={url.trim().length > 0 && !isUrlValid}
                   className={`w-full text-xs sm:text-sm pl-3.5 pr-9 py-2.5 bg-white border rounded-lg focus:outline-none focus:ring-2 transition-all text-[#18181B] ${
                     url.trim().length > 0 && !isUrlValid
@@ -667,7 +691,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
                       : 'border-[#D4D4D8] focus:border-[#C2410C] focus:ring-[#C2410C]/20'
                   }`}
                 />
-                {url && status !== 'crawling' && (
+                {url && !isBusy && (
                   <button
                     type="button"
                     onClick={() => setUrl('')}
@@ -710,7 +734,7 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
             <select
               value={maxReviews}
               onChange={(e) => setMaxReviews(Number(e.target.value))}
-              disabled={status === 'crawling'}
+              disabled={isBusy}
               className="w-full text-xs px-3 py-2 bg-zinc-50 border border-[#D4D4D8] rounded-md focus:outline-none focus:ring-1 focus:ring-zinc-800 text-[#18181B] cursor-pointer"
             >
               <option value={15}>{t('modal.reviewsFast')}</option>
@@ -719,31 +743,64 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
             </select>
           </div>
 
-          {/* Tiến trình đang tổng hợp dữ liệu (Stepper thích ứng theo nguồn) */}
-          {status === 'crawling' && (
-            <div className={`p-3.5 rounded-xl space-y-2.5 animate-in fade-in border ${
+          {/* Tiến trình đang tổng hợp dữ liệu thời gian thực (Progress Bar + Dynamic Message + Reviews Count + Stepper) */}
+          {isBusy && (
+            <div className={`p-4 rounded-xl space-y-3 animate-in fade-in border ${
               activeStepSource === 'google_maps'
                 ? 'bg-blue-50/80 border-blue-200/80'
                 : 'bg-orange-50/80 border-orange-200/80'
             }`}>
+              {/* Tiêu đề & Đồng hồ thời gian */}
               <div className="flex items-center justify-between text-xs font-bold text-[#18181B]">
-                <div className="flex items-center gap-2">
-                  <Loader2 className={`w-4 h-4 animate-spin ${
+                <div className="flex items-center gap-2 min-w-0 pr-2">
+                  <Loader2 className={`w-4 h-4 animate-spin shrink-0 ${
                     activeStepSource === 'google_maps' ? 'text-blue-600' : 'text-[#C2410C]'
                   }`} />
-                  <span>{t('modal.crawlingProgress', { seconds: elapsedSeconds })}</span>
+                  <span className="truncate">
+                    {liveMessage || (status === 'analyzing' ? t('modal.asyncStatusAnalyzing') : t('modal.crawlingProgress', { seconds: elapsedSeconds }))}
+                  </span>
                 </div>
-                <span className={`text-[10px] font-semibold bg-white px-2 py-0.5 rounded border ${
-                  activeStepSource === 'google_maps'
-                    ? 'text-blue-700 border-blue-200'
-                    : 'text-[#C2410C] border-orange-200'
-                }`}>
-                  {t('modal.stepCounter', { step: currentStep })}
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] text-zinc-500 font-normal">
+                    {elapsedSeconds}s
+                  </span>
+                  <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded border bg-white ${
+                    activeStepSource === 'google_maps'
+                      ? 'text-blue-700 border-blue-200'
+                      : 'text-[#C2410C] border-orange-200'
+                  }`}>
+                    {progress}%
+                  </span>
+                </div>
               </div>
 
+              {/* Thanh Progress Bar trực quan mượt mà */}
+              <div className="w-full bg-white/90 rounded-full h-2.5 overflow-hidden border border-zinc-200/70 p-0.5">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ease-out ${
+                    activeStepSource === 'google_maps'
+                      ? 'bg-gradient-to-r from-blue-500 to-indigo-600 shadow-xs'
+                      : 'bg-gradient-to-r from-amber-500 to-[#C2410C] shadow-xs'
+                  }`}
+                  style={{ width: `${Math.max(5, Math.min(100, progress))}%` }}
+                />
+              </div>
+
+              {/* Thông tin số lượng review đã cào thời gian thực */}
+              {reviewsCount > 0 && (
+                <div className="flex items-center justify-between bg-white/95 px-3 py-1.5 rounded-lg border border-emerald-200/80 text-xs animate-in fade-in">
+                  <span className="text-emerald-800 font-semibold flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>{t('modal.reviewsScraped', { count: reviewsCount })}</span>
+                  </span>
+                  <span className="text-[10px] text-zinc-500 font-mono">
+                    {t('modal.stepCounter', { step: currentStep })}
+                  </span>
+                </div>
+              )}
+
               {/* 3-Step Timeline */}
-              <div className="space-y-1.5 text-xs">
+              <div className="space-y-1.5 text-xs pt-0.5">
                 {/* Step 1 */}
                 <div className={`flex items-center gap-2 p-1.5 rounded-md transition-colors ${
                   currentStep === 1
@@ -832,18 +889,28 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
           )}
 
           {status === 'error' && (
-            <div className="p-3.5 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3 text-xs text-red-900 animate-in fade-in">
-              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold">{t('modal.errorTitle')}</p>
-                <p className="text-[11px] text-red-800/80 mt-0.5">{errorMessage}</p>
+            <div className="p-3.5 bg-red-50 border border-red-200 rounded-lg flex items-start justify-between gap-3 text-xs text-red-900 animate-in fade-in">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold">{t('modal.errorTitle')}</p>
+                  <p className="text-[11px] text-red-800/80 mt-0.5">{errorMessage}</p>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={handleRetry}
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-red-100 text-red-700 border border-red-300 rounded-md font-semibold text-xs shadow-xs transition-colors cursor-pointer"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>{t('modal.retry')}</span>
+              </button>
             </div>
           )}
 
           {/* Footer buttons */}
           <div className="pt-3 border-t border-zinc-100 flex items-center justify-between gap-2">
-            {!isFormValid && status !== 'crawling' ? (
+            {!isFormValid && !isBusy ? (
               <span className="text-[11px] text-zinc-500 flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 animate-pulse" />
                 <span>{tab === 'keyword' ? t('modal.unlockKeyword') : t('modal.unlockUrl')}</span>
@@ -853,37 +920,53 @@ export const AnalyzeUrlModal: React.FC<AnalyzeUrlModalProps> = ({ isOpen, onClos
               <button
                 type="button"
                 onClick={onClose}
-                disabled={status === 'crawling'}
-                className="px-4 py-2 text-xs font-medium text-[#71717A] hover:text-[#18181B] transition-colors cursor-pointer"
+                disabled={isBusy}
+                className="px-4 py-2 text-xs font-medium text-[#71717A] hover:text-[#18181B] transition-colors cursor-pointer disabled:opacity-40"
               >
                 {t('modal.cancel')}
               </button>
               <button
                 type="submit"
-                disabled={status === 'crawling' || !isFormValid}
-                className={`inline-flex items-center gap-1.5 px-4.5 py-2 rounded-lg text-xs font-bold transition-all ${
-                  isFormValid && status !== 'crawling'
+                disabled={isBusy || !isFormValid}
+                className={`inline-flex items-center justify-center gap-1.5 min-w-[170px] px-4.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                  isFormValid && !isBusy
                     ? activeStepSource === 'google_maps'
                       ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-900/20 cursor-pointer active:scale-[0.98]'
                       : 'bg-[#C2410C] hover:bg-[#9A3412] text-white shadow-md shadow-orange-900/20 cursor-pointer active:scale-[0.98]'
+                    : isBusy
+                    ? 'bg-[#C2410C]/80 text-white cursor-wait shadow-none'
                     : 'bg-zinc-200 text-zinc-400 cursor-not-allowed border border-zinc-300/60 shadow-none'
                 }`}
               >
-                <Sparkles className={`w-3.5 h-3.5 ${isFormValid ? 'text-amber-200' : 'text-zinc-400'}`} />
-                <span>
-                  {tab === 'keyword'
-                    ? searchSource === 'google_maps'
-                      ? t('modal.submitGmaps')
-                      : searchSource === 'foody'
-                      ? t('modal.submitFoody')
-                      : t('modal.submitAuto')
-                    : detectedUrlSource === 'google_maps'
-                    ? t('modal.submitGmaps')
-                    : detectedUrlSource === 'foody'
-                    ? t('modal.submitFoody')
-                    : t('modal.submitUrl')}
-                </span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                {isBusy ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                    <span>{t('modal.submitting')}</span>
+                  </>
+                ) : status === 'error' ? (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>{t('modal.retry')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className={`w-3.5 h-3.5 ${isFormValid ? 'text-amber-200' : 'text-zinc-400'}`} />
+                    <span>
+                      {tab === 'keyword'
+                        ? searchSource === 'google_maps'
+                          ? t('modal.submitGmaps')
+                          : searchSource === 'foody'
+                          ? t('modal.submitFoody')
+                          : t('modal.submitAuto')
+                        : detectedUrlSource === 'google_maps'
+                        ? t('modal.submitGmaps')
+                        : detectedUrlSource === 'foody'
+                        ? t('modal.submitFoody')
+                        : t('modal.submitUrl')}
+                    </span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </>
+                )}
               </button>
             </div>
           </div>
