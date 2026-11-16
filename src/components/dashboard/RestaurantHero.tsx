@@ -1,7 +1,7 @@
 import React from 'react';
 import { MapPin, Calendar, Layers, Star, ArrowLeft, ShieldCheck, Shield, AlertTriangle, Link2 } from 'lucide-react';
 import type { Restaurant } from '../../types/restaurant';
-import { formatNumber } from '../../utils/sentimentUtils';
+import { formatNumber, getSourceBreakdown } from '../../utils/sentimentUtils';
 import { useLanguage } from '../../context/LanguageContext';
 
 interface RestaurantHeroProps {
@@ -60,27 +60,7 @@ export const RestaurantHero: React.FC<RestaurantHeroProps> = ({
   }[credibilityLevel];
 
   // Thống kê phân bổ nguồn dữ liệu
-  let foodyCount = restaurant.sourceBreakdown?.foody;
-  let googleMapsCount = restaurant.sourceBreakdown?.googleMaps;
-
-  if (foodyCount === undefined || googleMapsCount === undefined) {
-    const reviews = restaurant.reviews || [];
-    let fCount = 0;
-    let gCount = 0;
-    for (const r of reviews) {
-      const s = (r.source || '').toLowerCase();
-      if (s.includes('google')) {
-        gCount++;
-      } else {
-        fCount++;
-      }
-    }
-    if (reviews.length === 0 && totalReviews > 0) {
-      fCount = totalReviews;
-    }
-    foodyCount = fCount;
-    googleMapsCount = gCount;
-  }
+  const { foody: foodyCount, googleMaps: googleMapsCount } = getSourceBreakdown(restaurant);
 
   const hasMultiSource = foodyCount > 0 && googleMapsCount > 0;
 
