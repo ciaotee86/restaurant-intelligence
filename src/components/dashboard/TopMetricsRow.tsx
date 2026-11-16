@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Restaurant } from '../../types/restaurant';
 import { MetricCard } from '../common/MetricCard';
-import { formatNumber } from '../../utils/sentimentUtils';
+import { formatNumber, getSourceBadgeLabel } from '../../utils/sentimentUtils';
 import { useLanguage } from '../../context/LanguageContext';
 
 interface TopMetricsRowProps {
@@ -27,7 +27,7 @@ export const TopMetricsRow: React.FC<TopMetricsRowProps> = ({ restaurant }) => {
           label={t('metrics.totalReviews')}
           value={formatNumber(restaurant.totalReviews)}
           subtext={t('metrics.analyzed')}
-          trendText="Foody"
+          trendText={getSourceBadgeLabel(restaurant)}
         />
 
         {/* Metric 3: Cảm xúc tích cực */}
