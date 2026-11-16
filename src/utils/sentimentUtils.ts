@@ -1,4 +1,4 @@
-import type { SentimentType, AspectCategory } from '../types/restaurant';
+import type { SentimentType, AspectCategory, Restaurant } from '../types/restaurant';
 
 export const getSentimentLabel = (sentiment: SentimentType): string => {
   switch (sentiment) {
@@ -64,4 +64,58 @@ export const renderStars = (rating: number): string => {
   const full = Math.floor(rating);
   const half = rating % 1 >= 0.5 ? '½' : '';
   return '★'.repeat(full) + half;
+};
+
+/**
+ * Thống kê phân bổ số lượng đánh giá theo từng nguồn (Foody / Google Maps).
+ */
+export const getSourceBreakdown = (
+  restaurant: Pick<Restaurant, 'sourceBreakdown' | 'reviews' | 'totalReviews' | 'dataSource' | 'foodyUrl' | 'googleMapsUrl'>
+): { foody: number; googleMaps: number } => {
+  const breakdown = restaurant.sourceBreakdown;
+  if (breakdown && breakdown.foody !== undefined && breakdown.googleMaps !== undefined) {
+    return {
+      foody: Math.max(0, breakdown.foody),
+      googleMaps: Math.max(0, breakdown.googleMaps),
+    };
+  }
+
+  const reviews = restaurant.reviews || [];
+  let foody = 0;
+  let googleMaps = 0;
+  for (const r of reviews) {
+    const s = (r.source || '').toLowerCase();
+    if (s.includes('google')) {
+      googleMaps++;
+    } else {
+      foody++;
+    }
+  }
+
+  const total = restaurant.totalReviews ?? reviews.length ?? 0;
+  if (reviews.length === 0 && total > 0) {
+    const ds = (restaurant.dataSource || '').toLowerCase();
+    if (ds.includes('google') && !ds.includes('foody')) {
+      googleMaps = total;
+    } else if (!restaurant.foodyUrl && restaurant.googleMapsUrl) {
+      googleMaps = total;
+    } else {
+      foody = total;
+    }
+  }
+
+  return { foody, googleMaps };
+};
+
+/**
+ * Xác định nhãn nguồn ngắn gọn hiển thị trên thẻ tổng đánh giá (Foody / Google Maps / Foody & Maps).
+ */
+export const getSourceBadgeLabel = (
+  restaurant: Pick<Restaurant, 'sourceBreakdown' | 'reviews' | 'totalReviews' | 'dataSource' | 'foodyUrl' | 'googleMapsUrl'>
+): string => {
+  const { foody, googleMaps } = getSourceBreakdown(restaurant);
+  if (foody > 0 && googleMaps > 0) return 'Foody & Maps';
+  if (googleMaps > 0) return 'Google Maps';
+  if (foody > 0) return 'Foody';
+  return restaurant.dataSource?.trim() || 'Foody';
 };
