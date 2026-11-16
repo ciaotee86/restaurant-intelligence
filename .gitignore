@@ -69,7 +69,6 @@ tests/e2e_report.json
 # Documentation, thesis and project diagrams
 specs/
 ideas/
-baocao-slides/
 *.pdf
 project-diagrams/
 chuong/
@@ -77,6 +76,7 @@ styles/
 docs/
 *.tex
 refs.bib
+!baocao-slides/**
 
 # Tests & test scripts
 tests/
