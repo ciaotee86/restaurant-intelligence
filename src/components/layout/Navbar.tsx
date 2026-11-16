@@ -21,62 +21,62 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-[#F8F6F0]/92 backdrop-blur-md border-b border-[#E8E4DC] transition-all">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
         
         {/* Brand Logo & Editorial Masthead */}
-        <div className="flex items-center gap-7">
+        <div className="flex items-center gap-4 lg:gap-5 min-w-0">
           <button
             onClick={() => onNavigate('home')}
-            className="flex items-center gap-3 text-left group focus:outline-none"
+            className="flex items-center gap-2.5 text-left group focus:outline-none shrink-0"
           >
             {/* The Culinary Lens Brand Mark */}
-            <div className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-[#991B1B]/5 border border-[#991B1B]/15 group-hover:bg-[#991B1B]/10 transition-colors p-1">
+            <div className="relative flex items-center justify-center w-9 h-9 shrink-0 rounded-lg bg-[#991B1B]/5 border border-[#991B1B]/15 group-hover:bg-[#991B1B]/10 transition-colors p-1">
               <BrandMark className="w-full h-full drop-shadow-sm" />
             </div>
 
-            <div className="flex flex-col">
-              <span className="font-display font-bold text-lg tracking-tight text-[#1C1917] leading-none group-hover:text-[#991B1B] transition-colors">
+            <div className="flex flex-col min-w-0">
+              <span className="font-display font-bold text-base lg:text-lg tracking-tight text-[#1C1917] leading-none group-hover:text-[#991B1B] transition-colors whitespace-nowrap">
                 Restaurant Intelligence
               </span>
-              <span className="text-[10px] text-[#8C857B] tracking-wider uppercase font-medium mt-1">
+              <span className="hidden lg:block text-[10px] text-[#8C857B] tracking-wider uppercase font-medium mt-1 whitespace-nowrap">
                 {t('nav.tagline')}
               </span>
             </div>
           </button>
 
           {/* Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1.5 pl-3 border-l border-[#E8E4DC]">
+          <nav className="hidden md:flex items-center gap-1 pl-3 border-l border-[#E8E4DC] shrink-0">
             <button
               onClick={() => onNavigate('explore')}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+              className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 currentView === 'explore'
                   ? 'bg-[#1C1917] text-white shadow-editorial-sm'
                   : 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#1C1917]/5'
               }`}
             >
-              <Compass className="w-3.5 h-3.5" />
-              {t('nav.explore')}
+              <Compass className="w-3.5 h-3.5 shrink-0" />
+              <span>{t('nav.explore')}</span>
             </button>
 
             <button
               onClick={() => onNavigate('how-it-works')}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+              className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 currentView === 'how-it-works'
                   ? 'bg-[#1C1917] text-white shadow-editorial-sm'
                   : 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#1C1917]/5'
               }`}
             >
-              <HelpCircle className="w-3.5 h-3.5" />
-              {t('nav.methodology')}
+              <HelpCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{t('nav.methodology')}</span>
             </button>
           </nav>
         </div>
 
         {/* Nút hành động phải: Tìm kiếm, LanguageSwitcher, Thêm quán từ link Foody */}
-        <div className="flex items-center gap-2.5">
-          {/* Badge minh bạch */}
-          <div className="hidden xl:flex items-center gap-1.5 text-[11px] font-medium text-[#57534E] bg-white px-3 py-1.5 rounded-md border border-[#E8E4DC] shadow-editorial-sm">
-            <Sparkles className="w-3.5 h-3.5 text-[#D97706]" />
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Badge minh bạch (chỉ hiển thị trên màn hình rất rộng hoặc trang chủ đủ chỗ) */}
+          <div className={`${currentView === 'home' ? 'hidden xl:flex' : 'hidden 2xl:flex'} items-center gap-1.5 text-[11px] font-medium text-[#57534E] bg-white px-2.5 py-1.5 rounded-md border border-[#E8E4DC] shadow-editorial-sm whitespace-nowrap shrink-0`}>
+            <Sparkles className="w-3.5 h-3.5 text-[#D97706] shrink-0" />
             <span>{t('nav.badge')}</span>
           </div>
 
@@ -86,27 +86,27 @@ export const Navbar: React.FC<NavbarProps> = ({
                 if (onOpenSearch) onOpenSearch();
                 else onNavigate('explore');
               }}
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-white border border-[#E8E4DC] hover:border-[#1C1917]/40 rounded-md text-xs font-medium text-[#57534E] hover:text-[#1C1917] transition-colors shadow-editorial-sm"
+              className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 bg-white border border-[#E8E4DC] hover:border-[#1C1917]/40 rounded-md text-xs font-medium text-[#57534E] hover:text-[#1C1917] transition-colors shadow-editorial-sm whitespace-nowrap shrink-0"
             >
-              <Search className="w-3.5 h-3.5 text-[#8C857B]" />
-              <span className="hidden md:inline">{t('nav.searchPlaceholder')}</span>
-              <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-[10px] bg-[#F2EFE9] border border-[#E8E4DC] rounded text-[#8C857B] font-mono">
+              <Search className="w-3.5 h-3.5 text-[#8C857B] shrink-0" />
+              <span className="hidden xl:inline">{t('nav.searchPlaceholder')}</span>
+              <kbd className="hidden xl:inline-block px-1.5 py-0.5 text-[10px] bg-[#F2EFE9] border border-[#E8E4DC] rounded text-[#8C857B] font-mono">
                 ⌘K
               </kbd>
             </button>
           )}
 
           {/* Language Switcher Desktop */}
-          <div className="hidden sm:flex items-center">
+          <div className="hidden sm:flex items-center shrink-0">
             <LanguageSwitcher variant="segmented" size="sm" />
           </div>
 
           {onOpenAnalyzeModal && (
             <button
               onClick={onOpenAnalyzeModal}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#991B1B] hover:bg-[#7F1D1D] text-white rounded-md text-xs font-bold shadow-editorial-sm transition-all transform active:scale-95"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#991B1B] hover:bg-[#7F1D1D] text-white rounded-md text-xs font-bold shadow-editorial-sm transition-all transform active:scale-95 whitespace-nowrap shrink-0"
             >
-              <PlusCircle className="w-3.5 h-3.5" />
+              <PlusCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{t('nav.addRestaurant')}</span>
             </button>
           )}
