@@ -109,43 +109,43 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
       {/* 2. TAB SELECTOR: BỘ CHUYỂN ĐỔI 3 GÓC NHÌN */}
       <div className="bg-[#F8F6F0]/95 backdrop-blur-sm border-b border-[#E8E4DC] sticky top-16 z-30 shadow-editorial-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-2 sm:gap-3 overflow-x-auto py-2.5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-1.5 sm:gap-2 overflow-x-auto md:overflow-visible md:flex-wrap xl:flex-nowrap no-scrollbar py-2.5">
           <button
             type="button"
             onClick={() => setActiveTab('diner')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-3 xl:px-4 py-2 rounded-xl text-xs xl:text-[13px] font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
               activeTab === 'diner'
                 ? 'bg-[#991B1B] text-white shadow-editorial-sm'
                 : 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#1C1917]/5'
             }`}
           >
-            <Utensils className="w-4 h-4" />
+            <Utensils className="w-4 h-4 shrink-0" />
             <span>{t('dashboard.tabDiner')}</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('owner')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-3 xl:px-4 py-2 rounded-xl text-xs xl:text-[13px] font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
               activeTab === 'owner'
                 ? 'bg-[#1C1917] text-white shadow-editorial-sm'
                 : 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#1C1917]/5'
             }`}
           >
-            <Store className="w-4 h-4" />
+            <Store className="w-4 h-4 shrink-0" />
             <span>{t('dashboard.tabOwner')}</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('assistant')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-3 xl:px-4 py-2 rounded-xl text-xs xl:text-[13px] font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
               activeTab === 'assistant'
                 ? 'bg-[#1C1917] text-white shadow-editorial-sm'
                 : 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#1C1917]/5'
             }`}
           >
-            <Sparkles className="w-4 h-4 text-[#D97706]" />
+            <Sparkles className="w-4 h-4 text-[#D97706] shrink-0" />
             <span>{t('dashboard.tabAssistant')}</span>
             <NewBadge
               featureId="ai-assistant-tab"
@@ -157,13 +157,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('reviews')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-3 xl:px-4 py-2 rounded-xl text-xs xl:text-[13px] font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
               activeTab === 'reviews'
                 ? 'bg-[#1C1917] text-white shadow-editorial-sm'
                 : 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#1C1917]/5'
             }`}
           >
-            <MessageSquare className="w-4 h-4" />
+            <MessageSquare className="w-4 h-4 shrink-0" />
             <span>{t('dashboard.tabReviews', { count: restaurant.reviews.length })}</span>
           </button>
         </div>

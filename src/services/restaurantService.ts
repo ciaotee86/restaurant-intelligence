@@ -7,11 +7,16 @@ import type {
   GenerateReplyRequest,
   GenerateReplyResponse,
   CrawlGoogleMapsRequest,
-  CrawlGoogleMapsResponse
+  CrawlGoogleMapsResponse,
+  CrawlTaskProgressInfo,
+  CrawlTaskStatusResponse,
+  StartCrawlTaskResult
 } from '../types/restaurant';
-import { parseSearchQuery, isRestaurantInCity, matchesRestaurantKeyword, removeVietnameseAccents } from '../utils/cityUtils';
+import { parseSearchQuery, isRestaurantInCity, matchesRestaurantKeyword, removeVietnameseAccents } from '../utils/cityUtils.ts';
 
 export { removeVietnameseAccents };
+export type { CrawlTaskProgressInfo, CrawlTaskStatusResponse, StartCrawlTaskResult };
+
 
 /**
  * Kiểm tra xem một bài đánh giá có phải là dữ liệu rác, lỗi trích xuất hoặc chứa mã template AngularJS hay không.
@@ -79,8 +84,12 @@ export const sanitizeRestaurant = (restaurant: Restaurant): Restaurant => {
  * - Production (Tách biệt Frontend Vercel + Backend Render): Cung cấp VITE_API_BASE_URL trong biến môi trường
  */
 const getApiBaseUrl = (): string => {
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '');
+  try {
+    if (typeof import.meta !== 'undefined' && (import.meta as any)?.env?.VITE_API_BASE_URL) {
+      return (import.meta as any).env.VITE_API_BASE_URL.replace(/\/$/, '');
+    }
+  } catch {
+    // Môi trường Node.js unit test
   }
   return '/api';
 };
@@ -289,6 +298,267 @@ class RestaurantService {
    * Alias đa nguồn cho searchAndCrawlFoody
    */
   public searchAndCrawl = this.searchAndCrawlFoody.bind(this);
+
+  /**
+   * Khởi động tác vụ cào & phân tích theo từ khóa bất đồng bộ (POST /api/crawl-tasks/search-and-crawl).
+   * Phản hồi tức thì < 50ms, trả về task_id để polling tiến trình thời gian thực.
+   */
+  public async startAsyncSearchAndCrawl(
+    query: string,
+    city: string = 'da-nang',
+    maxReviews: number = 25,
+    source: 'auto' | 'foody' | 'google_maps' = 'auto'
+  ): Promise<StartCrawlTaskResult> {
+    try {
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/crawl-tasks/search-and-crawl`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: query.trim(), city, max_reviews: maxReviews, source })
+      });
+
+      if (response.status === 404) {
+        return {
+          success: false,
+          notSupported: true,
+          message: 'Endpoint crawl bất đồng bộ chưa sẵn sàng trên máy chủ (HTTP 404).'
+        };
+      }
+
+      const parsed = await this.parseResponseSafe<any>(response);
+      if (!parsed.ok || !parsed.data) {
+        return {
+          success: false,
+          message: parsed.errorMsg || 'Không thể khởi tạo tác vụ cào dữ liệu.'
+        };
+      }
+
+      return {
+        success: true,
+        taskId: parsed.data.task_id,
+        status: parsed.data.status,
+        message: parsed.data.message || 'Đã tiếp nhận yêu cầu cào dữ liệu.'
+      };
+    } catch (e: any) {
+      return {
+        success: false,
+        message: e?.message || 'Không thể kết nối đến máy chủ để khởi tạo tác vụ cào dữ liệu.'
+      };
+    }
+  }
+
+  /**
+   * Khởi động tác vụ cào & phân tích theo liên kết bất đồng bộ (POST /api/crawl-tasks/analyze-url).
+   * Phản hồi tức thì < 50ms, trả về task_id để polling tiến trình thời gian thực.
+   */
+  public async startAsyncAnalyzeUrl(
+    url: string,
+    maxReviews: number = 30
+  ): Promise<StartCrawlTaskResult> {
+    try {
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/crawl-tasks/analyze-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url.trim(), max_reviews: maxReviews })
+      });
+
+      if (response.status === 404) {
+        return {
+          success: false,
+          notSupported: true,
+          message: 'Endpoint crawl bất đồng bộ chưa sẵn sàng trên máy chủ (HTTP 404).'
+        };
+      }
+
+      const parsed = await this.parseResponseSafe<any>(response);
+      if (!parsed.ok || !parsed.data) {
+        return {
+          success: false,
+          message: parsed.errorMsg || 'Không thể khởi tạo tác vụ phân tích liên kết.'
+        };
+      }
+
+      return {
+        success: true,
+        taskId: parsed.data.task_id,
+        status: parsed.data.status,
+        message: parsed.data.message || 'Đã tiếp nhận yêu cầu cào dữ liệu.'
+      };
+    } catch (e: any) {
+      return {
+        success: false,
+        message: e?.message || 'Không thể kết nối đến máy chủ để khởi tạo tác vụ phân tích liên kết.'
+      };
+    }
+  }
+
+  /**
+   * Truy vấn trạng thái hiện tại của Crawl Task (GET /api/crawl-tasks/{task_id})
+   */
+  public async getCrawlTaskStatus(taskId: string): Promise<CrawlTaskStatusResponse | null> {
+    try {
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/crawl-tasks/${encodeURIComponent(taskId)}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const parsed = await this.parseResponseSafe<CrawlTaskStatusResponse>(response);
+      if (!parsed.ok || !parsed.data) {
+        return null;
+      }
+      return parsed.data;
+    } catch (err: any) {
+      console.warn(`[RestaurantService] Lỗi khi truy vấn trạng thái task ${taskId}:`, err?.message || err);
+      return null;
+    }
+  }
+
+  /**
+   * Polling liên tục tiến trình cào dữ liệu từ backend mỗi 1.5 giây.
+   * - Báo cáo tiến trình qua callback onProgress.
+   * - Khi status === 'completed': tự động làm sạch (sanitize) dữ liệu, cập nhật cache và trả về nhà hàng.
+   * - Khi status === 'failed': trả về thông báo lỗi chi tiết.
+   */
+  public async pollCrawlTask(
+    taskId: string,
+    onProgress?: (info: { status: string; progress: number; message: string; reviewsCount: number }) => void,
+    timeoutMs: number = 180000
+  ): Promise<{ success: boolean; message: string; restaurant?: Restaurant; error?: string }> {
+    const startTime = Date.now();
+    const intervalMs = 1500;
+    let consecutiveNetworkErrors = 0;
+
+    while (Date.now() - startTime < timeoutMs) {
+      const task = await this.getCrawlTaskStatus(taskId);
+
+      if (!task) {
+        consecutiveNetworkErrors++;
+        // Cho phép tối đa 6 lần thử (khoảng 9 giây) mất kết nối tạm thời trước khi dừng
+        if (consecutiveNetworkErrors >= 6) {
+          return {
+            success: false,
+            message: 'Mất kết nối với máy chủ trong quá trình kiểm tra tiến trình. Vui lòng thử lại.'
+          };
+        }
+      } else {
+        consecutiveNetworkErrors = 0;
+
+        if (onProgress) {
+          onProgress({
+            status: task.status,
+            progress: typeof task.progress === 'number' ? task.progress : 0,
+            message: task.message || '',
+            reviewsCount: task.reviews_count || 0
+          });
+        }
+
+        if (task.status === 'completed') {
+          let sanitizedRestaurant: Restaurant | undefined = undefined;
+          if (task.restaurant) {
+            sanitizedRestaurant = sanitizeRestaurant(task.restaurant);
+            this.cachedRestaurants = [
+              sanitizedRestaurant,
+              ...this.cachedRestaurants.filter((r) => r.id !== sanitizedRestaurant!.id)
+            ];
+          } else if (task.restaurant_id) {
+            sanitizedRestaurant = await this.getRestaurantByIdOrSlug(task.restaurant_id);
+          }
+
+          return {
+            success: true,
+            message: task.message || 'Tổng hợp và phân tích đánh giá thành công!',
+            restaurant: sanitizedRestaurant
+          };
+        }
+
+        if (task.status === 'failed') {
+          return {
+            success: false,
+            message: task.error || task.message || 'Quá trình cào dữ liệu thất bại.'
+          };
+        }
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+
+    return {
+      success: false,
+      message: 'Quá trình cào dữ liệu vượt quá thời gian cho phép (timeout). Vui lòng thử lại.'
+    };
+  }
+
+  /**
+   * Tìm kiếm & cào dữ liệu theo kiến trúc Bất đồng bộ với cơ chế fallback an toàn sang phương thức đồng bộ cũ
+   * nếu endpoint bất đồng bộ trả về 404 (chưa cập nhật máy chủ).
+   */
+  public async searchAndCrawlAsyncWithFallback(
+    query: string,
+    city: string = 'da-nang',
+    maxReviews: number = 25,
+    source: 'auto' | 'foody' | 'google_maps' = 'auto',
+    onProgress?: (info: { status: string; progress: number; message: string; reviewsCount: number }) => void
+  ): Promise<{ success: boolean; message: string; restaurant?: Restaurant; source?: string }> {
+    const startRes = await this.startAsyncSearchAndCrawl(query, city, maxReviews, source);
+
+    if (startRes.notSupported) {
+      if (onProgress) {
+        onProgress({
+          status: 'crawling',
+          progress: 30,
+          message: 'Đang kết nối qua kênh đồng bộ...',
+          reviewsCount: 0
+        });
+      }
+      return this.searchAndCrawlFoody(query, city, maxReviews, source);
+    }
+
+    if (!startRes.success || !startRes.taskId) {
+      return {
+        success: false,
+        source,
+        message: startRes.message || 'Không thể khởi tạo tác vụ cào dữ liệu.'
+      };
+    }
+
+    return this.pollCrawlTask(startRes.taskId, onProgress);
+  }
+
+  /**
+   * Phân tích liên kết theo kiến trúc Bất đồng bộ với cơ chế fallback an toàn sang phương thức đồng bộ cũ
+   * nếu endpoint bất đồng bộ trả về 404.
+   */
+  public async analyzeUrlAsyncWithFallback(
+    url: string,
+    maxReviews: number = 30,
+    onProgress?: (info: { status: string; progress: number; message: string; reviewsCount: number }) => void
+  ): Promise<{ success: boolean; message: string; restaurant?: Restaurant }> {
+    const startRes = await this.startAsyncAnalyzeUrl(url, maxReviews);
+
+    if (startRes.notSupported) {
+      if (onProgress) {
+        onProgress({
+          status: 'crawling',
+          progress: 30,
+          message: 'Đang kết nối qua kênh đồng bộ...',
+          reviewsCount: 0
+        });
+      }
+      return this.analyzeFoodyUrl(url, maxReviews);
+    }
+
+    if (!startRes.success || !startRes.taskId) {
+      return {
+        success: false,
+        message: startRes.message || 'Không thể khởi tạo tác vụ phân tích liên kết.'
+      };
+    }
+
+    return this.pollCrawlTask(startRes.taskId, onProgress);
+  }
+
 
   public sanitizeReviews(reviews: CustomerReview[]): CustomerReview[] {
     return sanitizeReviews(reviews);
