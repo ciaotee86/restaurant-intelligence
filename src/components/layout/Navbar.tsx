@@ -24,7 +24,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
         
         {/* Brand Logo & Editorial Masthead */}
-        <div className="flex items-center gap-4 lg:gap-5 min-w-0">
+        <div className="flex items-center gap-4 lg:gap-5 shrink-0">
           <button
             onClick={() => onNavigate('home')}
             className="flex items-center gap-2.5 text-left group focus:outline-none shrink-0"
@@ -74,11 +74,13 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Nút hành động phải: Tìm kiếm, LanguageSwitcher, Thêm quán từ link Foody */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* Badge minh bạch (chỉ hiển thị trên màn hình rất rộng hoặc trang chủ đủ chỗ) */}
-          <div className={`${currentView === 'home' ? 'hidden xl:flex' : 'hidden 2xl:flex'} items-center gap-1.5 text-[11px] font-medium text-[#57534E] bg-white px-2.5 py-1.5 rounded-md border border-[#E8E4DC] shadow-editorial-sm whitespace-nowrap shrink-0`}>
-            <Sparkles className="w-3.5 h-3.5 text-[#D97706] shrink-0" />
-            <span>{t('nav.badge')}</span>
-          </div>
+          {/* Badge minh bạch (chỉ hiển thị ở Trang chủ khi không có nút Tìm kiếm trên Navbar) */}
+          {currentView === 'home' && (
+            <div className="hidden xl:flex items-center gap-1.5 text-[11px] font-medium text-[#57534E] bg-white px-2.5 py-1.5 rounded-md border border-[#E8E4DC] shadow-editorial-sm whitespace-nowrap shrink-0">
+              <Sparkles className="w-3.5 h-3.5 text-[#D97706] shrink-0" />
+              <span>{t('nav.badge')}</span>
+            </div>
+          )}
 
           {currentView !== 'home' && (
             <button
